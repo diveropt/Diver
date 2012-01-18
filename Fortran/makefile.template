@@ -1,0 +1,28 @@
+# Makefile template for DEvoPack/Fortran 
+# Author: Pat Scott, patscott@physics.mcgill.ca
+
+# Until we sort out some configure magic, change 
+# the options below to suit your system
+
+# Define fortran compiler and options
+FF=ifort
+FOPT=-O3 -extend_source
+
+export FF FOPT
+
+PROG = devopack_f
+OBJ = de.f90
+
+all: devopack
+
+%.o: %.f90 
+	$(FF) $(FOPT) -I$(LIB_DE) -c $*.f90
+
+%.o: %.F90
+	$(FF) $(FOPT) -I$(LIB_DE) -c $*.F90
+
+devopack: makefile $(OBJ)
+	$(FF) $(FOPT) -o $(PROG) $(OBJ)
+
+clean:
+	rm $(PROG); rm *.o
