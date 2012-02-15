@@ -1,0 +1,30 @@
+# Compiled source #
+###################
+*.o
+*.so
+*.lo
+*.la
+C++/src/.deps/
+C++/src/.libs/
+C++/examples/.deps/
+C++/examples/.libs/
+C++/config/
+C++/autom4te.cache/
+libtool
+configure
+*.m4
+Makefile
+Makefile.in
+config.status
+C++/examples/DE_example
+
+# Logs #
+######################
+*.log
+
+# OS generated files #
+######################
+.DS_Store*
+ehthumbs.db
+Icon?
+Thumbs.db
