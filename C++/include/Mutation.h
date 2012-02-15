@@ -1,6 +1,7 @@
 #ifndef __MUTATION__H
 #define __MUTATION__H
 
+#include "cstdlib"
 #include <iostream>
 #include <vector>
 #include "Trial.h"
@@ -14,9 +15,9 @@ class Mutation
 public:
 	//! Constructors
 	Mutation() : fScalingFactor(1.), fDonorVector(std::vector<double>()), fIBaseVector(-1) {srand(time(0));}
-	explicit Mutation(const double& scalingfactor) : fScalingFactor(scalingfactor), fDonorVector(std::vector<double>()), fIBaseVector(-1) {srand(time(0));}
+	explicit Mutation(const double& scalingfactor) : fScalingFactor(scalingfactor), fDonorVector(std::vector<double>()), fIBaseVector(-1) {std::srand(time(0));}
 	//! Copy constructor
-	Mutation(const Mutation& mutation) : fScalingFactor(mutation.fScalingFactor), fDonorVector(mutation.fScalingFactor), fIBaseVector(mutation.fIBaseVector) {srand(time(0));}
+	Mutation(const Mutation& mutation) : fScalingFactor(mutation.fScalingFactor), fDonorVector(mutation.fScalingFactor), fIBaseVector(mutation.fIBaseVector) {std::srand(time(0));}
 	//! Destructor
 	~Mutation() {fDonorVector.clear();}
 	//! Copy assignment operator

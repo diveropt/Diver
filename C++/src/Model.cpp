@@ -33,7 +33,7 @@ void Model::CheckBounds()
 		std::cout << "fParameters.size:\t" << fParameters.size() << std::endl;
 		std::cout << "fLowerBounds.size:\t" << fLowerBounds.size() << std::endl;
 		std::cout << "fUpperBounds.size:\t" << fUpperBounds.size() << std::endl;
-		exit(1);
+		std::exit(1);
 	}
 	
 	for(unsigned int i = 0; i < fParameters.size(); i++)

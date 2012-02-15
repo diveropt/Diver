@@ -10,6 +10,7 @@
 #ifndef __MODEL__H
 #define __MODEL__H
 
+#include "cstdlib"
 #include "iostream"
 #include "vector"
 #include "string"
