@@ -1,10 +1,12 @@
 C++ version of DE code by A. Putze
 
 === Installation ===
-I added a autoconfigure and automake files in order to ensure the transportability of the code. To configure and install the code follow these 3 steps:
+I added a autoconfigure and automake files in order to ensure the transportability of the code. To configure and compile the code follow these 3 steps:
 1. autoreconf -ivf
-2. ./configure --prefix==/Path/to/Installation
-3. make install
+2. ./configure (optional: --prefix==/Path/to/Installation)
+3. make
+Optional:
+4. make install
 
 === Run the code ===
 For now no input is needed for this version of the code and you can run the executable directly:
