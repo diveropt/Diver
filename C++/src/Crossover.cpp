@@ -1,6 +1,6 @@
 #include "Crossover.h"
-#include <cstdlib>
-#include <ctime>
+
+#include "global.h"
 
 Crossover& Crossover::operator=(Crossover crossover)
 {
@@ -8,6 +8,8 @@ Crossover& Crossover::operator=(Crossover crossover)
 	std::swap(fTrialVector, crossover.fTrialVector);
 
 	srand(time(0));
+	
+	return *this;
 }
 
 void Crossover::CrossOver(const std::vector<double> &targetvector, const std::vector<double> &donorvector)
@@ -23,29 +25,36 @@ void Crossover::CrossOver(const std::vector<double> &targetvector, const std::ve
 	double randomnumber = 0.;
 	int randominteger = -1;
 	
-	for(unsigned int i = 0; i < targetvector.size(); i++)
+	for(::vector_size_t i = 0; i < targetvector.size(); i++)
 	{
-		randomnumber = (double)rand()/((double) RAND_MAX + 1.);
+		randomnumber = static_cast<double> (rand())/(RAND_MAX + 1.);
 		randominteger = rand()%targetvector.size();
 		
-		if(randomnumber <= fCrossoverRate || i == randominteger)
+		if(randomnumber <= fCrossoverRate || i == static_cast< ::vector_size_t > (randominteger))
 			fTrialVector.at(i) = donorvector.at(i);
 		else
 			fTrialVector.at(i) = targetvector.at(i);
 	}
 }
 
-void Crossover::Show()
+void Crossover::Show(std::ostream &s)
 {
-	std::cout << "=== CrossOver ===" << std::endl;
-	std::cout << "Cross over rate: " << fCrossoverRate << std::endl;
-	std::cout << "Trial vector: ";
+	s << "=== CrossOver ===" << std::endl;
+	s << "Cross over rate: " << fCrossoverRate << std::endl;
+	s << "Trial vector: ";
 	if(fTrialVector.size() == 0)
-		std::cout << "empty" << std::endl;
+		s << "empty" << std::endl;
 	else
 	{
-		for(unsigned int i = 0; i < fTrialVector.size(); i++)
-			std::cout << fTrialVector.at(i) << "\t";
-		std::cout << std::endl;
+		for(::vector_size_t i = 0; i < fTrialVector.size(); i++)
+			s << fTrialVector.at(i) << "\t";
+		s << std::endl;
 	}
+}
+
+std::ostream & operator<<(std::ostream &s, Crossover &crossover)
+{
+	crossover.Show(s);
+	
+	return s;
 }

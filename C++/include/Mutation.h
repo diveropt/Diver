@@ -1,9 +1,8 @@
 #ifndef __MUTATION__H
 #define __MUTATION__H
 
-#include "cstdlib"
-#include <iostream>
-#include <vector>
+#include <cstdlib>
+
 #include "Trial.h"
 
 class Mutation
@@ -14,12 +13,12 @@ class Mutation
 	
 public:
 	//! Constructors
-	Mutation() : fScalingFactor(1.), fDonorVector(std::vector<double>()), fIBaseVector(-1) {srand(time(0));}
-	explicit Mutation(const double& scalingfactor) : fScalingFactor(scalingfactor), fDonorVector(std::vector<double>()), fIBaseVector(-1) {std::srand(time(0));}
+	Mutation() : fScalingFactor(1.), fDonorVector(), fIBaseVector(-1) {std::srand(time(0));}
+	explicit Mutation(const double& scalingfactor) : fScalingFactor(scalingfactor), fDonorVector(), fIBaseVector(-1) {std::srand(time(0));}
 	//! Copy constructor
 	Mutation(const Mutation& mutation) : fScalingFactor(mutation.fScalingFactor), fDonorVector(mutation.fScalingFactor), fIBaseVector(mutation.fIBaseVector) {std::srand(time(0));}
 	//! Destructor
-	~Mutation() {fDonorVector.clear();}
+	~Mutation() {}
 	//! Copy assignment operator
 	Mutation& operator=(Mutation mutation);
 	
@@ -33,8 +32,10 @@ public:
 	
 	// Other member functions
 	void Mutate(std::vector<Trial*> Population, const int& targetvector);
-	void Show();
+	void Show(std::ostream &s = std::cout);
 };
+
+std::ostream & operator<<(std::ostream &s, Mutation &mutation);
 
 #endif // __MUTATION__H
 

@@ -4,6 +4,8 @@
 #include <iostream>
 #include <vector>
 
+#include "global.h"
+
 class Trial
 {
 	std::vector<double> fPoint;		//!< Parameter space point
@@ -11,30 +13,31 @@ class Trial
 	
 public:
 	// Constructors
-	Trial() : fPoint(std::vector<double>()), fFitness(0.) {}
+	Trial() : fPoint(), fFitness(0.) {}
 	explicit Trial(const std::vector<double> &point) : fPoint(point), fFitness(0.) {}
 	Trial(const std::vector<double> &point, const double &fitness) : fPoint(point), fFitness(fitness) {}
 	//! Copy constructors
 	Trial(const Trial& trial) : fPoint(trial.fPoint), fFitness(trial.fFitness) {};
 	//! Destructor
-	~Trial() {fPoint.clear();}
+	~Trial() {}
 	//! Copy assignment operator
 	Trial& operator=(Trial trial);
 	
 	// Getters
-	unsigned int GetN() const				{return fPoint.size();}
-	std::vector<double> GetPoint() const	{return fPoint;}
-	double GetFitness()	const				{return fFitness;}
-	double GetValue(const int &index) const {return fPoint.at(index);}
+	::vector_size_t GetN() const						{return fPoint.size();}
+	std::vector<double> GetPoint() const				{return fPoint;}
+	double GetFitness()	const							{return fFitness;}
+	double GetValue(const ::vector_size_t &index) const {return fPoint.at(index);}
 	
 	// Setters
-	void SetN(const unsigned int &n)					{fPoint.resize(n);}
-	void SetPoint(const std::vector<double> &point)		{fPoint = point;}
-	void SetFitness(const double &fitness)				{fFitness = fitness;}
-	void SetValue(const int &index, const double &value){fPoint.at(index) = value;}
+	void SetN(const ::vector_size_t &n)								{fPoint.resize(n);}
+	void SetPoint(const std::vector<double> &point)							{fPoint = point;}
+	void SetFitness(const double &fitness)									{fFitness = fitness;}
+	void SetValue(const ::vector_size_t &index, const double &value)	{fPoint.at(index) = value;}
 	
 	// Other member functions
-	void Show();
+	void Show(std::ostream &s = std::cout);
 };
 
+std::ostream & operator<<(std::ostream &s, Trial &trial);
 #endif // __TRIAL__H

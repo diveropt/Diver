@@ -1,4 +1,5 @@
 #include "Selection.h"
+#include "global.h"
 
 Trial* Selection::Select(Trial *targetvector, Trial *trialvector)
 {
@@ -13,7 +14,7 @@ Trial* Selection::SelectBest(std::vector<Trial*> population)
 	int iBest = -1;
 	double fBest = 1.e99;
 	
-	for(unsigned int i = 0; i < population.size(); i++)
+	for(::vector_size_t i = 0; i < population.size(); i++)
 	{
 		if(population.at(i) -> GetFitness() < fBest)
 		{
@@ -25,7 +26,14 @@ Trial* Selection::SelectBest(std::vector<Trial*> population)
 	return population.at(iBest);
 }
 
-void Selection::Show()
+void Selection::Show(std::ostream &s)
 {
-	std::cout << "=== Selection ===" << std::endl;
+	s << "=== Selection ===" << std::endl;
+}
+
+std::ostream & operator<<(std::ostream &s, Selection &selection)
+{
+	selection.Show(s);
+	
+	return s;
 }

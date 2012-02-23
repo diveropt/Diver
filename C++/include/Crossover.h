@@ -1,9 +1,10 @@
 #ifndef __CROSSOVER__H
 #define __CROSSOVER__H
 
-#include "cstdlib"
 #include <iostream>
 #include <vector>
+#include <cstdlib>
+#include <ctime>
 
 class Crossover
 {
@@ -12,12 +13,12 @@ class Crossover
 	
 public:
 	// Constructors
-	Crossover() : fCrossoverRate(1), fTrialVector(std::vector<double>()) {std::srand(time(0));}
-	explicit Crossover(const double &crossoverrate) : fCrossoverRate(crossoverrate), fTrialVector(std::vector<double>()) {std::srand(time(0));}
+	Crossover() : fCrossoverRate(1), fTrialVector() {std::srand(time(0));}
+	Crossover(const double &crossoverrate) : fCrossoverRate(crossoverrate), fTrialVector() {std::srand(time(0));}
 	//! Copy constructor
 	Crossover(const Crossover& crossover) : fCrossoverRate(crossover.fCrossoverRate), fTrialVector(crossover.fTrialVector) {std::srand(time(0));}
 	//! Destructor
-	~Crossover() {fTrialVector.clear();}
+	~Crossover() {}
 	//! Copy assignment operator
 	Crossover& operator=(Crossover crossover);
 	
@@ -30,7 +31,9 @@ public:
 	
 	// other member functions
 	void CrossOver(const std::vector<double> &targetvector, const std::vector<double> &donorvector);
-	void Show();
+	void Show(std::ostream &s = std::cout);
 };
+
+std::ostream & operator<<(std::ostream &s, Crossover &crossover);
 
 #endif // __CROSSOVER__H

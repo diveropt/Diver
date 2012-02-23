@@ -10,45 +10,46 @@
 #ifndef __MODEL__H
 #define __MODEL__H
 
-#include "cstdlib"
-#include "iostream"
-#include "vector"
-#include "string"
+#include <cstdlib>
+#include <iostream>
+#include <vector>
+#include <string>
+
+#include "global.h"
 
 class Model
 {
 	std::vector<std::string> fParameters;
-	std::vector<double> fUpperBounds;
 	std::vector<double> fLowerBounds;
+	std::vector<double> fUpperBounds;
 	
 	void CheckBounds();
 	
-public:
+public:	
 	// Constructors
-	Model() : fParameters(std::vector<std::string>()), fUpperBounds(std::vector<double>()), fLowerBounds(std::vector<double>()) {}
-	Model(std::vector<std::string> parameters, std::vector<double> lowerBounds, std::vector<double> upperBounds) : fParameters(parameters), fUpperBounds(lowerBounds), fLowerBounds(upperBounds) {CheckBounds();}
+	Model() : fParameters(), fLowerBounds(), fUpperBounds() {}
+	Model(std::vector<std::string> parameters, std::vector<double> lowerBounds, std::vector<double> upperBounds) : fParameters(parameters), fLowerBounds(lowerBounds), fUpperBounds(upperBounds) {CheckBounds();}
 	//! Copy Constructor
 	Model(const Model& model) : fParameters(model.fParameters), fLowerBounds(model.fLowerBounds), fUpperBounds(model.fUpperBounds) {}
 	//! Destructor
-	~Model();
+	~Model() {}
 	//! Copy assignment operator
 	Model& operator=(Model model);
 	
 	// Getters
-	unsigned int GetNParameters() const						{return fParameters.size();}
-	std::string GetParameterName(int index)	const			{return fParameters.at(index);}
-	double GetParameterLowerBound(int index) const			{return fLowerBounds.at(index);}
-	double GetParameterUpperBound(int index) const			{return fUpperBounds.at(index);}
-	
-	// Setters
-	void SetNParameters(const int& size)								{fParameters.resize(size); fLowerBounds.resize(size); fUpperBounds.resize(size);}
-	void SetParameterName(const int& index, const std::string& name)	{fParameters.at(index) = name;}
-	void SetParameterLowerBound(const int& index, double lowerBound)	{fLowerBounds.at(index) = lowerBound;}
-	void SetParameterUpperBound(const int& index, double upperBound)	{fUpperBounds.at(index) = upperBound;}
-	
+	::vector_size_t GetNParameters() const								{return fParameters.size();}
+	std::string GetParameterName(const ::vector_size_t& index)	const	{return fParameters.at(index);}
+	double GetParameterLowerBound(const ::vector_size_t& index) const	{return fLowerBounds.at(index);}
+	double GetParameterUpperBound(const ::vector_size_t& index) const	{return fUpperBounds.at(index);}
+	std::vector<std::string> GetParameterNames() const					{return fParameters;}
+	std::vector<double> GetParameterLowerBounds() const					{return fLowerBounds;}
+	std::vector<double> GetParameterUpperBounds() const					{return fUpperBounds;}
+		
 	// other member functions
 	void AddParameter(std::string parameter, double lowerBound, double upperBound);
-	void Show();
+	void Show(std::ostream &s = std::cout);
 };
+
+std::ostream & operator<<(std::ostream &s, Model &model);
 
 #endif // __MODEL__H

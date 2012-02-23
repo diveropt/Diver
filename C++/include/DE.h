@@ -3,8 +3,6 @@
 
 #include "Model.h"
 #include "Trial.h"
-#include "cstdlib"
-#include "ctime"
 
 template <typename MutationT, typename CrossoverT, typename SelectionT>
 class DE
@@ -42,7 +40,7 @@ public:
 	template <typename Functor>
 	Trial* NextTrial(std::vector<Trial*> Population, const int& targetvector, Functor const &function);
 	
-	void Show();
+	void Show(std::ostream &s = std::cout);
 };
 
 //! Default constructor
@@ -54,7 +52,7 @@ DE<MutationT, CrossoverT, SelectionT>::DE()
 	fSelection = new SelectionT();
 	SetModel(0);
 	
-	srand((unsigned) time(0));	
+	srand(time(0));	
 }
 
 //! Constructor
@@ -66,19 +64,28 @@ DE<MutationT, CrossoverT, SelectionT>::DE(Model *model)
 	fSelection = new SelectionT();
 	SetModel(model);
 	
-	srand((unsigned) time(0));	
+	srand(time(0));	
 }
 
 //! Copy constructor
 template <typename MutationT, typename CrossoverT, typename SelectionT>
 DE<MutationT, CrossoverT, SelectionT>::DE(const DE<MutationT, CrossoverT, SelectionT> &de)
 {
+	if(fMutation)
+		delete fMutation;
 	fMutation = new MutationT(*de.fMutation);
+	
+	if(fCrossover)
+		delete fCrossover;
 	fCrossover = new CrossoverT(*de.fCrossover);
+	
+	if(fSelection)
+		delete fSelection;
 	fSelection = new SelectionT(*de.fSelection);
+	
 	SetModel(de.fModel);
 	
-	srand((unsigned) time(0));	
+	srand(time(0));	
 }	
 
 //! Destructor
@@ -86,28 +93,39 @@ template <typename MutationT, typename CrossoverT, typename SelectionT>
 DE<MutationT, CrossoverT, SelectionT>::~DE()
 {
 	delete fMutation;
-	fMutation = 0;
+	fMutation = NULL;
 	
 	delete fCrossover;
-	fCrossover = 0;
+	fCrossover = NULL;
 	
 	delete fSelection;
-	fSelection = 0;
+	fSelection = NULL;
 	
 	delete fModel;
-	fModel = 0;
+	fModel = NULL;
 }
 
 //! Copy assignment operator
 template <typename MutationT, typename CrossoverT, typename SelectionT>
 DE<MutationT, CrossoverT, SelectionT>& DE<MutationT, CrossoverT, SelectionT>::operator=(DE<MutationT, CrossoverT, SelectionT> de)
 {
+	if(fMutation)
+		delete fMutation;
 	fMutation = new MutationT(de.fMutation);
+	
+	if(fCrossover)
+		delete fCrossover;
 	fCrossover = new CrossoverT(de.fCrossover);
+
+	if(fSelection)
+		delete fSelection;
 	fSelection = new SelectionT(de.fSelection);
+
 	SetModel(*de.fModel);
 	
-	srand((unsigned) time(0));	
+	srand(time(0));
+	
+	return *this;
 }
 
 //! Sets the model
@@ -121,7 +139,7 @@ void DE<MutationT, CrossoverT, SelectionT>::SetModel(Model *model)
 	}
 	else
 	{
-		fModel = 0;
+		fModel = NULL;
 		IsModel = false;
 	}
 }
@@ -134,9 +152,9 @@ Trial* DE<MutationT, CrossoverT, SelectionT>::FirstTrial(Functor const &function
 	first -> SetN(fModel -> GetNParameters());
 
 	double randomnumber = 0;
-	for(unsigned int i = 0; i < fModel -> GetNParameters(); i++)
+	for(::vector_size_t i = 0; i < fModel -> GetNParameters(); i++)
 	{
-		randomnumber = fModel -> GetParameterLowerBound(i) + ((double)rand()/(RAND_MAX + 1.0))*(fModel -> GetParameterUpperBound(i) - fModel -> GetParameterLowerBound(i));
+		randomnumber = fModel -> GetParameterLowerBound(i) + (static_cast<double>(rand())/(RAND_MAX + 1.0))*(fModel -> GetParameterUpperBound(i) - fModel -> GetParameterLowerBound(i));
 		first -> SetValue(i, randomnumber);
 	}
 	
@@ -159,15 +177,32 @@ Trial* DE<MutationT, CrossoverT, SelectionT>::NextTrial(std::vector<Trial*> Popu
 	trial -> SetFitness(function(trial -> GetPoint()));
 	
 	// Select
-	return fSelection -> Select(Population.at(targetvector), trial);
+	Trial *result = fSelection -> Select(Population.at(targetvector), trial);
+	
+	// Free memory
+	if(result != trial)
+	{
+		delete trial;
+		trial = NULL;
+	}
+	
+	return result;
 }
 
 template <typename MutationT, typename CrossoverT, typename SelectionT>
-void DE<MutationT, CrossoverT, SelectionT>::Show()
+void DE<MutationT, CrossoverT, SelectionT>::Show(std::ostream &s)
 {
-	fMutation -> Show();
-	fCrossover -> Show();
-	fSelection -> Show();
+	fMutation -> Show(s);
+	fCrossover -> Show(s);
+	fSelection -> Show(s);
+}
+
+template <typename MutationT, typename CrossoverT, typename SelectionT>
+std::ostream & operator<<(DE<MutationT, CrossoverT, SelectionT> &de, std::ostream &s)
+{
+	de.Show(s);
+	
+	return s;
 }
 
 #endif // __DE__H

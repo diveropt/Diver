@@ -9,24 +9,19 @@
 
 #include "Model.h"
 
-//! Destructor
-Model::~Model()
-{
-	fParameters.clear();
-	fLowerBounds.clear();
-	fUpperBounds.clear();
-}
-
 //! Copy assignment operator
 Model& Model::operator=(Model model)
 {
 	std::swap(fParameters, model.fParameters);
 	std::swap(fLowerBounds, model.fLowerBounds);
 	std::swap(fUpperBounds, model.fUpperBounds);
+	
+	return *this;
 }
 	
 void Model::CheckBounds()
 {
+	// Check wether the vectors have the same number of entries. If not exit.
 	if(fParameters.size() != fLowerBounds.size() && fParameters.size() != fUpperBounds.size())
 	{
 		std::cout << "The numbers of parameter names and ranges are not the same. Please check!" << std::endl;
@@ -36,7 +31,7 @@ void Model::CheckBounds()
 		std::exit(1);
 	}
 	
-	for(unsigned int i = 0; i < fParameters.size(); i++)
+	for(::vector_size_t i = 0; i < fParameters.size(); i++)
 	{
 		if(fLowerBounds.at(i) > fUpperBounds.at(i))
 		{
@@ -49,18 +44,26 @@ void Model::CheckBounds()
 	
 void Model::AddParameter(std::string parameter, double lowerBound, double upperBound)
 {
+	// Check wether lowerBound < upperBound. If not, swap values.
+	if(lowerBound > upperBound)
+		std::swap(lowerBound, upperBound);
+	
 	fParameters.push_back(parameter);
 	fLowerBounds.push_back(lowerBound);
 	fUpperBounds.push_back(upperBound);
-	
-	CheckBounds();
 }
 
-void Model::Show()
+void Model::Show(std::ostream &s)
 {
-	std::cout << "=== Model ===" << std::endl;
-	std::cout << "Number of parameters: " << fParameters.size() << std::endl;
-	for(unsigned int i = 0; i < fParameters.size(); i++)
-		std::cout << "Parameter " << fParameters.at(i) << " is defined between " << fLowerBounds.at(i) << " and " << fUpperBounds.at(i) << std::endl;
+	s << "=== Model ===" << std::endl;
+	s << "Number of parameters: " << fParameters.size() << std::endl;
+	for(::vector_size_t i = 0; i < fParameters.size(); i++)
+		s << "Parameter " << fParameters.at(i) << " is defined between " << fLowerBounds.at(i) << " and " << fUpperBounds.at(i) << std::endl;
 }
 
+std::ostream & operator<<(std::ostream &s, Model &model)
+{
+	model.Show(s);
+	
+	return s;
+}

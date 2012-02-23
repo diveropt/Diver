@@ -6,7 +6,8 @@ MODULE = src
 SRC_DIR = $(srcdir)
 INC_DIR = $(top_srcdir)/include
 
-INC_FILES = $(INC_DIR)/Trial.h \
+INC_FILES = $(INC_DIR)/global.h \
+$(INC_DIR)/Trial.h \
 $(INC_DIR)/Model.h \
 $(INC_DIR)/DE.h \
 $(INC_DIR)/Mutation.h \
