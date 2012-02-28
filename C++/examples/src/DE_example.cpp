@@ -3,6 +3,7 @@
 #include "Crossover.h"
 #include "Selection.h"
 #include "TestFunctions.h"
+#include <algorithm>
 
 int main()
 {
