@@ -12,12 +12,9 @@ class DE
 	SelectionT *fSelection;	
 	Model *fModel;
 	
-	bool IsModel;
-	
 public:
 	//! Constructors
-	DE();
-	explicit DE(Model *model);
+	explicit DE(Model *model = NULL);
 	//! Copy constructor
 	DE(const DE &de);
 	//! Destructor
@@ -43,27 +40,10 @@ public:
 	void Show(std::ostream &s = std::cout);
 };
 
-//! Default constructor
-template <typename MutationT, typename CrossoverT, typename SelectionT>
-DE<MutationT, CrossoverT, SelectionT>::DE()
-{
-	fMutation = new MutationT();
-	fCrossover = new CrossoverT();
-	fSelection = new SelectionT();
-	SetModel(0);
-	
-	srand(time(0));	
-}
-
 //! Constructor
 template <typename MutationT, typename CrossoverT, typename SelectionT>
-DE<MutationT, CrossoverT, SelectionT>::DE(Model *model)
+DE<MutationT, CrossoverT, SelectionT>::DE(Model *model) : fMutation(new MutationT), fCrossover(new CrossoverT), fSelection(new SelectionT), fModel(new Model(*model))
 {
-	fMutation = new MutationT();
-	fCrossover = new CrossoverT();
-	fSelection = new SelectionT();
-	SetModel(model);
-	
 	srand(time(0));	
 }
 
@@ -133,15 +113,9 @@ template <typename MutationT, typename CrossoverT, typename SelectionT>
 void DE<MutationT, CrossoverT, SelectionT>::SetModel(Model *model)
 {
 	if(model)
-	{
 		fModel = new Model(*model);
-		IsModel = true;
-	}
 	else
-	{
 		fModel = NULL;
-		IsModel = false;
-	}
 }
 
 template <typename MutationT, typename CrossoverT, typename SelectionT>

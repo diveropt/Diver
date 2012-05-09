@@ -13,35 +13,41 @@ int main()
 	
 	std::cout << *MyModel << std::endl;
 		
-	DE<Mutation, Crossover, Selection> *rand1bin = new DE<Mutation, Crossover, Selection>(MyModel);
-	rand1bin -> GetMutation() -> SetScalingFactor(1.);
-	rand1bin -> GetCrossover() -> SetCrossoverRate(0.9);
+//	DE<Mutation, Crossover, Selection> *rand1bin = new DE<Mutation, Crossover, Selection>(MyModel);
+//	rand1bin -> GetMutation() -> SetScalingFactors(1.);
+//	rand1bin -> GetCrossover() -> SetCrossoverRate(0.9);
+	DE<Mutation, Crossover, Selection> *randbest2bin = new DE<Mutation, Crossover, Selection>(MyModel);
+	randbest2bin -> GetMutation() -> SetNDifferenceVectors(2);
+	randbest2bin -> GetMutation() -> SetScalingFactor(0, 1.);
+	randbest2bin -> GetMutation() -> SetScalingFactor(1, 0.7);
+	randbest2bin -> GetMutation() -> SetLambda(.5);
+	randbest2bin -> GetCrossover() -> SetCrossoverRate(0.9);
 				
-	const int nPop = 20;
+	const int nInd = 20;
 	const int nGen = 100;
 	
 	std::vector<std::vector<Trial*> > triallist(nGen + 1);
 	
-	StairCase likelihoodFnc;
+	GaussianHill likelihoodFnc;
 	
 	std::cout << " ==> First initialisation" << std::endl;
-	for(int i = 0; i < nPop; i++)
+	for(int i = 0; i < nInd; i++)
 	{
-		triallist.at(0).push_back(rand1bin -> FirstTrial(likelihoodFnc));
+		triallist.at(0).push_back(randbest2bin -> FirstTrial(likelihoodFnc));
 	}
 
-	std::cout << " ** The best individual ** \n" << *(rand1bin -> GetSelection() -> SelectBest(triallist.at(0))) << std::endl;
+	std::cout << " ** The best individual ** \n" << *(randbest2bin -> GetSelection() -> SelectBest(triallist.at(0))) << std::endl;
 	
 	for(int i = 0; i < nGen; i++)
 	{
 		std::cout << "+++ Generation " << i << std::endl;
 
-		for(int j = 0; j < nPop; j++)
+		for(int j = 0; j < nInd; j++)
 		{
-			triallist.at(i+1).push_back(rand1bin -> NextTrial(triallist.at(i), j, likelihoodFnc));
+			triallist.at(i+1).push_back(randbest2bin -> NextTrial(triallist.at(i), j, likelihoodFnc));
 		}
 		
-		std::cout << " ** The best individual ** \n" << *(rand1bin -> GetSelection() -> SelectBest(triallist.at(i+1))) << std::endl;
+		std::cout << " ** The best individual ** \n" << *(randbest2bin -> GetSelection() -> SelectBest(triallist.at(i+1))) << std::endl;
 	}
 
 	// Freeing memory
@@ -49,7 +55,7 @@ int main()
 	std::vector<Trial*>::iterator it;
 	for(int i = 0; i <= nGen; i++)
 	{
-		for(int j = 0; j < nPop; j++)
+		for(int j = 0; j < nInd; j++)
 			cleanup.push_back(triallist.at(i).at(j));
 	}
 	
@@ -61,8 +67,8 @@ int main()
 	
 	cleanup.clear();
 		
-	delete rand1bin;
-	rand1bin = NULL;
+	delete randbest2bin;
+	randbest2bin = NULL;
 	
 	delete MyModel;
 	MyModel = NULL;
