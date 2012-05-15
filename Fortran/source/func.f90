@@ -1,6 +1,5 @@
   !function to be minimized.
   function func(X, fcall)
-!    real, dimension(:), intent(in) :: X  !D=2.  Make sure this will work with above; no checks yet. 
     real, dimension(2), intent(in) :: X
     integer, intent(inout) :: fcall
     real func

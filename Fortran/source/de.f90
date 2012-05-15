@@ -1,69 +1,76 @@
 !Fortran 90 version of DE by Elinore Roebber
 !needs convergence criteria, a better random number generator, kinds, and
 !inputs for parameters, boundaries
-!has external function
+!rearranged so that we pass individual vectors to mutation, crossover, selection
 
 program de
 
 implicit none
 
-integer, parameter :: NP=10, numgen=50     !will need to enforce NP>2
-real, parameter :: F=0.7, Cr=0.9    !will need to enforce 0<F<1, 0<=Cr<=1
-real, parameter, dimension(2) :: lowerbounds=-50.0  !boundaries of parameter space
+integer, parameter :: NP=10, numgen=20             !enforce NP>2
+real, parameter :: F=0.7, Cr=0.9                   !enforce 0<F<1, 0<=Cr<=1
+real, parameter, dimension(2) :: lowerbounds=-50.0 !boundaries of parameter space
 real, parameter, dimension(2) :: upperbounds=50.0
-!will eventually want to input NP, F, Cr, bounds
+!will eventually want to input NP, F, Cr, lowerbounds, upperbounds
+!structure for the parameters?
 
-integer, parameter :: D=size(upperbounds)
-real, external :: func
+integer, parameter :: D=size(upperbounds)          !dimension of the problem 
+ 
+real, external :: func                             !function to be optimized.
+
 
 type population
-  integer :: generation
   real, dimension(NP, D) :: vectors
   real, dimension(NP) :: values
 end type population
 
-integer :: n, fcall !counts the times the objective function is called
+!fcall counts function calls, accept counts acceptance rate
+integer :: gen, n, fcall, accept
+
 real, dimension(D) :: result
 
-type(population) :: X !target vectors
-
-real, dimension(NP, D) :: V, U !donor, trial vectors
-
+type(population) :: X                              !population of target vectors
+real, dimension(D) :: V, U                         !donor, trial vectors
 
 
 
 
 call initialize(X, lowerbounds, upperbounds, fcall, func)
+ 
+do gen = 2, numgen
 
-!loop until convergence criteria satisfied. 
-do n = 1, numgen-1
+   write (*,*) '-----------------------------'
+   write (*,*) 'Generation: ', gen
+   
+   accept = 0
 
-  V = rand1mutation(X)    !rand/1 mutation produces donor vectors
-  U = bincrossover(X, V)  !bin crossover produces trial vectors
-  call selection(X, U, fcall, func)    !choose next generation of target vectors
+
+   do n=1, NP                    !for each member of the population
+      V = rand1mutation(X, n)    !rand/1 mutation produces donor vectors
+      U = bincrossover(X, V, n)  !bin crossover produces trial vectors
+      call selection(X, U, n, fcall, func, accept) !choose next generation of target vectors
+      write (*,*) X%vectors(n, :), '->', X%values(n)
+   end do
+
+ 
+   write (*,*) 'Acceptance rate: ', accept/real(NP)
+
+   !check convergence criteria: if satisfied, exit loop
 
 end do
 
 
-
-!average over final generation for the result,
-!also give best final vector?
-
-print *, '============================='
-print *, 'Number of generations: ', X%generation
+write (*,*) '============================='
+write (*,*) 'Number of generations: ', gen-1
 
 result = sum(X%vectors, dim=1)/real(NP)
-print *, 'Average final vector: ', result
-print *, 'Value at average final vector: ', func(result, fcall) 
+write (*,*) 'Average final vector: ', result
+write (*,*) 'Value at average final vector: ', func(result, fcall) 
 
-do n = 1, NP-1
-  if (func(X%vectors(n,:), fcall) .ge. func(X%vectors(n+1,:), fcall)) then 
-     result = X%vectors(n+1,:)
-  end if
-end do
+write (*,*) 'Best final vector: ', X%vectors(minloc(X%values), :)
+write (*,*) 'Value at best final vector: ', minval(X%values)
 
-
-print *, 'Function calls: ', fcall
+write (*,*) 'Function calls: ', fcall
 
 
 
@@ -72,117 +79,105 @@ print *, 'Function calls: ', fcall
 contains 
 
   subroutine initialize(X, lowerbounds, upperbounds, fcall, func) !initializes first generation of target vectors
-    !by choosing random components within boundaries for all NP D-dimensional vectors
 
     type(population), intent(out) :: X
     real, dimension(:), intent(in) :: lowerbounds, upperbounds
     integer, intent(inout) :: fcall
-    integer i
+    integer :: i
     real, external :: func
 
     fcall = 0
-    X%generation = 1
 
-    print *, 'Begin DE'
-    print *, 'Parameters:'
-    print *, ' NP=', NP
-    print *, ' F=', F 
-    print *, ' Cr=', Cr 
-    print *, '-----------------------------'
-    print *, 'Generation: ', X%generation
+    write (*,*) 'Begin DE'
+    write (*,*) 'Parameters:'
+    write (*,*) ' NP=', NP
+    write (*,*) ' F=', F 
+    write (*,*) ' Cr=', Cr 
+    write (*,*) '-----------------------------'
+    write (*,*) 'Generation: ', '1'
 
     do i=1,NP
        call random_real(X%vectors(i,:), lowerbounds, upperbounds)
        X%values(i) = func(X%vectors(i,:), fcall)
-       print *, X%vectors(i, :), '->', X%values(i)
+       write (*,*) X%vectors(i, :), '->', X%values(i)
     end do    
   end subroutine initialize
 
 
 
-  function rand1mutation(X)
-    type(population), intent(in) :: X  !current generation of target vectors
-    real, dimension(NP, D) :: rand1mutation     !donor vectors
-    integer :: r1, r2, r3, i
+  function rand1mutation(X, n)
+    type(population), intent(in) :: X   !current generation of target vectors
+    integer, intent(in) :: n            !index of current vector
+    real, dimension(D) :: rand1mutation !donor vector
+    integer :: r1, r2, r3
 
     !set each D-dimensional donor vector in V by picking 3 separate random vectors from X
-    do i = 1, NP
-       call random_int(r1, 1, NP)    !pick 1st vector from population
-       do                            !pick 2nd vector; ensure vectors are distinct
-          call random_int(r2, 1, NP) 
-          if (r2 .ne. r1) exit
-       end do
-       do
-          call random_int(r3, 1, NP) !pick 3rd vector
-          if ((r3 .ne. r1) .and. (r3 .ne. r2)) exit
-       end do
-       !V = Xr1 + F*(Xr2 - Xr3)
-       rand1mutation(i,:) = X%vectors(r1,:) + F*(X%vectors(r2,:) - X%vectors(r3,:))
-   end do
+    call random_int(r1, 1, NP)    !pick 1st vector from population
+    do                            !pick 2nd vector; ensure vectors are distinct
+       call random_int(r2, 1, NP) 
+       if (r2 .ne. r1) exit
+    end do
+    do                            !pick 3rd vector; ensure vectors are distinct
+       call random_int(r3, 1, NP) 
+       if ((r3 .ne. r1) .and. (r3 .ne. r2)) exit
+    end do
+    !V = Xr1 + F*(Xr2 - Xr3)
+    rand1mutation(:) = X%vectors(r1,:) + F*(X%vectors(r2,:) - X%vectors(r3,:))
   end function rand1mutation
 
 
 
-  function bincrossover(X, V)
-    !set each D-dimensional trial vector in U by comparing D random numbers with Cr and picking 
-    !components from X or V as needed
-    type(population), intent(in) :: X !current generation of target vectors
-    real, dimension(NP, D), intent(in) :: V !donor vectors
-    real, dimension(NP, D) :: bincrossover  !trial vectors created
-    integer :: i, jrand            
+  function bincrossover(X, V, n)         !binomial crossover to create trial vectors
+
+    type(population), intent(in) :: X    !current generation of target vectors
+    real, dimension(D), intent(in) :: V  !donor vectors
+    integer, intent(in) :: n             !index of current target vector
+    real, dimension(D) :: bincrossover   !trial vector created
+    integer :: jrand           
     real, dimension(D) :: randj
 
-    do i= 1, NP
-      call random_int(jrand, 1, D)        !choose a guaranteed crossover for each vector.
-      call random_number(randj)
-      where (randj .le. Cr)
-         bincrossover(i,:) = V(i,:) !use donor vector
-      elsewhere
-         bincrossover(i,:) = X%vectors(i,:) !use target vector
-      end where
-      bincrossover(i,jrand) = V(i,jrand) !guaranteed crossover of donor
-   end do
+    call random_int(jrand, 1, D)         !choose a guaranteed crossover for each vector.
+    call random_number(randj)
+    where (randj .le. Cr)
+       bincrossover(:) = V(:)            !use donor vector
+    elsewhere
+       bincrossover(:) = X%vectors(n, :) !use target vector
+    end where
+    bincrossover(jrand) = V(jrand)       !guaranteed crossover of donor
+    
   end function bincrossover
 
 
 
-  subroutine selection(X,U, fcall, func)
+  subroutine selection(X,U, n, fcall, func, accept) !select next generation of target vectors
+
     type(population), intent(inout) :: X
-    real, dimension(NP, D), intent(in) :: U
+    real, dimension(D), intent(in) :: U
     real :: trialvalue
-    integer, intent(inout) :: fcall
-    integer i
+    integer, intent(inout) :: fcall, accept
+    integer, intent(in) :: n
     real, external :: func
-    
-    !set new generation of X depending on whether f(X) or f(U) is lower, for each 
-    !D-dimensional vector
 
-   X%generation = X%generation + 1
-   print *, '-----------------------------'
-   print *, 'Generation: ', X%generation
+    !check that results stay within bounds. 'Brick wall'
+    if (all(U(:) .le. upperbounds) .and. all(U(:) .ge. lowerbounds)) then
 
-    do i=1, NP
-       !check that results stay within bounds. 'Brick wall'
-       if (all(U(i,:) .le. upperbounds) .and. all(U(i,:) .ge. lowerbounds)) then
-          !when the trial vector is at least as good, use it for the next generation
-          trialvalue = func(U(i,:), fcall)
-          if (trialvalue .le. X%values(i)) then
-             X%vectors(i,:) = U(i,:) 
-             X%values(i) = trialvalue
-          end if                 
-        end if
-        print *, X%vectors(i, :), '->', X%values(i)
-    end do
+       trialvalue = func(U(:), fcall)
+
+       !when the trial vector is at least as good, use it for the next generation
+       if (trialvalue .le. X%values(n)) then
+          X%vectors(n,:) = U(:) 
+          X%values(n) = trialvalue
+          accept = accept + 1
+       end if
+
+    end if
  
   end subroutine selection
 
 
-
-
-!following functions, subroutines should eventually be moved elsewhere
 !assorted random number generators.
 
-  subroutine random_real(harvest, min, max) !choose array of random reals between min and max
+  subroutine random_real(harvest, min, max)  !choose array of random reals between min and max
     real, dimension(:), intent(out) :: harvest
     real, optional, dimension(:), intent(in) :: min, max !must be same size as harvest
     real, dimension(size(harvest)) :: range
@@ -193,11 +188,11 @@ contains
   end subroutine random_real
 
 
-  subroutine random_int(harvest, min, max)        !choose a random integer between min and max, inclusive
+  subroutine random_int(harvest, min, max) !choose a random integer between min and max, inclusive
     integer, intent(out) :: harvest
     integer, intent(in) :: min, max
     real :: range
-    real r
+    real :: r
    
     range = max - min
     call random_number(r)

@@ -11,7 +11,7 @@ FOPT=-O3 -extend_source
 export FF FOPT
 
 PROG = devopack_f
-OBJ = de.f90
+OBJ = func.f90 de.f90
 
 all: devopack
 
