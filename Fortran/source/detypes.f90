@@ -23,7 +23,7 @@ end type deparams
 type population
   !add array of strings for names?
   real, allocatable, dimension(:,:) :: vectors !dimension(NP, D)
-  real, allocatable, dimension(:) :: values    !dimension(NP)
+  real, allocatable, dimension(:) :: values, weights !dimension(NP)
 end type population
 
 

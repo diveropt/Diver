@@ -11,7 +11,7 @@ FOPT=-O3 -extend_source
 export FF FOPT
 
 PROG = devopack_f
-SOURCEFILES = detypes mutation crossover de dedriver
+SOURCEFILES = detypes mutation crossover posterior de dedriver
 SOURCE = source
 INC = include
 BUILD = build
