@@ -10,12 +10,14 @@ FOPT=-O3 -extend_source
 
 export FF FOPT
 
+DEVO_ROOT = $(PWD)
+
 PROG = devopack_f
 SOURCEFILES = detypes mutation crossover posterior de dedriver
-SOURCE = source
-INC = include
-BUILD = build
 LIB = -L -l
+SOURCE = ${DEVO_ROOT}/source
+INC = ${DEVO_ROOT}/include
+BUILD = ${DEVO_ROOT}/build
 
 OBJ = $(SOURCEFILES:%=$(BUILD)/%.o)
 
@@ -25,11 +27,13 @@ devopack: makefile $(OBJ)
 	$(FF) $(FOPT) -o $(PROG) $(OBJ) $(LIB)
 
 $(BUILD)/%.o: $(SOURCE)/%.f90
-	$(FF) $(FOPT) -I$(INC) -o$@ -c $< 
+	cd $(BUILD); \
+	$(FF) -c $(FOPT) -I$(INC) $<
 
 $(BUILD)/%.o: $(SOURCE)/%.F90
-	$(FF) $(FOPT) -I$(INC) -o$@ -c $<
+	cd $(BUILD); \
+	$(FF) -c $(FOPT) -I$(INC) $<
 
 clean:
 	rm $(PROG);
-	cd $(BUILD); rm *.o
+	cd $(BUILD); rm *.o; rm *.mod
