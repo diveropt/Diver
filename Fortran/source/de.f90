@@ -7,6 +7,8 @@ use posterior
 
 implicit none
 
+logical, parameter :: verbose = .true.				!print verbose output
+
 private
 public run_de
 
@@ -77,8 +79,8 @@ contains
       !Internal (normal) DE loop: calculates population for each generation
       do gen = 2, numgen 
 
-         write (*,*) '  -----------------------------'
-         write (*,*) '  Generation: ', gen
+         if (verbose) write (*,*) '  -----------------------------'
+         if (verbose) write (*,*) '  Generation: ', gen
    
          accept = 0
 
@@ -91,11 +93,11 @@ contains
             !choose next generation of target vectors
             call selection(X, U, n, lowerbounds, upperbounds, fcall, func, accept)
  
-            write (*,*) n, X%vectors(n, :), '->', X%values(n)
+            if (verbose) write (*,*) n, X%vectors(n, :), '->', X%values(n)
          end do
          !$END OMP PARALLEL DO
  
-         write (*,*) '  Acceptance rate: ', accept/real(NP)
+         if (verbose) write (*,*) '  Acceptance rate: ', accept/real(NP)
 
          if (calcZ) call doBayesian(X, Z, prior, fcall)        
 
@@ -114,17 +116,18 @@ contains
         BF%vectors(1,:) = bestvector
       endif
 
-      write (*,*)
-      write (*,*) '  ============================='
-      write (*,*) '  Number of generations in this civilisation: ', min(gen,numgen)
-      write (*,*) '  Average final vector in this civilisation: ', avgvector
-      write (*,*) '  Value at average final vector in this civilisation: ', func(avgvector, fcall) 
-      write (*,*) '  Best final vector in this civilisation: ', bestvector
-      write (*,*) '  Value at best final vector in this civilisation: ', bestvalue
-      write (*,*) '  Cumulative function calls: ', fcall
+      if (verbose) write (*,*)
+      if (verbose) write (*,*) '  ============================='
+      if (verbose) write (*,*) '  Number of generations in this civilisation: ', min(gen,numgen)
+      if (verbose) write (*,*) '  Average final vector in this civilisation: ', avgvector
+      if (verbose) write (*,*) '  Value at average final vector in this civilisation: ', func(avgvector, fcall) 
+      if (verbose) write (*,*) '  Best final vector in this civilisation: ', bestvector
+      if (verbose) write (*,*) '  Value at best final vector in this civilisation: ', bestvalue
+      if (verbose) write (*,*) '  Cumulative function calls: ', fcall
       
+    !if (calcZ) write(*,*) abs(log(Z)-log(Zold)), tol
       !Break out if posterior/evidence is converged
-      if (calcZ .and. Z/Zold .lt. exp(tol)) then
+      if (calcZ .and. abs(log(Z)-log(Zold)) .lt. tol) then
         if (convcount .eq. convcountreq-1) exit
         convcount = convcount + 1
       else
@@ -134,13 +137,13 @@ contains
 
     enddo
 
-    write (*,*)
-    write (*,*) '============================='
-    write (*,*) 'Number of civilisations: ', min(civ,numciv)
-    write (*,*) 'Best final vector: ', BF%vectors(1,:)
-    write (*,*) 'Value at best final vector: ', BF%values(1)
+    if (verbose) write (*,*)
+    if (verbose) write (*,*) '============================='
+    if (verbose) write (*,*) 'Number of civilisations: ', min(civ,numciv)
+    if (verbose) write (*,*) 'Best final vector: ', BF%vectors(1,:)
+    if (verbose) write (*,*) 'Value at best final vector: ', BF%values(1)
     if (calcZ) write (*,*) 'ln(Evidence): ', log(Z)
-    write (*,*) 'Total Function calls: ', fcall
+    if (verbose) write (*,*) 'Total Function calls: ', fcall
 
     deallocate(X%vectors, X%values, BF%vectors, BF%values)
 
@@ -158,8 +161,8 @@ contains
     real, external :: func
     integer :: i
 
-    write (*,*) '-----------------------------'
-    write (*,*) 'Generation: ', '1'
+    if (verbose) write (*,*) '-----------------------------'
+    if (verbose) write (*,*) 'Generation: ', '1'
 
     allocate(X%vectors(params%NP, params%D), X%values(params%NP), X%weights(params%NP)) !deallocated at end of run_de
 
@@ -169,7 +172,7 @@ contains
        X%vectors(i,:) = X%vectors(i,:)*(upperbounds - lowerbounds) + lowerbounds
 
        X%values(i) = func(X%vectors(i,:), fcall)
-       write (*,*) i, X%vectors(i, :), '->', X%values(i)
+       if (verbose) write (*,*) i, X%vectors(i, :), '->', X%values(i)
     end do      
     !$END OMP PARALLEL DO
 
@@ -212,6 +215,7 @@ contains
     real, intent(inout) :: Z				!evidence
     real, external :: prior 				!prior funtion
     integer, intent(in) :: fcall			!running number of samples
+    integer, save :: fcall_prev = 0			!last number of samples
     
     !Find weights for posterior pdf / evidence calculation
     call getweights(X,prior)
@@ -219,7 +223,12 @@ contains
     !FIXME multiplicities for outputting in chains = X%weights/fcall*exp(-X%values)
 
     !Update evidence
-    Z = Z + sum(X%weights/fcall*exp(-X%values))
+    Z = (Z*dble(fcall_prev) + sum(X%weights*exp(-X%values)))/dble(fcall)
+
+    !Save number of points for next time
+    fcall_prev = fcall
+
+    !write(*,*) Z, sum(X%weights/fcall*exp(-X%values)), sum(X%weights), sum(exp(-X%values))
 
   end subroutine doBayesian
 

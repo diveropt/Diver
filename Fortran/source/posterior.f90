@@ -32,7 +32,7 @@ end type
 real, allocatable  :: ranges(:)			!Prior box side lengths
 integer :: D = 0				!Dimension of parameter space being scanned
 integer :: totalCells = 0			!Number of cells in binary space partitioning
-real, parameter :: maxNodePop = 10.0 		!Population above which to do binary partitioning
+real, parameter :: maxNodePop = 3.0 		!Population above which to do binary partitioning
 logical :: debug = .false.			!Debugging flag for posterior routines
 
 public initree, getweights
