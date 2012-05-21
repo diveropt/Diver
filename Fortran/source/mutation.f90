@@ -9,9 +9,9 @@ public rand1mutation
 
 contains
 
-    function rand1mutation(X, n, params)
+  function rand1mutation(X, n, params)
     type(population), intent(in) :: X   !current generation of target vectors
-    integer, intent(in) :: n            !index of current vector
+    integer, intent(in) :: n            !index of current vector !FIXME n is not used in this function
     type(deparams), intent(in) :: params
     real, dimension(params%D) :: rand1mutation !donor vector
     integer :: r1, r2, r3
@@ -31,7 +31,7 @@ contains
   end function rand1mutation
 
 
-!add other mutation strategies
+!FIXME add other mutation strategies
 
 
   subroutine random_int(harvest, min, max) !choose a random integer between min and max, inclusive

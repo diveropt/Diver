@@ -24,15 +24,15 @@ contains
     real, intent(in) :: Cr 					!crossover factor
     real, intent(in) :: tol					!tolerance in log-evidence for 
       
-    integer :: D 		!dimension of parameter space; we know this from the bounds given
-    type(deparams) :: params 	!carries the differential evolution parameters 
+    integer :: D 						!dimension of parameter space; we know this from the bounds given
+    type(deparams) :: params 					!carries the differential evolution parameters 
 
-    type(population) :: X, BF                  			!population of target vectors, best-fit vector          
+    type(population), target :: X, BF           		!population of target vectors, best-fit vector          
     real, dimension(size(lowerbounds)) :: V, U			!donor, trial vectors
 
-    integer :: fcall, accept			    !fcall counts function calls, accept counts acceptance rate
-    integer :: civ, gen, n			    !civ, gen, n for iterating civilisation, generation, population loops
-    
+    integer :: fcall, accept					!fcall counts function calls, accept counts acceptance rate
+    integer :: civ, gen, n					!civ, gen, n for iterating civilisation, generation, population loops
+
     real, dimension(size(lowerbounds)) :: avgvector, bestvector	!for calculating final average and best fit
     real :: bestvalue
     integer :: bestloc(1)
@@ -51,7 +51,7 @@ contains
     params%Cr = Cr
 
     allocate(BF%vectors(1,D), BF%values(1))
-
+    
     fcall = 0
     BF%values(1) = huge(BF%values(1))
     write (*,*) 'Begin DE'
@@ -60,7 +60,10 @@ contains
     write (*,*) ' F=', params%F 
     write (*,*) ' Cr=', params%Cr 
 
-    !Run a number of sequential DE optmisations, exiting either after a set number of
+    !If required, initialise the linked tree used for estimating the evidence and posterior
+    if (calcZ) call initree(lowerbounds,upperbounds)
+
+    !Run a number of sequential DE optimisations, exiting either after a set number of
     !runs through or after the evidence has been calculated to a desired accuracy
     do civ = 1, numciv
 
@@ -69,6 +72,7 @@ contains
 
       !Initialise the first generation
       call initialize(X, params, lowerbounds, upperbounds, fcall, func)
+      if (calcZ) call doBayesian(X, Z, prior, fcall)        
 
       !Internal (normal) DE loop: calculates population for each generation
       do gen = 2, numgen 
@@ -93,13 +97,7 @@ contains
  
          write (*,*) '  Acceptance rate: ', accept/real(NP)
 
-         if (calcZ) then          
-           !Find weights for posterior pdf / evidence calculation
-           call getweights(X,prior)
-           !FIXME multiplicities for outputting in chains = X%weights*exp(-X%values)
-           !Update evidence
-           Z = Z + sum(X%weights*exp(-X%values))
-         endif
+         if (calcZ) call doBayesian(X, Z, prior, fcall)        
 
          !Check generation-level convergence: if satisfied, exit loop (!FIXME to be implemented)
 
@@ -150,7 +148,6 @@ contains
 
 
 
-
   !initializes first generation of target vectors
   subroutine initialize(X, params, lowerbounds, upperbounds, fcall, func) 
 
@@ -175,12 +172,13 @@ contains
        write (*,*) i, X%vectors(i, :), '->', X%values(i)
     end do      
     !$END OMP PARALLEL DO
+
   end subroutine initialize
 
 
 
   !select next generation of target vectors
-  subroutine selection(X,U, n, lowerbounds, upperbounds, fcall, func, accept) 
+  subroutine selection(X, U, n, lowerbounds, upperbounds, fcall, func, accept) 
 
     type(population), intent(inout) :: X
     real, dimension(:), intent(in) :: U
@@ -202,7 +200,28 @@ contains
           accept = accept + 1
        end if
     end if
+
   end subroutine selection
+
+
+
+  !Get posterior weights and update evidence
+  subroutine doBayesian(X, Z, prior, fcall)
+  
+    type(population), intent(inout) :: X		!current generation
+    real, intent(inout) :: Z				!evidence
+    real, external :: prior 				!prior funtion
+    integer, intent(in) :: fcall			!running number of samples
+    
+    !Find weights for posterior pdf / evidence calculation
+    call getweights(X,prior)
+    
+    !FIXME multiplicities for outputting in chains = X%weights/fcall*exp(-X%values)
+
+    !Update evidence
+    Z = Z + sum(X%weights/fcall*exp(-X%values))
+
+  end subroutine doBayesian
 
 
 end module de
