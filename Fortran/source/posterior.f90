@@ -45,7 +45,8 @@ contains
     real, dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space 
     totalCells = 1
     D = size(lowerbounds)
-    allocate(root, root%upperbounds(D), root%lowerbounds(D), ranges(D))
+    allocate(root, ranges(D))
+    allocate(root%upperbounds(D), root%lowerbounds(D))
     root%upperbounds = upperbounds
     root%lowerbounds = lowerbounds
     ranges = upperbounds - lowerbounds
