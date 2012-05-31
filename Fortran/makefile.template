@@ -14,7 +14,7 @@ DEVO_ROOT = $(PWD)
 
 PROG = devopack_f
 SOURCEFILES = detypes mutation crossover posterior de dedriver
-LIB = -L -l
+LIB = #-L -l
 SOURCE = ${DEVO_ROOT}/source
 INC = ${DEVO_ROOT}/include
 BUILD = ${DEVO_ROOT}/build
@@ -35,5 +35,5 @@ $(BUILD)/%.o: $(SOURCE)/%.F90
 	$(FF) -c $(FOPT) -I$(INC) $<
 
 clean:
-	rm $(PROG);
-	cd $(BUILD); rm *.o; rm *.mod
+	rm -f $(PROG); \
+	cd $(BUILD); rm -f *.o *.mod
