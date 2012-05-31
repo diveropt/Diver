@@ -10,6 +10,7 @@ C++/examples/.deps/
 C++/examples/.libs/
 C++/config/
 C++/autom4te.cache/
+C++/test/
 libtool
 configure
 *.m4
@@ -17,6 +18,8 @@ Makefile
 Makefile.in
 config.status
 C++/examples/DE_example
+Fortran/build/
+Fortran/devopack_f
 
 # Logs #
 ######################
