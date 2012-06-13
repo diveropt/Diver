@@ -4,7 +4,7 @@ use de
 
 implicit none
 
-integer, parameter :: NP=10, numgen=50, numciv=500	!enforce NP>2
+integer, parameter :: NP=10, numgen=30, numciv=1	!enforce NP>2
 real, parameter :: F=0.7, Cr=0.9, tol = 1e-3		!enforce 0<F<1, 0<=Cr<=1.  Set tol negative to forget posterior/evidence
 real, parameter, dimension(2) :: lowerbounds=-50.0	!boundaries of parameter space
 real, parameter, dimension(2) :: upperbounds=50.0
@@ -34,12 +34,11 @@ end function prior
 end module driverconsts
 
 
-
-program dedriver !testing rand/1/bin differential evolution
+program dedriver !testing general differential evolution
 
 use driverconsts
 implicit none
-call run_de(func, prior, lowerbounds, upperbounds, numciv, numgen, NP, F, Cr, tol)
+call run_de(func, prior, lowerbounds, upperbounds, numciv, numgen, exp=.true., lambda=.8, tol=tol)
 
 end program dedriver
 

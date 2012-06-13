@@ -5,11 +5,25 @@ use detypes
 implicit none
 
 private
-public bincrossover
+public gencrossover
 
 contains
 
+  function gencrossover(X, V, n, params)
 
+    type(population), intent(in) :: X          !current generation of target vectors
+    type(deparams), intent(in) :: params
+    real, dimension(params%D), intent(in) :: V !donor vectors
+    integer, intent(in) :: n                   !index of current target vector
+    real, dimension(params%D) :: gencrossover  !trial vector created
+
+    if (params%exp) then
+       gencrossover = expcrossover(X, V, n, params)
+    else
+       gencrossover = bincrossover(X, V, n, params)
+    end if
+    
+  end function gencrossover
 
   function bincrossover(X, V, n, params)       !binomial crossover to create trial vectors
 
@@ -34,7 +48,37 @@ contains
 
 
 
-  !add expcrossover
+  function expcrossover(X, V, n, params)
+
+    type(population), intent(in) :: X          !current generation of target vectors
+    type(deparams), intent(in) :: params
+    real, dimension(params%D), intent(in) :: V !donor vectors
+    integer, intent(in) :: n                   !index of current target vector
+    real, dimension(params%D) :: expcrossover  !trial vector created
+
+    integer L, j                               !length of crossover
+    real rand
+
+    L=0
+    do j=1, params%D                           !determine length of the crossover
+       L = L + 1
+       call random_number(rand)
+       if (rand .gt. params%Cr) exit   
+    end do
+
+    call random_int(j, 1, params%D)            !beginning of crossover
+    
+    !rewrite this in terms of the modulo function?
+    if (j+L .gt. params%D) then
+       expcrossover(:) = X%vectors(n,:)
+       expcrossover(j:params%D) = V(j:params%D)
+       expcrossover(1:j+L-params%D-1) = V(1:j+L-params%D-1)
+    else
+       expcrossover(:) = X%vectors(n,:)
+       expcrossover(j:j+L-1) = V(j:j+L-1)
+    end if
+
+  end function expcrossover
 
 
 
