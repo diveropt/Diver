@@ -12,9 +12,18 @@ class DE
 	SelectionT *fSelection;	
 	Model *fModel;
 	
+	const int fnInd;
+	const int fnGen;
+	
+	// other member functions
+	template <typename Functor>
+	Trial* FirstTrial(Functor const &function);
+	template <typename Functor>
+	Trial* NextTrial(std::vector<Trial*> Population, const int& targetvector, Functor const &function);
+	
 public:
 	//! Constructors
-	explicit DE(Model *model = NULL);
+	DE(const int& nInd = 20, const int& nGen = 100, Model *model = NULL);
 	//! Copy constructor
 	DE(const DE &de);
 	//! Destructor
@@ -28,21 +37,23 @@ public:
 	SelectionT* GetSelection() const	{return fSelection;}
 	Model* GetModel() const				{return fModel;}
 	
+	const int GetNIndividuals() const	{return fnInd;}
+	const int GetNGenerations() const	{return fnGen;}
+	
 	// Setters
 	void SetModel(Model *model);
 	
-	// other member functions
+	//! Run the DE
 	template <typename Functor>
-	Trial* FirstTrial(Functor const &function);
-	template <typename Functor>
-	Trial* NextTrial(std::vector<Trial*> Population, const int& targetvector, Functor const &function);
+	void Run(Functor const &function);
 	
+	//! Show the DE configuration
 	void Show(std::ostream &s = std::cout);
 };
 
 //! Constructor
 template <typename MutationT, typename CrossoverT, typename SelectionT>
-DE<MutationT, CrossoverT, SelectionT>::DE(Model *model) : fMutation(new MutationT), fCrossover(new CrossoverT), fSelection(new SelectionT), fModel(new Model(*model))
+DE<MutationT, CrossoverT, SelectionT>::DE(const int& nInd, const int& nGen, Model *model) : fMutation(new MutationT), fCrossover(new CrossoverT), fSelection(new SelectionT), fModel(new Model(*model)), fnInd(nInd), fnGen(nGen)
 {
 	srand(time(0));	
 }
@@ -62,6 +73,9 @@ DE<MutationT, CrossoverT, SelectionT>::DE(const DE<MutationT, CrossoverT, Select
 	if(fSelection)
 		delete fSelection;
 	fSelection = new SelectionT(*de.fSelection);
+	
+	fnInd = de.fnInd;
+	fnGen = de.fnGen;
 	
 	SetModel(de.fModel);
 	
@@ -163,6 +177,51 @@ Trial* DE<MutationT, CrossoverT, SelectionT>::NextTrial(std::vector<Trial*> Popu
 	return result;
 }
 
+template <typename MutationT, typename CrossoverT, typename SelectionT>
+template <typename Functor>
+void DE<MutationT, CrossoverT, SelectionT>::Run(Functor const &function)
+{
+	std::vector<std::vector<Trial*> > triallist(fnGen + 1);
+	
+	std::cout << " ==> First initialisation" << std::endl;
+	for(int i = 0; i < fnInd; i++)
+	{
+		triallist.at(0).push_back(FirstTrial(function));
+	}
+	
+	std::cout << " ** The best individual ** \n" << *(GetSelection() -> SelectBest(triallist.at(0))) << std::endl;
+	
+	for(int i = 0; i < fnGen; i++)
+	{
+		std::cout << "+++ Generation " << i << std::endl;
+		
+		for(int j = 0; j < fnInd; j++)
+		{
+			triallist.at(i+1).push_back(NextTrial(triallist.at(i), j, function));
+		}
+		
+		std::cout << " ** The best individual ** \n" << *(GetSelection() -> SelectBest(triallist.at(i+1))) << std::endl;
+	}
+	
+	// Freeing memory
+	std::vector<Trial*> cleanup;
+	std::vector<Trial*>::iterator it;
+	for(int i = 0; i <= fnGen; i++)
+	{
+		for(int j = 0; j < fnInd; j++)
+			cleanup.push_back(triallist.at(i).at(j));
+	}
+	
+	sort(cleanup.begin(), cleanup.end());
+	it = unique(cleanup.begin(), cleanup.end());
+	cleanup.resize(it - cleanup.begin());
+	for(it = cleanup.begin(); it != cleanup.end(); it++)
+		delete *it;
+	
+	cleanup.clear();
+
+}
+	
 template <typename MutationT, typename CrossoverT, typename SelectionT>
 void DE<MutationT, CrossoverT, SelectionT>::Show(std::ostream &s)
 {
