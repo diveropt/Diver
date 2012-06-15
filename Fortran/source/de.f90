@@ -7,7 +7,7 @@ use posterior
 
 implicit none
 
-logical, parameter :: verbose = .true.				!print verbose output
+logical, parameter :: verbose = .false.				!print verbose output
 
 private
 public run_de
@@ -17,17 +17,17 @@ contains
 
   !Main differential evolution routine.  
   subroutine run_de(func, prior, lowerbounds, upperbounds, numciv, numgen, NP, F, Cr, lambda, current, exp, bndry, tol)
-    real, external :: func, prior 				!function to be optimized, prior funtions
+    real, external :: func, prior 				!function to be optimized, prior functions
     real, dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space 
     integer, intent(in) :: numciv 				!maximum number of civilisations
     integer, intent(in) :: numgen 				!maximum number of generations per civilisation
     integer, intent(in), optional :: NP 			!population size (individuals per generation)
-    real, intent(in), optional :: F 				!scale factor
+    real, dimension(:), intent(in), optional :: F		!scale factor(s).  Note that this must be entered as an array.
     real, intent(in), optional :: Cr 				!crossover factor
     real, intent(in), optional :: lambda 			!mixing factor between best and rand/current
     logical, intent(in), optional :: current 			!use current vector for mutation
     logical, intent(in), optional :: exp 			!use exponential crossover
-    integer, intent(in), optional :: bndry                      !different boundary constraints: 1 -> brick wall, 2 -> random re-initialization, 3-> reflection
+    integer, intent(in), optional :: bndry                      !boundary constraint: 1 -> brick wall, 2 -> random re-initialization, 3 -> reflection
     real, intent(in) :: tol					!tolerance in log-evidence for 
     !make numciv, numgen, tol optional as well?
      
@@ -89,10 +89,10 @@ contains
          accept = 0
 
          !$OMP PARALLEL DO
-         do n=1, params%NP                            !evolves one member of the population
+         do n=1, params%NP                    	!evolves one member of the population
 
-            V = genmutation(X, n, params)    !donor vectors
-            U = gencrossover(X, V, n, params)  !trial vectors
+            V = genmutation(X, n, params)    	!donor vectors
+            U = gencrossover(X, V, n, params)  	!trial vectors
 
             !choose next generation of target vectors
             call selection(X, U, n, lowerbounds, upperbounds, bconstrain, fcall, func, accept)
@@ -141,15 +141,22 @@ contains
 
     enddo
 
-    if (verbose) write (*,*)
-    if (verbose) write (*,*) '============================='
-    if (verbose) write (*,*) 'Number of civilisations: ', min(civ,numciv)
-    if (verbose) write (*,*) 'Best final vector: ', BF%vectors(1,:)
-    if (verbose) write (*,*) 'Value at best final vector: ', BF%values(1)
-    if (calcZ) write (*,*)   'ln(Evidence): ', log(Z)
-    if (verbose) write (*,*) 'Total Function calls: ', fcall
+!    if (verbose) write (*,*)
+!    if (verbose) write (*,*) '============================='
+!    if (verbose) write (*,*) 'Number of civilisations: ', min(civ,numciv)
+!    if (verbose) write (*,*) 'Best final vector: ', BF%vectors(1,:)
+!    if (verbose) write (*,*) 'Value at best final vector: ', BF%values(1)
+!    if (calcZ) write (*,*)   'ln(Evidence): ', log(Z)
+!    if (verbose) write (*,*) 'Total Function calls: ', fcall
 
-    deallocate(X%vectors, X%values, BF%vectors, BF%values)
+    write (*,*) '============================='
+    write (*,*) 'Number of civilisations: ', min(civ,numciv)
+    write (*,*) 'Best final vector: ', BF%vectors(1,:)
+    write (*,*) 'Value at best final vector: ', BF%values(1)
+    if (calcZ) write (*,*)   'ln(Evidence): ', log(Z)
+    write (*,*) 'Total Function calls: ', fcall
+
+    deallocate(X%vectors, X%values, params%F, BF%vectors, BF%values)
 
   end subroutine run_de
 
@@ -163,14 +170,14 @@ contains
     integer, intent(out) :: bconstrain		!boundary constraints for selection
     integer, intent(in) :: D 			  
     integer, optional, intent(in) :: NP 
-    real, optional, intent(in) :: F 	
+    real, dimension(:), optional, intent(in) :: F 	
     real, optional, intent(in) :: Cr 	
     real, optional, intent(in) :: lambda 
     logical, optional, intent(in) :: current 
     logical, optional, intent(in) :: exp 
     integer, optional, intent(in) :: bndry
 
-    character (len=22) :: DEstrategy		!for printing mutation/crossover DE strategy
+    character (len=22) :: DEstrategy, Fsize	!for printing mutation/crossover DE strategy
 
     params%D = D
 
@@ -182,9 +189,11 @@ contains
     end if
 
     if (present(F)) then
+       allocate(params%F(size(F)))
        params%F = F
     else
-       params%F = 0.7 				!rule of thumb: 0.4<F<1.0
+       allocate(params%F(1))
+       params%F = (/0.7/) 			!rule of thumb: 0.4<F<1.0
     end if
 
     if (present(Cr)) then      
@@ -214,33 +223,28 @@ contains
     !print the parameter choice and DE mutation/crossover strategy
     if (params%lambda .eq. 0) then  		!mutation strategy
        if (params%current) then
-          DEstrategy = 'current'
+          DEstrategy = 'current/'
        else
-          DEstrategy = 'rand'
+          DEstrategy = 'rand/'
        end if
     else if (params%lambda .eq. 1) then
-       DEstrategy = 'best'
+       DEstrategy = 'best/'
     else 
        if (params%current) then
-          DEstrategy = 'current-to-best'
+          DEstrategy = 'current-to-best/'
        else
-          DEstrategy = 'rand-to-best'
+          DEstrategy = 'rand-to-best/'
        end if
     end if
 
-    if (present(bndry)) then
-       bconstrain = bndry
-    else
-       bconstrain = 1 				!default brick wall boundary constraints
-    end if
-
-    !FIXME multiple mutation scale factors not yet supported
-    DEstrategy = trim(DEstrategy)//'/1/' 	
+    write (Fsize, *) size(params%F)		!number of mutation scale factors
+    Fsize=adjustl(Fsize)
+    DEstrategy = trim(DEstrategy)//trim(Fsize) 	
 
     if(params%exp) then                  	!crossover strategy
-       DEstrategy = trim(DEstrategy)//'exp'
+       DEstrategy = trim(DEstrategy)//'/exp'
     else
-       DEstrategy = trim(DEstrategy)//'bin'
+       DEstrategy = trim(DEstrategy)//'/bin'
     end if
 
     write (*,*) DEstrategy
@@ -249,6 +253,12 @@ contains
     if ((params%lambda .lt. 1.) .and. (params%lambda .gt. 0.)) write (*,*) ' lambda =', params%lambda
     write (*,*) ' F =', params%F  
     write (*,*) ' Cr =', params%Cr 
+
+    if (present(bndry)) then
+       bconstrain = bndry
+    else
+       bconstrain = 1 				!default brick wall boundary constraints
+    end if
 
     select case (bconstrain)
        case (1) 

@@ -4,8 +4,9 @@ use de
 
 implicit none
 
-integer, parameter :: NP=10, numgen=30, numciv=1	!enforce NP>2
-real, parameter :: F=0.7, Cr=0.9, tol = 1e-3		!enforce 0<F<1, 0<=Cr<=1.  Set tol negative to forget posterior/evidence
+integer, parameter :: NP=10, numgen=15, numciv=500	!enforce NP>2
+real, parameter ::  Cr=0.9, tol = 1e-3			!enforce 0<F<1, 0<=Cr<=1.  Set tol negative to forget posterior/evidence
+real, parameter, dimension(1) :: F=(/0.6/)
 real, parameter, dimension(2) :: lowerbounds=-50.0	!boundaries of parameter space
 real, parameter, dimension(2) :: upperbounds=50.0
 real, parameter, dimension(2) :: ranges = upperbounds - lowerbounds
@@ -38,8 +39,7 @@ program dedriver !testing general differential evolution
 
 use driverconsts
 implicit none
-call run_de(func, prior, lowerbounds, upperbounds, numciv, numgen, exp=.true., lambda=.8, tol=tol)
+call run_de(func, prior, lowerbounds, upperbounds, numciv, numgen, lambda=0.4, current=.true., exp=.true., F=(/0.7, 0.6/), tol=tol)
 
 end program dedriver
-
 

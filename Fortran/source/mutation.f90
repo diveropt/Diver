@@ -9,19 +9,19 @@ public genmutation
 
 contains
 
-  !FIXME: allow multiple F scale factors
   !general mutation strategy: V = lambda*X_best + (1-lambda)*X_I + Sum_q F(q)*(X_J(q) - X_K(q))
   function genmutation(X, n, params) 
-    type(population), intent(in) :: X        !current generation of target vectors
-    integer, intent(in) :: n                 !index of current vector
+    type(population), intent(in) :: X         !current generation of target vectors
+    integer, intent(in) :: n                  !index of current vector
     type(deparams), intent(in) :: params
-    real, dimension(params%D) :: genmutation !donor vector
-    integer, parameter :: totF=1             !number of F scale factors
-    integer, dimension(2*totF) :: r          !index of random vectors X_J, X_K
-    integer ri                               !index of (random or current) vector X_I
+    real, dimension(params%D) :: genmutation  !donor vector
+    integer :: totF                           !number of F scale factors
+    integer, dimension(2*size(params%F)) :: r !index of random vectors X_J, X_K
+    integer ri                                !index of (random or current) vector X_I
     integer q
-    real, dimension(params%D) :: sumF        !the summed difference vector over the F's
+    real, dimension(params%D) :: sumF         !the summed difference vector over the F's
 
+    totF=size(params%F)
 
     !assign unique r(q)'s from population
     do q=1, 2*totF
@@ -51,7 +51,7 @@ contains
 
     !find the difference vector associated with the F's:
     do q=1, totF
-       sumF(:) = params%F*(X%vectors(r(q),:) - X%vectors(r(2*q),:))
+       sumF(:) = params%F(q)*(X%vectors(r(q),:) - X%vectors(r(2*q),:))
     end do
     
     !V = lambda*X_best + (1-lambda)*X_I + Sum_q F(q)*(X_J(q) - X_K(q))
