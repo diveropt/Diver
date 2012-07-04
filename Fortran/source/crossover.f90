@@ -9,6 +9,7 @@ public gencrossover
 
 contains
 
+
   function gencrossover(X, V, n, params)
 
     type(population), intent(in) :: X          !current generation of target vectors
@@ -24,6 +25,8 @@ contains
     end if
     
   end function gencrossover
+
+
 
   function bincrossover(X, V, n, params)       !binomial crossover to create trial vectors
 
@@ -56,7 +59,7 @@ contains
     integer, intent(in) :: n                   !index of current target vector
     real, dimension(params%D) :: expcrossover  !trial vector created
 
-    integer L, j                               !length of crossover
+    integer L, j                               !length of crossover, index for vectors
     real rand
 
     L=0
