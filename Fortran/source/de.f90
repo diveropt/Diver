@@ -221,15 +221,14 @@ contains
     end if
 
     if (present(NP)) then
-       if (NP .gt. 2*size(params%F)) then       !required for picking unique vectors during mutation
+       if (NP .ge. (2*size(params%F) + 2)) then !required for picking unique vectors during mutation
           params%NP = NP
-       else !nb: if current=true, NP=2*size(params%F) would be ok, but not implemented
+       else !nb: if current=true, NP=2*size(params%F)+1 would be ok, but not implemented
           write (*,*) 'WARNING: NP specified is too small. Using smallest permitted NP.'
-          params%NP = 2*size(params%F) + 1
+          params%NP = 2*size(params%F) + 2
        end if
     else
-       !params%NP = 5*D
-       params%NP = 10*D 			!conservative rule-of-thumb choice 
+       params%NP = maxval( (/10*D, 2*size(params%F) + 2/) )	!conservative rule-of-thumb choice 
     end if
 
     if (present(Cr)) then  

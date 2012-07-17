@@ -28,7 +28,7 @@ contains
     do q=1, 2*totF
        do
           call random_int(r(q), 1, params%NP)
-          if ( any(r(1:q-1) .eq. r(q)) ) then
+          if ( any( (/r(1:q-1), n/) .eq. r(q)) ) then
              cycle                           !continue picking new r(q)'s until unique
           else   
              exit                            !r(q) unique, begin picking r(q+1) 
@@ -42,7 +42,7 @@ contains
     else
        do                                    !choose random unique ri
           call random_int(ri, 1, params%NP)
-          if ( any(r(:) .eq. ri) ) then 
+          if ( any( (/r(:), n/) .eq. ri) ) then 
              cycle 
           else
              exit 
