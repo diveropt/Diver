@@ -1,25 +1,16 @@
-/*
- *  Model.cpp
- *  DE
- *
- *  Created by Antje Putze on 06/11/2011.
- *  Copyright 2011 __MyCompanyName__. All rights reserved.
- *
- */
-
-#include "Model.h"
+#include "ParameterSpace.h"
 
 //! Copy assignment operator
-Model& Model::operator=(Model model)
+ParameterSpace& ParameterSpace::operator=(ParameterSpace parspace)
 {
-	std::swap(fParameters, model.fParameters);
-	std::swap(fLowerBounds, model.fLowerBounds);
-	std::swap(fUpperBounds, model.fUpperBounds);
+	std::swap(fParameters, parspace.fParameters);
+	std::swap(fLowerBounds, parspace.fLowerBounds);
+	std::swap(fUpperBounds, parspace.fUpperBounds);
 	
 	return *this;
 }
 	
-void Model::CheckBounds()
+void ParameterSpace::CheckBounds()
 {
 	// Check wether the vectors have the same number of entries. If not exit.
 	if(fParameters.size() != fLowerBounds.size() && fParameters.size() != fUpperBounds.size())
@@ -42,7 +33,7 @@ void Model::CheckBounds()
 	}
 }
 	
-void Model::AddParameter(std::string parameter, double lowerBound, double upperBound)
+void ParameterSpace::AddParameter(std::string parameter, double lowerBound, double upperBound)
 {
 	// Check wether lowerBound < upperBound. If not, swap values.
 	if(lowerBound > upperBound)
@@ -53,17 +44,17 @@ void Model::AddParameter(std::string parameter, double lowerBound, double upperB
 	fUpperBounds.push_back(upperBound);
 }
 
-void Model::Show(std::ostream &s)
+void ParameterSpace::Show(std::ostream &s)
 {
-	s << "=== Model ===" << std::endl;
+	s << "=== ParameterSpace ===" << std::endl;
 	s << "Number of parameters: " << fParameters.size() << std::endl;
 	for(::vector_size_t i = 0; i < fParameters.size(); i++)
 		s << "Parameter " << fParameters.at(i) << " is defined between " << fLowerBounds.at(i) << " and " << fUpperBounds.at(i) << std::endl;
 }
 
-std::ostream & operator<<(std::ostream &s, Model &model)
+std::ostream & operator<<(std::ostream &s, ParameterSpace &parspace)
 {
-	model.Show(s);
+	parspace.Show(s);
 	
 	return s;
 }

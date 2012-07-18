@@ -1,14 +1,5 @@
-/*
- *  Model.h
- *  DE
- *
- *  Created by Antje Putze on 06/11/2011.
- *  Copyright 2011 __MyCompanyName__. All rights reserved.
- *
- */
-
-#ifndef __MODEL__H
-#define __MODEL__H
+#ifndef __PARAMETERSPACE__H
+#define __PARAMETERSPACE__H
 
 #include <cstdlib>
 #include <iostream>
@@ -17,7 +8,7 @@
 
 #include "global.h"
 
-class Model
+class ParameterSpace
 {
 	std::vector<std::string> fParameters;
 	std::vector<double> fLowerBounds;
@@ -27,14 +18,14 @@ class Model
 	
 public:	
 	// Constructors
-	Model() : fParameters(), fLowerBounds(), fUpperBounds() {}
-	Model(std::vector<std::string> parameters, std::vector<double> lowerBounds, std::vector<double> upperBounds) : fParameters(parameters), fLowerBounds(lowerBounds), fUpperBounds(upperBounds) {CheckBounds();}
+	ParameterSpace() : fParameters(), fLowerBounds(), fUpperBounds() {}
+	ParameterSpace(std::vector<std::string> parameters, std::vector<double> lowerBounds, std::vector<double> upperBounds) : fParameters(parameters), fLowerBounds(lowerBounds), fUpperBounds(upperBounds) {CheckBounds();}
 	//! Copy Constructor
-	Model(const Model& model) : fParameters(model.fParameters), fLowerBounds(model.fLowerBounds), fUpperBounds(model.fUpperBounds) {}
+	ParameterSpace(const ParameterSpace& parspace) : fParameters(parspace.fParameters), fLowerBounds(parspace.fLowerBounds), fUpperBounds(parspace.fUpperBounds) {}
 	//! Destructor
-	~Model() {}
+	~ParameterSpace() {}
 	//! Copy assignment operator
-	Model& operator=(Model model);
+	ParameterSpace& operator=(ParameterSpace parspace);
 	
 	// Getters
 	::vector_size_t GetNParameters() const								{return fParameters.size();}
@@ -50,6 +41,6 @@ public:
 	void Show(std::ostream &s = std::cout);
 };
 
-std::ostream & operator<<(std::ostream &s, Model &model);
+std::ostream & operator<<(std::ostream &s, ParameterSpace &parspace);
 
-#endif // __MODEL__H
+#endif // __PARAMETERSPACE__H
