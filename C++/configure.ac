@@ -13,15 +13,13 @@ AC_CANONICAL_TARGET
 LT_INIT 
 LT_LANG([C++])
 
-AM_INIT_AUTOMAKE
-
-# If this is Darwin make libtool replace shared object suffix ".dylib" with ".so"
-AM_CONDITIONAL([FORCE_SO], [test "x$host_vendor" = xapple])
-
 # Checks for programs.
 AC_PROG_CC
 AC_PROG_CPP
-AM_PROG_CC_C_O
+AC_PROG_CC_C_O
+
+# If this is Darwin make libtool replace shared object suffix ".dylib" with ".so"
+AM_CONDITIONAL([FORCE_SO], [test "x$host_vendor" = xapple])
 
 # Checks for header files.
 AC_HEADER_STDC
