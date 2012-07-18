@@ -62,7 +62,7 @@ contains
     external prior
     type(Point), pointer :: individual	 	!pointer to a holder for an individual point in parameter space
     integer :: NP, i				!size of generation, iteration variable
-
+  
     nullify(individual)
 
     NP = size(X%values)	
@@ -84,7 +84,7 @@ contains
       allocate(individual)
       individual%vector => X%vectors(i,:)
       individual%weight => X%weights(i)
-      
+
       if (debug) write(*,*) 'about to set off initial climber',i,'of',NP
       call climbTree(individual, root)
     enddo
@@ -110,7 +110,7 @@ contains
 
     type(Point), pointer, intent(in) :: individual
     type(Node), pointer, intent(in) :: currentNode
-
+  
     if (currentNode%branchesDifferInDim .eq. 0) then	
     !Node is tip of the tree and has no branches, so...
 
@@ -141,7 +141,6 @@ contains
       if (individual%vector(currentNode%branchesDifferInDim) .lt. &
        currentNode%branchA%upperbounds(currentNode%branchesDifferInDim)) then
         if (debug) write(*,*) 'moving up branch A...'
-
         call climbTree(individual,currentNode%branchA)
 
       else 
@@ -197,7 +196,7 @@ contains
     nullify (temppt)
 
     if (debug) write(*,*) 'attempting to grow tree'
-  
+
     !Check if this is the first (=permanent) node in the list
     if (.not. associated(workingListNode%prev)) then
       !it is, so step on to the second node
@@ -209,11 +208,9 @@ contains
 
       if (workingListNode%thisNode%population .gt. maxNodePop) then
         !Current node needs to grow new branches
-
         call growBranches(workingListNode%thisNode)
 
       else
-
         !No new branches required.  The weightings of the points in the 
         !new population of this node are given by the weighting of the node
         nodeWeight = product(workingListNode%thisNode%upperbounds - workingListNode%thisNode%lowerbounds)
@@ -289,21 +286,17 @@ contains
 
     !Send the points in the new population off up the tree
     individual => currentNode%firstnewpt
-
     if (currentNode%newpopulation .gt. 1) then
       do i = 1, currentNode%newpopulation - 1
- 
         !Need to save the next point in the list for next iteration in the loop,  
         !as the current point will be appended to the end of a different list 
         !after it is sent up the tree
         temppt => individual%next
         !Send current new point on up the tree to another node
-
         call climbTree(individual,currentNode)
         !Set next point to send up the tree
-
         individual => temppt
-
+ 
      enddo
 
     endif
