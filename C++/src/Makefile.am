@@ -14,8 +14,6 @@ $(INC_DIR)/Crossover.h \
 $(INC_DIR)/Selection.h
 
 SRC_FILES = $(SRC_DIR)/Trial.cpp \
-$(SRC_DIR)/Mutation.cpp \
-$(SRC_DIR)/Crossover.cpp \
 $(SRC_DIR)/Selection.cpp
 
 AM_CPPFLAGS = -I$(INC_DIR)

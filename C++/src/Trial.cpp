@@ -1,10 +1,11 @@
-#include "Trial.h"
 #include <iomanip>
+#include "Trial.h"
 
 //! Static member initialisation
 std::vector<std::string> Trial::fParameters;
-std::vector<double> Trial::fLowerBounds;
-std::vector<double> Trial::fUpperBounds;
+Trial::Vector_t Trial::fLowerBounds;
+Trial::Vector_t Trial::fUpperBounds;
+std::tr1::ranlux64_base_01 Trial::generator;
 
 //! Copy assignment operator
 Trial& Trial::operator=(Trial trial)
@@ -18,8 +19,26 @@ Trial& Trial::operator=(Trial trial)
 	return *this;
 }
 
+void Trial::Init()
+{
+	// Set seed if not done already
+	static bool IsSeed = false;
+	if(!IsSeed)
+	{
+		generator.seed(time(NULL));
+		IsSeed = true;
+	}
+	
+	// Initialise each point with a random value drawn uniformly between its lower and upper bound
+	for(::vector_size_t i = 0; i < fPoint.size(); i++)
+	{
+		std::tr1::uniform_real<double> unifReal(fLowerBounds.at(i), fUpperBounds.at(i));
+		fPoint.at(i) = unifReal(generator);
+	}
+}
+
 //! Add a new parameter with its name and validity range to the parameter space.
-void Trial::AddParameter(std::string parameter, double lowerBound, double upperBound)
+void Trial::AddParameter(std::string parameter, Vector_type_t lowerBound, Vector_type_t upperBound)
 {
 	// Check wether lowerBound < upperBound. If not, swap values.
 	if(lowerBound > upperBound)

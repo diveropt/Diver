@@ -55,9 +55,7 @@ public:
 //! Constructor
 template <typename TrialT, typename MutationSchemeT, typename CrossoverSchemeT, typename SelectionSchemeT>
 DE<TrialT, MutationSchemeT, CrossoverSchemeT, SelectionSchemeT>::DE(const int& nInd, const int& nGen) : fTrial(new TrialT), fMutation(new MutationSchemeT), fCrossover(new CrossoverSchemeT), fSelection(new SelectionSchemeT), fnInd(nInd), fnGen(nGen)
-{
-	srand(time(0));	
-}
+{}
 
 //! Copy constructor
 template <typename TrialT, typename MutationSchemeT, typename CrossoverSchemeT, typename SelectionSchemeT>
@@ -81,8 +79,6 @@ DE<TrialT, MutationSchemeT, CrossoverSchemeT, SelectionSchemeT>::DE(const DE<Tri
 	
 	fnInd = de.fnInd;
 	fnGen = de.fnGen;
-	
-	srand(time(0));	
 }	
 
 //! Destructor
@@ -121,8 +117,6 @@ DE<TrialT, MutationSchemeT, CrossoverSchemeT, SelectionSchemeT>& DE<TrialT, Muta
 	if(fSelection)
 		delete fSelection;
 	fSelection = new SelectionSchemeT(de.fSelection);
-
-	srand(time(0));
 	
 	return *this;
 }
@@ -133,15 +127,12 @@ TrialT* DE<TrialT, MutationSchemeT, CrossoverSchemeT, SelectionSchemeT>::FirstTr
 {
 	TrialT *first = new TrialT();
 
-	double randomnumber = 0;
-	for(::vector_size_t i = 0; i < first -> GetN(); i++)
-	{
-		randomnumber = first -> GetParameterLowerBound(i) + (static_cast<double>(rand())/(RAND_MAX + 1.0))*(first -> GetParameterUpperBound(i) - first -> GetParameterLowerBound(i));
-		first -> SetValue(i, randomnumber);
-	}
-
+	// Initialise trial
+	first -> Init();
+	
+	// Evaluate the fitness of this point
 	first -> SetFitness(function(first -> GetPoint()));
-
+	
 	return first;
 }
 
