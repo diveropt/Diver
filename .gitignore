@@ -10,7 +10,6 @@ C++/examples/.deps/
 C++/examples/.libs/
 C++/config/
 C++/autom4te.cache/
-C++/test/
 libtool
 configure
 *.m4
