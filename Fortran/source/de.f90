@@ -11,14 +11,12 @@ implicit none
 private
 public run_de
 
-!logical, parameter :: verbose = .true.				!moved to detypes
-
 contains 
 
 
   !Main differential evolution routine.  
   subroutine run_de(func, prior, lowerbounds, upperbounds, maxciv, maxgen, NP, F, Cr, lambda, current, exp, bndry, tolerance)
-    real, external :: func, prior 				!function to be optimized, prior functions
+    real, external :: func, prior 				!function to be minimized (assumed -ln[likelihood]), prior function
     real, dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space 
     integer, intent(in), optional :: maxciv 			!maximum number of civilisations
     integer, intent(in), optional :: maxgen 			!maximum number of generations per civilisation
@@ -29,7 +27,7 @@ contains
     logical, intent(in), optional :: current 			!use current vector for mutation
     logical, intent(in), optional :: exp 			!use exponential crossover
     integer, intent(in), optional :: bndry                      !boundary constraint: 1 -> brick wall, 2 -> random re-initialization, 3 -> reflection
-    real, intent(in), optional :: tolerance			!tolerance in log-evidence for 
+    real, intent(in), optional :: tolerance			!input tolerance in log-evidence
      
     integer :: D 						!dimension of parameter space; we know this from the bounds given
     type(deparams) :: params 					!carries the differential evolution parameters 
@@ -49,6 +47,7 @@ contains
 
     logical :: calcZ = .false.					!whether to bother with posterior and evidence or not
     real :: Zold, Z = 0						!evidence
+    integer :: Nsamples = 0					!number of statistically independent samples from posterior
     integer :: convcount = 0					!number of times delta ln Z < tol in a row so far
     integer, parameter :: convcountreq = 4			!number of times delta ln Z < tol in a row for convergence
 
@@ -61,6 +60,9 @@ contains
        write (*,*) 'ERROR: invalid parameter space bounds.'
     else !proceed with program
 
+       !seed the random number generator from the system clock
+       call random_seed()
+
        D=size(lowerbounds)
 
        !assign specified or default values to params, bconstrain
@@ -69,18 +71,18 @@ contains
        if (present(maxciv)) then
           numciv = maxciv
        else
-          numciv = 500						!arbitrary default value for numciv
+          numciv = 1000					!arbitrary default value for numciv
        end if
        if (present(maxgen)) then
           numgen = maxgen
        else 
-          numgen = 200						!arbitrary default value for numgen
+          numgen = 500						!arbitrary default value for numgen
        end if
 
        if (present(tolerance)) then 
           tol = tolerance
        else
-          tol = 1e-3
+          tol = 1e-4
        end if
 
        if (tol .gt. 0.0) calcZ = .true.
@@ -102,7 +104,7 @@ contains
 
           !Initialise the first generation
           call initialize(X, params, lowerbounds, upperbounds, fcall, func)
-          if (calcZ) call doBayesian(X, Z, prior, fcall)        
+          if (calcZ) call doBayesian(X, Z, prior, Nsamples, params%NP)        
 
           !Internal (normal) DE loop: calculates population for each generation
           do gen = 2, numgen 
@@ -127,7 +129,9 @@ contains
  
              if (verbose) write (*,*) '  Acceptance rate: ', accept/real(params%NP)
 
-             if (calcZ) call doBayesian(X, Z, prior, fcall)        
+             if (calcZ) then
+               call doBayesian(X, Z, prior, Nsamples, params%NP)     
+             endif   
 
              if (converged(X, gen)) exit             !Check generation-level convergence: if satisfied, exit loop
 
@@ -153,7 +157,6 @@ contains
           if (verbose) write (*,*) '  Value at best final vector in this civilisation: ', bestvalue
           if (verbose) write (*,*) '  Cumulative function calls: ', fcall
       
-          !if (calcZ) write(*,*) abs(log(Z)-log(Zold)), tol
           !Break out if posterior/evidence is converged
           if (calcZ .and. abs(log(Z)-log(Zold)) .lt. tol) then
              if (convcount .eq. convcountreq-1) exit
@@ -162,7 +165,7 @@ contains
              convcount = 0
           endif
           Zold = Z
-          
+
        enddo
 
 !    if (verbose) write (*,*)
@@ -404,24 +407,28 @@ contains
 
 
   !Get posterior weights and update evidence
-  subroutine doBayesian(X, Z, prior, fcall)
+  subroutine doBayesian(X, Z, prior, oldsamples, newsamples)
   
     type(population), intent(inout) :: X		!current generation
     real, intent(inout) :: Z				!evidence
     real, external :: prior 				!prior funtion
-    integer, intent(in) :: fcall			!running number of samples
-    integer, save :: fcall_prev = 0			!last number of samples
+    integer, intent(inout) :: oldsamples		!previous (running) number of samples
+    integer, intent(in) :: newsamples 			!additional number of samples this time
+    integer :: totsamples				!total number of samples
     
     !Find weights for posterior pdf / evidence calculation
     call getweights(X,prior)
     
-    !FIXME multiplicities for outputting in chains = X%weights/fcall*exp(-X%values)
+    !Find total number of samples
+    totsamples = oldsamples + newsamples
+
+    !FIXME multiplicities for outputting in chains = X%weights/totsamples*exp(-X%values)
 
     !Update evidence
-    Z = (Z*dble(fcall_prev) + sum(X%weights*exp(-X%values)))/dble(fcall)
+    Z = (Z*dble(oldsamples) + sum(X%weights*exp(-X%values)))/dble(totsamples)
 
-    !Save number of points for next time
-    fcall_prev = fcall
+    !Update number of samples for next time
+    oldsamples = totsamples
 
     !write(*,*) Z, sum(X%weights/fcall*exp(-X%values)), sum(X%weights), sum(exp(-X%values))
 

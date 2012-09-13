@@ -21,6 +21,13 @@ real function func(X, fcall)
   integer, intent(inout) :: fcall
   
   fcall = fcall + 1
+  !if (X(1) .gt. 0.0) then
+  !  func = 0. 
+  !else 
+  !  func = 1.0
+  !endif
+  !func=X(1)
+  !func = X(1)**2+X(2)**2
   func = (1.0 - X(1))**2 + (5.0 - X(2))**2
 end function func
 

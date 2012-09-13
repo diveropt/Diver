@@ -87,15 +87,16 @@ contains
       
       if (debug) write(*,*) 'about to set off initial climber',i,'of',NP
       call climbTree(individual, root)
+      
     enddo
 
-    !Work through the linked list and check if addional branching is required, 
+    !Work through the linked list and check if additional branching is required, 
     !deallocating each entry as we go, and adding more to the end where required
     call growTree(firstListNode)
 
     !$OMP PARALLEL DO
     do i = 1, NP
-      X%weights(i) = X%weights(i) * dble(totalCells) * prior(X%vectors(i,:))
+      X%weights(i) = X%weights(i) * prior(X%vectors(i,:)) * dble(totalCells)
     enddo
     !$END OMP PARALLEL DO
 
@@ -173,7 +174,7 @@ contains
 
     endif
 
-    !Terminate the list of points properly (required if individual was previosuly part of another list) 
+    !Terminate the list of points properly (required if individual was previously part of another list) 
     nullify(currentNode%lastnewpt%next)
 
     !Increment the counter of new population points in the current node
@@ -201,6 +202,7 @@ contains
     !Check if this is the first (=permanent) node in the list
     if (.not. associated(workingListNode%prev)) then
       !it is, so step on to the second node
+
       call growTree(workingListNode%next)
 
     else
@@ -225,7 +227,6 @@ contains
           if (debug) write(*,*) 'deallocating individual'
           deallocate(individual)
           if (associated(temppt)) individual => temppt
-
         enddo
 
       endif
@@ -275,7 +276,7 @@ contains
     currentNode%branchB%lowerbounds = currentNode%lowerbounds
 
     !Work out which dimension to partition the current node in to make the two new nodes
-    splitIndex = minloc((currentNode%upperbounds-currentNode%lowerbounds)/ranges)
+    splitIndex = maxloc((currentNode%upperbounds-currentNode%lowerbounds)/ranges)
     currentNode%branchesDifferInDim = splitIndex(1)
   
     !Set branch A to the lower half of this partition, branch B to the upper half
