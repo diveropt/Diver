@@ -18,7 +18,7 @@ contains
     integer, intent(in) :: n                   !index of current target vector
     real, dimension(params%D) :: gencrossover  !trial vector created
 
-    if (params%exp) then
+    if (params%expon) then
        gencrossover = expcrossover(X, V, n, params)
     else
        gencrossover = bincrossover(X, V, n, params)

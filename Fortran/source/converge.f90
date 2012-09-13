@@ -5,9 +5,28 @@ use detypes
 implicit none
 
 private
-public converged
+public converged, evidenceDone
 
 contains
+
+
+  logical function evidenceDone(Z,Zold,tol,convcount,convcountreq)
+
+    real, intent(in) :: Z, tol
+    real, intent(inout) :: Zold
+    integer, intent(inout) :: convcount
+    integer, intent(in) :: convcountreq
+
+    evidenceDone = .false.
+    if (abs(log(Z/Zold)) .ge. tol) then
+      convcount = 0
+    else
+      if (convcount .eq. convcountreq-1) evidenceDone = .true.
+      convcount = convcount + 1
+    endif
+    Zold = Z
+
+  end function evidenceDone
 
 
   logical function converged(X, gen)                  
@@ -36,7 +55,7 @@ contains
     type(population), intent(in) :: X
     integer, intent(in) :: gen
 
-    real, parameter :: convthresh=0.5             !if the mean improvement is less than this, population has converged
+    real, parameter :: convthresh=0.1             !if the mean improvement is less than this, population has converged
     integer, parameter :: convstep=5              !mean improvement checked using this many steps
     logical, parameter :: avgfitness=.true.       !use the average fitness of the population to check improvement. Otherwise, use the best fitness
 

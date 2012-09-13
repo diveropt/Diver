@@ -15,7 +15,7 @@ contains
 
 
   !Main differential evolution routine.  
-  subroutine run_de(func, prior, lowerbounds, upperbounds, maxciv, maxgen, NP, F, Cr, lambda, current, exp, bndry, tolerance)
+  subroutine run_de(func, prior, lowerbounds, upperbounds, maxciv, maxgen, NP, F, Cr, lambda, current, expon, bndry, tolerance, tolcount)
     real, external :: func, prior 				!function to be minimized (assumed -ln[likelihood]), prior function
     real, dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space 
     integer, intent(in), optional :: maxciv 			!maximum number of civilisations
@@ -25,9 +25,10 @@ contains
     real, intent(in), optional :: Cr 				!crossover factor
     real, intent(in), optional :: lambda 			!mixing factor between best and rand/current
     logical, intent(in), optional :: current 			!use current vector for mutation
-    logical, intent(in), optional :: exp 			!use exponential crossover
+    logical, intent(in), optional :: expon 			!use exponential crossover
     integer, intent(in), optional :: bndry                      !boundary constraint: 1 -> brick wall, 2 -> random re-initialization, 3 -> reflection
     real, intent(in), optional :: tolerance			!input tolerance in log-evidence
+    integer, intent(in), optional :: tolcount	 		!input number of times delta ln Z < tol in a row for convergence
      
     integer :: D 						!dimension of parameter space; we know this from the bounds given
     type(deparams) :: params 					!carries the differential evolution parameters 
@@ -49,9 +50,7 @@ contains
     real :: Zold, Z = 0						!evidence
     integer :: Nsamples = 0					!number of statistically independent samples from posterior
     integer :: convcount = 0					!number of times delta ln Z < tol in a row so far
-    integer, parameter :: convcountreq = 4			!number of times delta ln Z < tol in a row for convergence
-
-    
+    integer :: convcountreq					!number of times delta ln Z < tol in a row for convergence
 
     write (*,*) '============================='
     write (*,*) ' ******** Begin DE *********'
@@ -66,23 +65,30 @@ contains
        D=size(lowerbounds)
 
        !assign specified or default values to params, bconstrain
-       call param_assign(params, bconstrain, D, NP=NP, F=F, Cr=Cr, lambda=lambda, current=current, exp=exp, bndry=bndry)
+       call param_assign(params, bconstrain, D, NP=NP, F=F, Cr=Cr, lambda=lambda, current=current, expon=expon, bndry=bndry)
 
        if (present(maxciv)) then
           numciv = maxciv
        else
-          numciv = 1000					!arbitrary default value for numciv
+          numciv = 2000					!arbitrary default value for numciv
        end if
+
        if (present(maxgen)) then
           numgen = maxgen
        else 
-          numgen = 500						!arbitrary default value for numgen
+          numgen = 100					!arbitrary default value for numgen
        end if
 
        if (present(tolerance)) then 
           tol = tolerance
        else
-          tol = 1e-4
+          tol = 1.d-4					!default for tolerance
+       end if
+
+       if (present(tolcount)) then 
+          convcountreq = tolcount
+       else
+          convcountreq = 4				!default for tolerance counter
        end if
 
        if (tol .gt. 0.0) calcZ = .true.
@@ -130,11 +136,15 @@ contains
              if (verbose) write (*,*) '  Acceptance rate: ', accept/real(params%NP)
 
              if (calcZ) then
-               call doBayesian(X, Z, prior, Nsamples, params%NP)     
+               call doBayesian(X, Z, prior, Nsamples, params%NP)
              endif   
 
              if (converged(X, gen)) exit             !Check generation-level convergence: if satisfied, exit loop
-
+                                                     !PS, comment: it looks like the convergence of the evidence *requires*
+                                                     !that the generation-level convergence check is done, as continuing to
+                                                     !evolve a population after it has converged just results in many more 
+                                                     !copies of the same point ending up in the database, which seems to
+                                                     !start to introduce a bias in the evidence.
           end do
 
           avgvector = sum(X%vectors, dim=1)/real(params%NP)
@@ -158,13 +168,7 @@ contains
           if (verbose) write (*,*) '  Cumulative function calls: ', fcall
       
           !Break out if posterior/evidence is converged
-          if (calcZ .and. abs(log(Z)-log(Zold)) .lt. tol) then
-             if (convcount .eq. convcountreq-1) exit
-             convcount = convcount + 1
-          else
-             convcount = 0
-          endif
-          Zold = Z
+          if (calcZ .and. evidenceDone(Z,Zold,tol,convcount,convcountreq)) exit
 
        enddo
 
@@ -193,7 +197,7 @@ contains
 
   !assign parameter values (defaults if not specified) and print values to screen
   !moved this to its own subroutine for ease-of-reading in the main program
-  subroutine param_assign(params, bconstrain, D, NP, F, Cr, lambda, current, exp, bndry)
+  subroutine param_assign(params, bconstrain, D, NP, F, Cr, lambda, current, expon, bndry)
 
     type(deparams), intent(out) :: params 
     integer, intent(out) :: bconstrain		!boundary constraints for selection
@@ -203,7 +207,7 @@ contains
     real, optional, intent(in) :: Cr 	
     real, optional, intent(in) :: lambda 
     logical, optional, intent(in) :: current 
-    logical, optional, intent(in) :: exp 
+    logical, optional, intent(in) :: expon 
     integer, optional, intent(in) :: bndry
 
     character (len=22) :: DEstrategy, Fsize	!for printing mutation/crossover DE strategy
@@ -261,10 +265,10 @@ contains
        params%current = .false. 		!default rand/1/bin
     end if
 
-    if (present(exp)) then
-       params%exp = exp
+    if (present(expon)) then
+       params%expon = expon
     else
-       params%exp = .false.     		!default rand/1/bin
+       params%expon = .false.     		!default rand/1/bin
     end if
 
     !printing the parameter choice and DE mutation/crossover strategy to screen
@@ -289,7 +293,7 @@ contains
     Fsize = adjustl(Fsize)
     DEstrategy = trim(DEstrategy)//trim(Fsize) 	
 
-    if(params%exp) then                  	!crossover strategy
+    if(params%expon) then                  	!crossover strategy
        DEstrategy = trim(DEstrategy)//'/exp'
     else
        DEstrategy = trim(DEstrategy)//'/bin'
@@ -339,7 +343,8 @@ contains
     if (verbose) write (*,*) '-----------------------------'
     if (verbose) write (*,*) 'Generation: ', '1'
 
-    allocate(X%vectors(params%NP, params%D), X%values(params%NP), X%weights(params%NP)) !deallocated at end of run_de
+    allocate(X%vectors(params%NP, params%D), X%values(params%NP), X%weights(params%NP), X%multiplicities(params%NP)) !deallocated at end of run_de
+    X%multiplicities = 1.d0 !Initialise to 1 in case posteriors are not calculated
 
     !$OMP PARALLEL DO
     do i=1,params%NP
@@ -422,15 +427,14 @@ contains
     !Find total number of samples
     totsamples = oldsamples + newsamples
 
-    !FIXME multiplicities for outputting in chains = X%weights/totsamples*exp(-X%values)
+    !Calculate multiplicity for outputting in chains
+    X%multiplicities = X%weights*exp(-X%values)/dble(totsamples)
 
     !Update evidence
-    Z = (Z*dble(oldsamples) + sum(X%weights*exp(-X%values)))/dble(totsamples)
+    Z = Z*dble(oldsamples)/dble(totsamples) + sum(X%multiplicities)
 
     !Update number of samples for next time
     oldsamples = totsamples
-
-    !write(*,*) Z, sum(X%weights/fcall*exp(-X%values)), sum(X%weights), sum(exp(-X%values))
 
   end subroutine doBayesian
 

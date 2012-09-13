@@ -46,7 +46,7 @@ program dedriver !testing general differential evolution
 
 use driverconsts
 implicit none
-call run_de(func, prior, lowerbounds, upperbounds)
+call run_de(func, prior, lowerbounds, upperbounds, expon=.true.)
 
 end program dedriver
 
