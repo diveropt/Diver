@@ -72,7 +72,7 @@ real function gauss1(params, derived, fcall)
   integer, intent(inout) :: fcall
   
   fcall = fcall + 1
-  gauss1 = params(1)*params(1) + params(2)+params(2)
+  gauss1 = params(1)*params(1) + params(2)*params(2)
   derived = [2.*params(1),params(1)+params(2)]
   
 end function gauss1
