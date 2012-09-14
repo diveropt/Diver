@@ -1,4 +1,4 @@
-module driverconsts
+module examples
 
 use de
 
@@ -17,7 +17,7 @@ contains
 !Functions to be minimized.  Assumed to be -ln(Likelihood)
 
 real function constant(params, derived, fcall)
-  implicit none
+
   real, dimension(size(lowerbounds)), intent(in) :: params
   real, dimension(nDerived), intent(out) :: derived
   integer, intent(inout) :: fcall 
@@ -32,7 +32,7 @@ end function constant
 
 
 real function step(params, derived, fcall)
-  implicit none
+
   real, dimension(size(lowerbounds)), intent(in) :: params
   real, dimension(nDerived), intent(out) :: derived
   integer, intent(inout) :: fcall
@@ -49,7 +49,7 @@ end function step
 
 
 real function linear(params, derived, fcall)
-  implicit none
+
   real, dimension(size(lowerbounds)), intent(in) :: params
   real, dimension(nDerived), intent(out) :: derived
   integer, intent(inout) :: fcall
@@ -66,7 +66,7 @@ end function linear
 
 
 real function gauss1(params, derived, fcall)
-  implicit none
+
   real, dimension(size(lowerbounds)), intent(in) :: params
   real, dimension(nDerived), intent(out) :: derived
   integer, intent(inout) :: fcall
@@ -79,7 +79,7 @@ end function gauss1
 
 
 real function gauss2(params, derived, fcall)
-  implicit none
+
   real, dimension(size(lowerbounds)), intent(in) :: params
   real, dimension(nDerived), intent(out) :: derived
   integer, intent(inout) :: fcall
@@ -95,21 +95,21 @@ end function gauss2
 
 !Flat prior distribution for all parameters
 real function flatprior(X)
-  implicit none
+
   real, dimension(2), intent(in) :: X
   flatprior = 1.0 / dPrior
 end function flatprior
 
-end module driverconsts
 
+end module examples
 
 
 program dedriver !Tester for general differential evolution
 
-use driverconsts
+use examples
+
 implicit none
   
   call run_de(gauss2, flatprior, lowerbounds, upperbounds, nDerived=nDerived, expon=.true.)
 
 end program dedriver
-

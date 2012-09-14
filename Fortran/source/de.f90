@@ -1,6 +1,7 @@
 module de
 
 use init
+use io
 use converge
 use mutation
 use crossover
@@ -15,7 +16,8 @@ contains
 
 
   !Main differential evolution routine.  
-  subroutine run_de(func, prior, lowerbounds, upperbounds, nDerived, maxciv, maxgen, NP, F, Cr, lambda, current, expon, bndry, tolerance, tolcount)
+  subroutine run_de(func, prior, lowerbounds, upperbounds, nDerived, maxciv, maxgen, NP, F, Cr, lambda, current, expon, &
+                    bndry, tolerance, tolcount, savecount)
     real, external :: func, prior 				!function to be minimized (assumed -ln[likelihood]), prior function
     real, dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space 
     integer, intent(in), optional :: nDerived	 		!input number of derived quantities to output
@@ -30,6 +32,7 @@ contains
     integer, intent(in), optional :: bndry                      !boundary constraint: 1 -> brick wall, 2 -> random re-initialization, 3 -> reflection
     real, intent(in), optional :: tolerance			!input tolerance in log-evidence
     integer, intent(in), optional :: tolcount	 		!input number of times delta ln Z < tol in a row for convergence
+    integer, intent(in), optional :: savecount			!save progress every savecount generations
      
     type(codeparams) :: run_params 				!carries the code parameters 
     integer :: bconstrain					!boundary constraint parameter
@@ -59,19 +62,23 @@ contains
        !seed the random number generator from the system clock
        call random_seed()
 
-       !assign specified or default values to run_params, bconstrain
+       !Assign specified or default values to run_params, bconstrain
        call param_assign(run_params, bconstrain, lowerbounds, upperbounds, nDerived=nDerived, maxciv=maxciv, maxgen=maxgen, &
                          NP=NP, F=F, Cr=Cr, lambda=lambda, current=current, expon=expon, bndry=bndry, tolerance=tolerance, &
-                         tolcount=tolcount)
+                         tolcount=tolcount, savecount=savecount)
 
-       !allocate best-fit containers
+       !Resume from saved run or initialise save files for a new one
+       call io_begin(civ, gen, Z, Zold, Nsamples, convcount, run_params)
+
+       !Allocate best-fit containers
        allocate(BF%vectors(1, run_params%D), BF%derived(1, run_params%D_derived), BF%values(1), bestderived(run_params%D_derived))
     
-       fcall = 0
-       BF%values(1) = huge(BF%values(1))
-
        !If required, initialise the linked tree used for estimating the evidence and posterior
        if (run_params%calcZ) call initree(lowerbounds,upperbounds)
+
+       !Initialise internal variables
+       fcall = 0
+       BF%values(1) = huge(BF%values(1))
 
        !Run a number of sequential DE optimisations, exiting either after a set number of
        !runs through or after the evidence has been calculated to a desired accuracy
@@ -110,6 +117,9 @@ contains
              if (run_params%calcZ) then
                 call doBayesian(X, Z, prior, Nsamples, run_params%DE%NP)
              endif   
+
+             !Do periodic save
+             if (mod(gen,run_params%savefreq) .eq. 0) call save_all(X, civ, gen, Z, Zold, Nsamples, run_params)
 
              if (converged(X, gen)) exit             !Check generation-level convergence: if satisfied, exit loop
                                                      !PS, comment: it looks like the convergence of the evidence *requires*
@@ -151,7 +161,7 @@ contains
 !    if (verbose) write (*,*) 'Number of civilisations: ', min(civ,run_params%numciv)
 !    if (verbose) write (*,*) 'Best final vector: ', BF%vectors(1,:)
 !    if (verbose) write (*,*) 'Value at best final vector: ', BF%values(1)
-!    if (run_params%calcZ) write (*,*)   'ln(Evidence): ', log(Z)
+!    if (verbose .and. run_params%calcZ) write (*,*)   'ln(Evidence): ', log(Z)
 !    if (verbose) write (*,*) 'Total Function calls: ', fcall
 
        write (*,*) '============================='
@@ -160,6 +170,9 @@ contains
        write (*,*) 'Value at best final vector: ', BF%values(1)
        if (run_params%calcZ) write (*,*)   'ln(Evidence): ', log(Z)
        write (*,*) 'Total Function calls: ', fcall
+
+       !Do final save operation
+       call save_all(X, civ, gen, Z, Zold, Nsamples, convcount, run_params, final=.true.)
 
        deallocate(X%vectors, X%values, X%weights, X%derived, X%multiplicities) 
        deallocate(run_params%DE%F, BF%vectors, BF%values, BF%derived)

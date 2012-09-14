@@ -28,6 +28,7 @@ type codeparams                 			!code parameters
    real :: tol						!tolerance in log-evidence
    integer :: convcountreq				!number of times delta ln Z < tol in a row for convergence
    logical :: calcZ = .false.				!calculate evidence or not
+   integer :: savefreq					!frequency with which to save progress
 end type codeparams
 
 type population
@@ -36,6 +37,5 @@ type population
   real, allocatable, dimension(:) :: values, weights, multiplicities 	!dimension(NP)
   real, allocatable, dimension(:,:) :: derived				!dimension(NP, D_derived)
 end type population
-
 
 end module detypes
