@@ -14,7 +14,6 @@ integer, parameter, public :: dp = kind(1.0d0)
 
 type deparams                 				!differential evolution parameters
    integer NP                 				!population size
-   integer D                  				!dimensions of parameter space  
    real, allocatable, dimension(:) ::  F 		!mutation scale factors
    real lambda                				!mutation scale factor for best-to-rand/current
    logical current            				!true: use current/best-to-current mutation
@@ -22,11 +21,20 @@ type deparams                 				!differential evolution parameters
    logical expon               				!when true, use exponential crossover (else use binomial)
 end type deparams
 
+type codeparams                 			!code parameters
+   type (deparams) DE					!differential evolution parameters
+   integer :: D, D_derived				!dimension of parameter space (known from the bounds given); dimension of derived space
+   integer :: numciv, numgen				!maximum number of civilizations, generations
+   real :: tol						!tolerance in log-evidence
+   integer :: convcountreq				!number of times delta ln Z < tol in a row for convergence
+   logical :: calcZ = .false.				!calculate evidence or not
+end type codeparams
 
 type population
   !add array of strings for names?
   real, allocatable, dimension(:,:) :: vectors 				!dimension(NP, D)
   real, allocatable, dimension(:) :: values, weights, multiplicities 	!dimension(NP)
+  real, allocatable, dimension(:,:) :: derived				!dimension(NP, D_derived)
 end type population
 
 

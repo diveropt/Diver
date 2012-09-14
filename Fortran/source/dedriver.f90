@@ -4,7 +4,7 @@ use de
 
 implicit none
 
-integer, parameter :: NP=10, numgen=15, numciv=1
+integer, parameter :: NP=10, numgen=15, numciv=1, nDerived=2
 real, parameter ::  Cr=0.9, tol = 1e-3			!recommend 0<F<1, 0<=Cr<=1.  Set tol negative to forget posterior/evidence
 real, parameter, dimension(1) :: F=0.6
 real, parameter, dimension(2) :: lowerbounds=-50.0	!boundaries of parameter space
@@ -14,39 +14,102 @@ real, parameter :: dPrior = ranges(1)*ranges(2)
 
 contains
 
-!function to be minimized.
-real function func(X, fcall)
+!Functions to be minimized.  Assumed to be -ln(Likelihood)
+
+real function constant(params, derived, fcall)
   implicit none
-  real, dimension(2), intent(in) :: X
+  real, dimension(size(lowerbounds)), intent(in) :: params
+  real, dimension(nDerived), intent(out) :: derived
+  integer, intent(inout) :: fcall 
+
+  fcall = fcall + 1
+  !-lnlike
+  constant = 0. 
+  !derived quantities (other functions of the parameters)
+  derived = [2.*params(1),params(1)+params(2)]
+
+end function constant
+
+
+real function step(params, derived, fcall)
+  implicit none
+  real, dimension(size(lowerbounds)), intent(in) :: params
+  real, dimension(nDerived), intent(out) :: derived
   integer, intent(inout) :: fcall
   
   fcall = fcall + 1
-  !if (X(1) .gt. 0.0) then
-  !  func = 0. 
-  !else 
-  !  func = 1.0
-  !endif
-  !func=X(1)
-  !func = X(1)**2+X(2)**2
-  func = (1.0 - X(1))**2 + (5.0 - X(2))**2
-end function func
+  if (params(1) .gt. 0.0) then
+    step = 0. 
+  else 
+    step = 1.
+  endif
+  derived = [2.*params(1),params(1)+params(2)]
+  
+end function step
 
-!flat prior distribution for parameters of function
-real function prior(X)
+
+real function linear(params, derived, fcall)
+  implicit none
+  real, dimension(size(lowerbounds)), intent(in) :: params
+  real, dimension(nDerived), intent(out) :: derived
+  integer, intent(inout) :: fcall
+  
+  fcall = fcall + 1
+  if (params(1) .gt. 0.0) then
+    linear = params(1) 
+  else 
+    linear = 0.
+  endif
+  derived = [2.*params(1),params(1)+params(2)]
+  
+end function linear
+
+
+real function gauss1(params, derived, fcall)
+  implicit none
+  real, dimension(size(lowerbounds)), intent(in) :: params
+  real, dimension(nDerived), intent(out) :: derived
+  integer, intent(inout) :: fcall
+  
+  fcall = fcall + 1
+  gauss1 = params(1)*params(1) + params(2)+params(2)
+  derived = [2.*params(1),params(1)+params(2)]
+  
+end function gauss1
+
+
+real function gauss2(params, derived, fcall)
+  implicit none
+  real, dimension(size(lowerbounds)), intent(in) :: params
+  real, dimension(nDerived), intent(out) :: derived
+  integer, intent(inout) :: fcall
+  
+  fcall = fcall + 1
+  gauss2 = (1.-params(1))*(1.-params(1)) + (5.-params(2))*(5.-params(2))
+  derived = [2.*params(1),params(1)+params(2)]
+  
+end function gauss2
+
+
+!Example prior distributions
+
+!Flat prior distribution for all parameters
+real function flatprior(X)
   implicit none
   real, dimension(2), intent(in) :: X
-  prior = 1.0 / dPrior
-end function prior
+  flatprior = 1.0 / dPrior
+end function flatprior
 
 end module driverconsts
 
 
 
-program dedriver !testing general differential evolution
+program dedriver !Tester for general differential evolution
 
 use driverconsts
 implicit none
-call run_de(func, prior, lowerbounds, upperbounds, expon=.true.)
+  
+  call run_de(gauss2, flatprior, lowerbounds, upperbounds, nDerived=nDerived, expon=.true.)
 
 end program dedriver
 
