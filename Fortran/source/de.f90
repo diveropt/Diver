@@ -16,10 +16,11 @@ contains
 
 
   !Main differential evolution routine.  
-  subroutine run_de(func, prior, lowerbounds, upperbounds, nDerived, maxciv, maxgen, NP, F, Cr, lambda, current, expon, &
-                    bndry, tolerance, tolcount, savecount)
+  subroutine run_de(func, prior, lowerbounds, upperbounds, path, nDerived, maxciv, maxgen, NP, F, Cr, lambda, current, expon, &
+                    bndry, tolerance, tolcount, savecount, resume)
     real, external :: func, prior 				!function to be minimized (assumed -ln[likelihood]), prior function
-    real, dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space 
+    real, dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space
+    character(len=*), intent(in) :: path			!path to save samples, resume files, etc  
     integer, intent(in), optional :: nDerived	 		!input number of derived quantities to output
     integer, intent(in), optional :: maxciv 			!maximum number of civilisations
     integer, intent(in), optional :: maxgen 			!maximum number of generations per civilisation
@@ -33,6 +34,7 @@ contains
     real, intent(in), optional :: tolerance			!input tolerance in log-evidence
     integer, intent(in), optional :: tolcount	 		!input number of times delta ln Z < tol in a row for convergence
     integer, intent(in), optional :: savecount			!save progress every savecount generations
+    logical, intent(in), optional :: resume			!restart from a previous run
      
     type(codeparams) :: run_params 				!carries the code parameters 
     integer :: bconstrain					!boundary constraint parameter
@@ -68,7 +70,11 @@ contains
                          tolcount=tolcount, savecount=savecount)
 
        !Resume from saved run or initialise save files for a new one
-       call io_begin(civ, gen, Z, Zold, Nsamples, convcount, run_params)
+       if (present(resume)) then
+         call io_begin(path, civ, gen, Z, Zold, Nsamples, convcount, run_params, restart=resume)
+       else
+         call io_begin(path, civ, gen, Z, Zold, Nsamples, convcount, run_params)
+       endif
 
        !Allocate best-fit containers
        allocate(BF%vectors(1, run_params%D), BF%derived(1, run_params%D_derived), BF%values(1), bestderived(run_params%D_derived))
@@ -119,7 +125,7 @@ contains
              endif   
 
              !Do periodic save
-             if (mod(gen,run_params%savefreq) .eq. 0) call save_all(X, civ, gen, Z, Zold, Nsamples, run_params)
+             if (mod(gen,run_params%savefreq) .eq. 0) call save_all(X, path, civ, gen, Z, Zold, Nsamples, convcount, run_params)
 
              if (converged(X, gen)) exit             !Check generation-level convergence: if satisfied, exit loop
                                                      !PS, comment: it looks like the convergence of the evidence *requires*
@@ -172,7 +178,7 @@ contains
        write (*,*) 'Total Function calls: ', fcall
 
        !Do final save operation
-       call save_all(X, civ, gen, Z, Zold, Nsamples, convcount, run_params, final=.true.)
+       call save_all(X, path, civ, gen, Z, Zold, Nsamples, convcount, run_params, final=.true.)
 
        deallocate(X%vectors, X%values, X%weights, X%derived, X%multiplicities) 
        deallocate(run_params%DE%F, BF%vectors, BF%values, BF%derived)
