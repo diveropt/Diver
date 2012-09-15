@@ -12,7 +12,7 @@ integer, parameter, public :: sp = kind(1.0)
 integer, parameter, public :: dp = kind(1.0d0)
 
 
-type deparams                 				!differential evolution parameters
+type deparams                 				!differential evolution parameters (remember to expand io::save_state and io::resume if you expand this type)
    integer NP                 				!population size
    real, allocatable, dimension(:) ::  F 		!mutation scale factors
    real lambda                				!mutation scale factor for best-to-rand/current
@@ -21,7 +21,7 @@ type deparams                 				!differential evolution parameters
    logical expon               				!when true, use exponential crossover (else use binomial)
 end type deparams
 
-type codeparams                 			!code parameters
+type codeparams                 			!code parameters (remember to expand io::save_state and io::resume if you expand this type)
    type (deparams) DE					!differential evolution parameters
    integer :: D, D_derived				!dimension of parameter space (known from the bounds given); dimension of derived space
    integer :: numciv, numgen				!maximum number of civilizations, generations
