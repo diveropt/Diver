@@ -111,6 +111,6 @@ use examples
 
 implicit none
   
-  call run_de(gauss2, flatprior, lowerbounds, upperbounds, path, nDerived=nDerived, expon=.true.)
+  call run_de(gauss2, flatprior, lowerbounds, upperbounds, path, nDerived=nDerived, jDE=.true.)
 
 end program dedriver

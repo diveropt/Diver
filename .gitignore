@@ -19,6 +19,8 @@ config.status
 C++/examples/DE_example
 Fortran/build/
 Fortran/devopack_f
+Fortran/example_output/example.devo
+Fortran/example_output/example.sam
 
 # Logs #
 ######################

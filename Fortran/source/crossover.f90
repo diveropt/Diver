@@ -10,56 +10,67 @@ public gencrossover
 contains
 
 
-  function gencrossover(X, V, n, run_params)
+  subroutine gencrossover(X, V, U, n, run_params, trialCr)
 
-    type(population), intent(in) :: X          !current generation of target vectors
+    type(population), intent(in) :: X               !current generation of target vectors
     type(codeparams), intent(in) :: run_params
-    real, dimension(run_params%D), intent(in) :: V !donor vectors
-    integer, intent(in) :: n                   !index of current target vector
-    real, dimension(run_params%D) :: gencrossover  !trial vector created
+    real, dimension(run_params%D), intent(in) :: V  !donor vectors
+    real, dimension(run_params%D), intent(out) :: U !trial vectors
+    integer, intent(in) :: n                        !index of current target vector
+    real, intent(out) :: trialCr                    !self-adapting Cr
 
-    if (run_params%DE%expon) then
-       gencrossover = expcrossover(X, V, n, run_params)
+    if (run_params%DE%jDE) then 
+       trialCr = newCr(X, n)
+       U = bincrossover(X, V, n, run_params, trialCr)
+    elseif (run_params%DE%expon) then
+       U = expcrossover(X, V, n, run_params)
     else
-       gencrossover = bincrossover(X, V, n, run_params)
+       U = bincrossover(X, V, n, run_params)
     end if
     
-  end function gencrossover
+  end subroutine gencrossover
 
 
+  function bincrossover(X, V, n, run_params, trialCr)  !binomial crossover to create trial vectors
 
-  function bincrossover(X, V, n, run_params)       !binomial crossover to create trial vectors
-
-    type(population), intent(in) :: X          !current generation of target vectors
+    type(population), intent(in) :: X              !current generation of target vectors
     type(codeparams), intent(in) :: run_params
     real, dimension(run_params%D), intent(in) :: V !donor vectors
-    integer, intent(in) :: n                   !index of current target vector
+    integer, intent(in) :: n                       !index of current target vector
+    real, intent(in), optional :: trialCr          !self-adapting Cr. Used for jDE
     real, dimension(run_params%D) :: bincrossover  !trial vector created
     integer :: jrand           
     real, dimension(run_params%D) :: randj
+    real :: Cr
+
+    if (present(trialCr)) then
+       Cr = trialCr
+    else
+       Cr = run_params%DE%Cr
+    endif
 
     call random_int(jrand, 1, run_params%D)        !choose a guaranteed crossover for each vector.
     call random_number(randj)
-    where (randj .le. run_params%DE%Cr)
-       bincrossover(:) = V(:)                  !use donor vector
+
+    where (randj .le. Cr)
+       bincrossover(:) = V(:)                      !use donor vector
     elsewhere
-       bincrossover(:) = X%vectors(n, :)       !use target vector
+       bincrossover(:) = X%vectors(n, :)           !use target vector
     end where
-    bincrossover(jrand) = V(jrand)             !guaranteed crossover of donor   
+
+    bincrossover(jrand) = V(jrand)                 !guaranteed crossover of donor   
   end function bincrossover
-
-
 
 
   function expcrossover(X, V, n, run_params)
 
-    type(population), intent(in) :: X          !current generation of target vectors
+    type(population), intent(in) :: X   
     type(codeparams), intent(in) :: run_params
-    real, dimension(run_params%D), intent(in) :: V !donor vectors
-    integer, intent(in) :: n                   !index of current target vector
-    real, dimension(run_params%D) :: expcrossover  !trial vector created
+    real, dimension(run_params%D), intent(in) :: V
+    integer, intent(in) :: n               
+    real, dimension(run_params%D) :: expcrossover 
 
-    integer L, j                               !length of crossover, index for vectors
+    integer L, j                                   !length of crossover, index for vectors
     real rand
 
     L=0
@@ -80,10 +91,23 @@ contains
        expcrossover(:) = X%vectors(n,:)
        expcrossover(j:j+L-1) = V(j:j+L-1)
     end if
-
   end function expcrossover
 
 
+  function newCr(X, n)
+    type(population), intent(in) :: X
+    integer, intent(in) :: n 
+    real :: newCr
+    real, parameter :: tau=0.1                   !control parameter from Brest et al. 2006
+    real :: rand
+
+    call random_number(rand)
+    if (rand .lt. tau) then
+       call random_number(newCr)
+    else
+       newCr = X%CrjDE(n)                        !use Cr from previous generation
+    endif 
+  end function newCr
 
 
   subroutine random_int(harvest, min, max) !choose a random integer between min and max, inclusive

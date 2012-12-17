@@ -5,7 +5,7 @@ implicit none
 logical, parameter :: verbose = .false. 		!print verbose output
 
 
-!specify kinds in the rest of the program...
+!FIXME: specify kinds in the rest of the program.
 integer, parameter, public :: i4b = selected_int_kind(9)
 
 integer, parameter, public :: sp = kind(1.0)
@@ -19,6 +19,8 @@ type deparams                 				!differential evolution parameters (remember t
    logical current            				!true: use current/best-to-current mutation
    real Cr                    				!crossover rate
    logical expon               				!when true, use exponential crossover (else use binomial)
+   integer bconstrain                                   !boundary constraints for selection
+   logical jDE                                          !when true, use self-adaptive Cr and F for DE
 end type deparams
 
 type codeparams                 			!code parameters (remember to expand io::save_state and io::resume if you expand this type)
@@ -36,6 +38,7 @@ type population
   real, allocatable, dimension(:,:) :: vectors 				!dimension(NP, D)
   real, allocatable, dimension(:) :: values, weights, multiplicities 	!dimension(NP)
   real, allocatable, dimension(:,:) :: derived				!dimension(NP, D_derived)
+  real, allocatable, dimension(:) :: FjDE, CrjDE                        !dimension(NP)
 end type population
 
 end module detypes

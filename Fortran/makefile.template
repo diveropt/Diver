@@ -13,7 +13,7 @@ export FF FOPT
 DEVO_ROOT = $(PWD)
 
 PROG = devopack_f
-SOURCEFILES = detypes converge init mutation crossover posterior io de dedriver
+SOURCEFILES = detypes converge init select mutation crossover posterior io de dedriver
 LIB = #-L -l
 SOURCE = ${DEVO_ROOT}/source
 INC = ${DEVO_ROOT}/include

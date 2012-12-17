@@ -3,6 +3,7 @@ module de
 use init
 use io
 use converge
+use select
 use mutation
 use crossover
 use posterior
@@ -17,7 +18,7 @@ contains
 
   !Main differential evolution routine.  
   subroutine run_de(func, prior, lowerbounds, upperbounds, path, nDerived, maxciv, maxgen, NP, F, Cr, lambda, current, expon, &
-                    bndry, tolerance, tolcount, savecount, resume)
+                    bndry, jDE, tolerance, tolcount, savecount, resume)
     real, external :: func, prior 				!function to be minimized (assumed -ln[likelihood]), prior function
     real, dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space
     character(len=*), intent(in) :: path			!path to save samples, resume files, etc  
@@ -31,6 +32,7 @@ contains
     logical, intent(in), optional :: current 			!use current vector for mutation
     logical, intent(in), optional :: expon 			!use exponential crossover
     integer, intent(in), optional :: bndry                      !boundary constraint: 1 -> brick wall, 2 -> random re-initialization, 3 -> reflection
+    logical, intent(in), optional :: jDE                        !use self-adaptive choices for rand/1/bin parameters as described in Brest et al 2006
     real, intent(in), optional :: tolerance			!input tolerance in log-evidence
     integer, intent(in), optional :: tolcount	 		!input number of times delta ln Z < tol in a row for convergence
     integer, intent(in), optional :: savecount			!save progress every savecount generations
@@ -39,8 +41,9 @@ contains
     type(codeparams) :: run_params 				!carries the code parameters 
     integer :: bconstrain					!boundary constraint parameter
 
-    type(population), target :: X, BF           		!population of target vectors, best-fit vector          
+    type(population), target :: X, BF           		!population of target vectors, best-fit vector  
     real, dimension(size(lowerbounds)) :: V, U			!donor, trial vectors
+    real :: trialF, trialCr                                     !adaptive F and Cr for jDE
 
     integer :: fcall, accept					!fcall counts function calls, accept counts acceptance rate
     integer :: civ, gen, n					!civ, gen, n for iterating civilisation, generation, population loops
@@ -57,188 +60,140 @@ contains
     write (*,*) '============================='
     write (*,*) ' ******** Begin DE *********'
 
-    if (any(lowerbounds .ge. upperbounds)) then
-       write (*,*) 'ERROR: invalid parameter space bounds.'
-    else !proceed with program
-
-       !seed the random number generator from the system clock
-       call random_seed()
-
-       !Assign specified or default values to run_params, bconstrain
-       call param_assign(run_params, bconstrain, lowerbounds, upperbounds, nDerived=nDerived, maxciv=maxciv, maxgen=maxgen, &
-                         NP=NP, F=F, Cr=Cr, lambda=lambda, current=current, expon=expon, bndry=bndry, tolerance=tolerance, &
-                         tolcount=tolcount, savecount=savecount)
-
-       !Resume from saved run or initialise save files for a new one
-       if (present(resume)) then
-         call io_begin(path, civ, gen, Z, Zold, Nsamples, convcount, run_params, restart=resume)
-       else
-         call io_begin(path, civ, gen, Z, Zold, Nsamples, convcount, run_params)
-       endif
-
-       !Allocate best-fit containers
-       allocate(BF%vectors(1, run_params%D), BF%derived(1, run_params%D_derived), BF%values(1), bestderived(run_params%D_derived))
+    !seed the random number generator from the system clock
+    call random_seed()
     
-       !If required, initialise the linked tree used for estimating the evidence and posterior
-       if (run_params%calcZ) call initree(lowerbounds,upperbounds)
+    !Assign specified or default values to run_params, bconstrain
+    call param_assign(run_params, lowerbounds, upperbounds, nDerived=nDerived, maxciv=maxciv, maxgen=maxgen, NP=NP, F=F, &
+                       Cr=Cr, lambda=lambda, current=current, expon=expon, bndry=bndry, jDE=jDE, tolerance=tolerance, &
+                       tolcount=tolcount, savecount=savecount)
 
-       !Initialise internal variables
-       fcall = 0
-       BF%values(1) = huge(BF%values(1))
+    !Resume from saved run or initialise save files for a new one
+    if (present(resume)) then
+       call io_begin(path, civ, gen, Z, Zold, Nsamples, convcount, run_params, restart=resume)
+    else
+       call io_begin(path, civ, gen, Z, Zold, Nsamples, convcount, run_params)
+    endif
 
-       !Run a number of sequential DE optimisations, exiting either after a set number of
-       !runs through or after the evidence has been calculated to a desired accuracy
-       do civ = 1, run_params%numciv
+    !Allocate vector population
+    allocate(X%vectors(run_params%DE%NP, run_params%D))
+    allocate(X%derived(run_params%DE%NP, run_params%D_derived))
+    allocate(X%values(run_params%DE%NP), X%weights(run_params%DE%NP), X%multiplicities(run_params%DE%NP)) 
 
-          if (verbose) write (*,*) '-----------------------------'
-          if (verbose) write (*,*) 'Civilisation: ', civ
+    !for self-adaptive DE (jDE), allocate space for the populations of parameters
+    if (run_params%DE%jDE) then
+       allocate(X%FjDE(run_params%DE%NP))
+       allocate(X%CrjDE(run_params%DE%NP))
+    endif
+    
+    !Allocate best-fit containers
+    allocate(BF%vectors(1, run_params%D), BF%derived(1, run_params%D_derived), BF%values(1), bestderived(run_params%D_derived))
+    
+    !If required, initialise the linked tree used for estimating the evidence and posterior
+    if (run_params%calcZ) call initree(lowerbounds,upperbounds)
 
-          !Initialise the first generation
-          call initialize(X, run_params, lowerbounds, upperbounds, fcall, func)
-          if (run_params%calcZ) call doBayesian(X, Z, prior, Nsamples, run_params%DE%NP)        
+    !Initialise internal variables
+    fcall = 0
+    BF%values(1) = huge(BF%values(1))
 
-          !Internal (normal) DE loop: calculates population for each generation
-          do gen = 2, run_params%numgen 
+    !Run a number of sequential DE optimisations, exiting either after a set number of
+    !runs through or after the evidence has been calculated to a desired accuracy
+    civloop: do civ = 1, run_params%numciv
 
-             if (verbose) write (*,*) '  -----------------------------'
-             if (verbose) write (*,*) '  Generation: ', gen
+       if (verbose) write (*,*) '-----------------------------'
+       if (verbose) write (*,*) 'Civilisation: ', civ
+
+       !Initialise the first generation
+       call initialize(X, run_params, lowerbounds, upperbounds, fcall, func)
+       if (run_params%calcZ) call doBayesian(X, Z, prior, Nsamples, run_params%DE%NP)        
+       
+       !Internal (normal) DE loop: calculates population for each generation
+       genloop: do gen = 2, run_params%numgen 
+
+          if (verbose) write (*,*) '  -----------------------------'
+          if (verbose) write (*,*) '  Generation: ', gen
    
-             accept = 0
+          accept = 0
 
-             !$OMP PARALLEL DO
-             do n=1, run_params%DE%NP                    	!evolves one member of the population
+          !$OMP PARALLEL DO
+          poploop: do n=1, run_params%DE%NP                     !evolves one member of the population
 
-                V = genmutation(X, n, run_params)    	!donor vectors
-                U = gencrossover(X, V, n, run_params)  	!trial vectors
+             call mutate(X, V, n, run_params, trialF)          !create new donor vector V
+             call gencrossover(X, V, U, n, run_params, trialCr)  	!trial vectors
 
-                !choose next generation of target vectors
-                call selection(X, U, n, lowerbounds, upperbounds, bconstrain, fcall, func, accept)
- 
+             !choose next generation of target vectors
+             call selection(X, U, trialF, trialCr, n, lowerbounds, upperbounds, run_params, fcall, func, accept)
+            
+             if(run_params%DE%jDE) then 
+                if (verbose) write (*,*) n, X%vectors(n, :), '->', X%values(n), '|', X%FjDE(n), X%CrjDE(n)
+             else
                 if (verbose) write (*,*) n, X%vectors(n, :), '->', X%values(n)
-             end do
-             !$END OMP PARALLEL DO
+             end if
+
+          end do poploop
+          !$END OMP PARALLEL DO
  
-             if (verbose) write (*,*) '  Acceptance rate: ', accept/real(run_params%DE%NP)
+          if (verbose) write (*,*) '  Acceptance rate: ', accept/real(run_params%DE%NP)
 
-             if (run_params%calcZ) then
-                call doBayesian(X, Z, prior, Nsamples, run_params%DE%NP)
-             endif   
+          if (run_params%calcZ) then
+             call doBayesian(X, Z, prior, Nsamples, run_params%DE%NP)
+          endif
 
-             !Do periodic save
-             if (mod(gen,run_params%savefreq) .eq. 0) call save_all(X, path, civ, gen, Z, Zold, Nsamples, convcount, run_params)
+          !Do periodic save
+          if (mod(gen,run_params%savefreq) .eq. 0) call save_all(X, path, civ, gen, Z, Zold, Nsamples, convcount, run_params)
 
-             if (converged(X, gen)) exit             !Check generation-level convergence: if satisfied, exit loop
+          if (converged(X, gen)) exit                !Check generation-level convergence: if satisfied, exit loop
                                                      !PS, comment: it looks like the convergence of the evidence *requires*
                                                      !that the generation-level convergence check is done, as continuing to
                                                      !evolve a population after it has converged just results in many more 
                                                      !copies of the same point ending up in the database, which seems to
                                                      !start to introduce a bias in the evidence.
-          end do
-
-          avgvector = sum(X%vectors, dim=1)/real(run_params%DE%NP)
-          bestloc = minloc(X%values)
-          bestvector = X%vectors(bestloc(1),:)
-          bestderived = X%derived(bestloc(1),:)
-          bestvalue = minval(X%values)
+       end do genloop
+       
+       avgvector = sum(X%vectors, dim=1)/real(run_params%DE%NP)
+       bestloc = minloc(X%values)
+       bestvector = X%vectors(bestloc(1),:)
+       bestderived = X%derived(bestloc(1),:)
+       bestvalue = minval(X%values)
           
-          !Update current best fit
-          if (bestvalue .le. BF%values(1)) then
-             BF%values(1) = bestvalue
-             BF%vectors(1,:) = bestvector
-             BF%derived(1,:) = bestderived
-          endif
+       !Update current best fit
+       if (bestvalue .le. BF%values(1)) then
+          BF%values(1) = bestvalue
+          BF%vectors(1,:) = bestvector
+          BF%derived(1,:) = bestderived
+       endif
           
-          if (verbose) write (*,*)
-          if (verbose) write (*,*) '  ============================='
-          if (verbose) write (*,*) '  Number of generations in this civilisation: ', min(gen,run_params%numgen)
-          if (verbose) write (*,*) '  Average final vector in this civilisation: ', avgvector
-          if (verbose) write (*,*) '  Value at average final vector in this civilisation: ', func(avgvector, bestderived, fcall) 
-          if (verbose) write (*,*) '  Best final vector in this civilisation: ', bestvector
-          if (verbose) write (*,*) '  Value at best final vector in this civilisation: ', bestvalue
-          if (verbose) write (*,*) '  Cumulative function calls: ', fcall
+       if (verbose) write (*,*)
+       if (verbose) write (*,*) '  ============================='
+       if (verbose) write (*,*) '  Number of generations in this civilisation: ', min(gen,run_params%numgen)
+       if (verbose) write (*,*) '  Average final vector in this civilisation: ', avgvector
+       if (verbose) write (*,*) '  Value at average final vector in this civilisation: ', func(avgvector, bestderived, fcall) 
+       if (verbose) write (*,*) '  Best final vector in this civilisation: ', bestvector
+       if (verbose) write (*,*) '  Value at best final vector in this civilisation: ', bestvalue
+       if (verbose) write (*,*) '  Cumulative function calls: ', fcall
       
-          !Break out if posterior/evidence is converged
-          if (run_params%calcZ .and. evidenceDone(Z,Zold,run_params%tol,convcount,run_params%convcountreq)) exit
+       !Break out if posterior/evidence is converged
+       if (run_params%calcZ .and. evidenceDone(Z,Zold,run_params%tol,convcount,run_params%convcountreq)) exit
 
-       enddo
+    enddo civloop
 
-!    if (verbose) write (*,*)
-!    if (verbose) write (*,*) '============================='
-!    if (verbose) write (*,*) 'Number of civilisations: ', min(civ,run_params%numciv)
-!    if (verbose) write (*,*) 'Best final vector: ', BF%vectors(1,:)
-!    if (verbose) write (*,*) 'Value at best final vector: ', BF%values(1)
-!    if (verbose .and. run_params%calcZ) write (*,*)   'ln(Evidence): ', log(Z)
-!    if (verbose) write (*,*) 'Total Function calls: ', fcall
+    write (*,*) '============================='
+    write (*,*) 'Number of civilisations: ', min(civ,run_params%numciv)
+    write (*,*) 'Best final vector: ', BF%vectors(1,:)
+    write (*,*) 'Value at best final vector: ', BF%values(1)
+    if (run_params%calcZ) write (*,*)   'ln(Evidence): ', log(Z)
+    write (*,*) 'Total Function calls: ', fcall
 
-       write (*,*) '============================='
-       write (*,*) 'Number of civilisations: ', min(civ,run_params%numciv)
-       write (*,*) 'Best final vector: ', BF%vectors(1,:)
-       write (*,*) 'Value at best final vector: ', BF%values(1)
-       if (run_params%calcZ) write (*,*)   'ln(Evidence): ', log(Z)
-       write (*,*) 'Total Function calls: ', fcall
+    !Do final save operation
+    call save_all(X, path, civ, gen, Z, Zold, Nsamples, convcount, run_params, final=.true.)
 
-       !Do final save operation
-       call save_all(X, path, civ, gen, Z, Zold, Nsamples, convcount, run_params, final=.true.)
-
-       deallocate(X%vectors, X%values, X%weights, X%derived, X%multiplicities) 
-       deallocate(run_params%DE%F, BF%vectors, BF%values, BF%derived)
-
-    end if
+    deallocate(X%vectors, X%values, X%weights, X%derived, X%multiplicities) 
+    if (allocated(X%FjDE)) deallocate(X%FjDE)
+    if (allocated(X%CrjDE)) deallocate(X%CrjDE)
+    if (allocated(run_params%DE%F)) deallocate(run_params%DE%F)
+    deallocate(BF%vectors, BF%values, BF%derived)
 
   end subroutine run_de
-
-
-  !select next generation of target vectors
-  subroutine selection(X, U, n, lowerbounds, upperbounds, bconstrain, fcall, func, accept) 
-
-    type(population), intent(inout) :: X
-    real, dimension(:), intent(in) :: U
-    integer, intent(inout) :: fcall, accept
-    integer, intent(in) :: n 
-    real, dimension(:), intent(in) :: lowerbounds, upperbounds
-    integer, intent(in) :: bconstrain      
-    real, external :: func
-    real :: trialvalue
-    real, dimension(size(U)) :: trialvector  
-    real, dimension(size(X%derived(1,:))) :: trialderived
-
-    trialderived = 0.
-
-    if (any(U(:) .gt. upperbounds) .or. any(U(:) .lt. lowerbounds)) then 
-       !trial vector exceeds parameter space bounds: apply boundary constraints
-       select case (bconstrain)
-          case (1)                           !'brick wall'
-             trialvalue = huge(1.0)
-             trialvector(:) = X%vectors(n,:)
-          case (2)                           !randomly re-initialize
-             call random_number(trialvector(:))
-             trialvector(:) = trialvector(:)*(upperbounds - lowerbounds) + lowerbounds
-             trialvalue = func(trialvector, trialderived, fcall)
-          case (3)                           !reflection
-             trialvector = U
-             where (U .gt. upperbounds)  trialvector = upperbounds - (U - upperbounds)
-             where (U .lt. lowerbounds)  trialvector = lowerbounds + (lowerbounds - U)
-             trialvalue = func(trialvector, trialderived, fcall)
-          case default                       !boundary constraints not enforced
-             trialvector = U                
-             trialvalue = func(U(:), trialderived, fcall)  
-          end select
-
-    else                                     !trial vector is within parameter space bounds, so use it
-       trialvector = U                    
-       trialvalue = func(U(:), trialderived, fcall)  
-    end if
-
-    !when the trial vector is at least as good, use it for the next generation
-    if (trialvalue .le. X%values(n)) then
-       X%vectors(n,:) = trialvector 
-       X%derived(n,:) = trialderived
-       X%values(n) = trialvalue
-       accept = accept + 1
-    end if
-
-  end subroutine selection
-
 
 
   !Get posterior weights and update evidence
