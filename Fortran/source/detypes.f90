@@ -12,7 +12,8 @@ integer, parameter, public :: sp = kind(1.0)
 integer, parameter, public :: dp = kind(1.0d0)
 
 
-type deparams                 				!differential evolution parameters (remember to expand io::save_state and io::resume if you expand this type)
+type deparams                 				!differential evolution parameters 
+                                                        ! (remember to expand io::save_state and io::resume if you expand this type)
    integer NP                 				!population size
    real, allocatable, dimension(:) ::  F 		!mutation scale factors
    real lambda                				!mutation scale factor for best-to-rand/current

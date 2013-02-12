@@ -3,10 +3,10 @@ module de
 use init
 use io
 use converge
-use select
+use selection
 use mutation
 use crossover
-use posterior
+use evidence
 
 implicit none
 
@@ -105,7 +105,7 @@ contains
 
        !Initialise the first generation
        call initialize(X, run_params, lowerbounds, upperbounds, fcall, func)
-       if (run_params%calcZ) call doBayesian(X, Z, prior, Nsamples, run_params%DE%NP)        
+       if (run_params%calcZ) call updateEvidence(X, Z, prior, Nsamples, run_params%DE%NP)        
        
        !Internal (normal) DE loop: calculates population for each generation
        genloop: do gen = 2, run_params%numgen 
@@ -116,13 +116,13 @@ contains
           accept = 0
 
           !$OMP PARALLEL DO
-          poploop: do n=1, run_params%DE%NP                     !evolves one member of the population
+          poploop: do n=1, run_params%DE%NP                             !evolves one member of the population
 
-             call mutate(X, V, n, run_params, trialF)          !create new donor vector V
+             call mutate(X, V, n, run_params, trialF)                   !create new donor vector V
              call gencrossover(X, V, U, n, run_params, trialCr)  	!trial vectors
 
              !choose next generation of target vectors
-             call selection(X, U, trialF, trialCr, n, lowerbounds, upperbounds, run_params, fcall, func, accept)
+             call selector(X, U, trialF, trialCr, n, lowerbounds, upperbounds, run_params, fcall, func, accept)
             
              if(run_params%DE%jDE) then 
                 if (verbose) write (*,*) n, X%vectors(n, :), '->', X%values(n), '|', X%FjDE(n), X%CrjDE(n)
@@ -136,7 +136,7 @@ contains
           if (verbose) write (*,*) '  Acceptance rate: ', accept/real(run_params%DE%NP)
 
           if (run_params%calcZ) then
-             call doBayesian(X, Z, prior, Nsamples, run_params%DE%NP)
+             call updateEvidence(X, Z, prior, Nsamples, run_params%DE%NP)
           endif
 
           !Do periodic save
@@ -172,8 +172,12 @@ contains
        if (verbose) write (*,*) '  Value at best final vector in this civilisation: ', bestvalue
        if (verbose) write (*,*) '  Cumulative function calls: ', fcall
       
-       !Break out if posterior/evidence is converged
-       if (run_params%calcZ .and. evidenceDone(Z,Zold,run_params%tol,convcount,run_params%convcountreq)) exit
+       if (run_params%calcZ) then
+         !Reassess the previous civilisations' contribution to the evidence
+         call reassessEvidence(Z,Zold)
+         !Break out if posterior/evidence is converged
+         if (run_params%calcZ .and. evidenceDone(Z,Zold,run_params%tol,convcount,run_params%convcountreq)) exit
+       endif
 
     enddo civloop
 
@@ -194,35 +198,6 @@ contains
     deallocate(BF%vectors, BF%values, BF%derived)
 
   end subroutine run_de
-
-
-  !Get posterior weights and update evidence
-  subroutine doBayesian(X, Z, prior, oldsamples, newsamples)
-  
-    type(population), intent(inout) :: X		!current generation
-    real, intent(inout) :: Z				!evidence
-    real, external :: prior 				!prior funtion
-    integer, intent(inout) :: oldsamples		!previous (running) number of samples
-    integer, intent(in) :: newsamples 			!additional number of samples this time
-    integer :: totsamples				!total number of samples
-    
-    !Find weights for posterior pdf / evidence calculation
-    call getweights(X,prior)
-    
-    !Find total number of samples
-    totsamples = oldsamples + newsamples
-
-    !Calculate multiplicity for outputting in chains
-    X%multiplicities = X%weights*exp(-X%values)/dble(totsamples)
-
-    !Update evidence
-    Z = Z*dble(oldsamples)/dble(totsamples) + sum(X%multiplicities)
-
-    !Update number of samples for next time
-    oldsamples = totsamples
-
-  end subroutine doBayesian
-
 
 
 end module de
