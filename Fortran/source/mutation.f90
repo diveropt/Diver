@@ -88,14 +88,17 @@ contains
     integer :: r1, r2, r3
 
     !set each D-dimensional donor vector in V by picking 3 separate random vectors from X
-    call random_int(r1, 1, run_params%DE%NP)        !pick 1st vector from population
+    do
+       call random_int(r1, 1, run_params%DE%NP)     !pick 1st vector from population; must not equal n
+       if (r1 .ne. n) exit
+    end do
     do                                              !pick 2nd vector; ensure vectors are distinct
        call random_int(r2, 1, run_params%DE%NP) 
-       if (r2 .ne. r1) exit
+       if ( all(r2 .ne. [n, r1]) ) exit
     end do
     do                                              !pick 3rd vector; ensure vectors are distinct
        call random_int(r3, 1, run_params%DE%NP) 
-       if ((r3 .ne. r1) .and. (r3 .ne. r2)) exit
+       if ( all(r3 .ne. [n, r1, r2]) ) exit
     end do
     !V = Xr1 + F*(Xr2 - Xr3)
     jDEmutation = X%vectors(r1, :) + trialF*(X%vectors(r2,:) - X%vectors(r3,:))

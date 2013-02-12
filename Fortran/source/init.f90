@@ -101,17 +101,6 @@ contains
        run_params%DE%jDE = .false.                              !default is original DE
     endif
 
-    if (present(NP)) then
-       if (NP .ge. (2*size(run_params%DE%F) + 2)) then 		!required for picking unique vectors during mutation
-          run_params%DE%NP = NP
-       else !nb: if current=true, NP=2*size(run_params%DE%F)+1 would be ok, but not implemented
-          write (*,*) 'WARNING: NP specified is too small. Using smallest permitted NP.'
-          run_params%DE%NP = 2*size(run_params%DE%F) + 2
-       end if
-    else
-       run_params%DE%NP = maxval( (/10*run_params%D, 2*size(run_params%DE%F) + 2/) )	!conservative rule-of-thumb choice 
-    end if
-
     if (present(bndry)) then
        run_params%DE%bconstrain = bndry
     else
@@ -128,6 +117,19 @@ contains
 
        !the {F_i} and {Cr_i} are kept as part of the population (X%FjDE and X%CrjDE) with single variables (trialF and trialCr) 
        !in the main subroutine of the program for the trial parameters.
+ 
+       if (present(NP)) then
+          if (NP .ge. 4) then 		!required for picking unique vectors during mutation
+             run_params%DE%NP = NP
+          else
+             write (*,*) 'WARNING: NP specified is too small. Using smallest permitted NP.'
+             run_params%DE%NP = 4
+          end if
+       else
+          run_params%DE%NP = maxval( [10*run_params%D, 4] )	!conservative rule-of-thumb choice 
+       end if
+
+
        run_params%DE%lambda = 0.
        run_params%DE%current = .false.
        run_params%DE%expon = .false.
@@ -144,6 +146,17 @@ contains
        else
           allocate(run_params%DE%F(1))
           run_params%DE%F = (/0.7/) 				!rule of thumb: 0.4<F<1.0
+       end if
+
+       if (present(NP)) then
+          if (NP .ge. (2*size(run_params%DE%F) + 2)) then 		!required for picking unique vectors during mutation
+             run_params%DE%NP = NP
+          else !nb: if current=true, NP=2*size(run_params%DE%F)+1 would be ok, but not implemented
+             write (*,*) 'WARNING: NP specified is too small. Using smallest permitted NP.'
+             run_params%DE%NP = 2*size(run_params%DE%F) + 2
+          end if
+       else
+          run_params%DE%NP = maxval( [10*run_params%D, 2*size(run_params%DE%F) + 2] )	!conservative rule-of-thumb choice 
        end if
 
        if (present(Cr)) then  

@@ -81,7 +81,11 @@ subroutine save_state(path, civ, gen, Z, Zold, Nsamples, convcount, run_params)
   character(len=12) :: formatstring
   
   !Find how many mutation scale factors there are
-  n_mutation_sfs = size(run_params%DE%F)
+  if (run_params%DE%jDE) then
+     n_mutation_sfs = 0 !no universal set of scale factors in jDE
+  else
+     n_mutation_sfs = size(run_params%DE%F)
+  end if
 
   !Save restart info
   open(unit=devolun, file=trim(path)//'.devo', iostat=filestatus, action='WRITE', status='OLD')
@@ -93,10 +97,12 @@ subroutine save_state(path, civ, gen, Z, Zold, Nsamples, convcount, run_params)
   write(devolun,'(I6)') 	convcount					!number of times delta ln Z < tol in a row so far
 
   write(devolun,'(I6)') 	run_params%DE%NP               			!population size
+
   if (n_mutation_sfs .ne. 0) then
     write(formatstring,'(A1,I4,A6)') '(',n_mutation_sfs,'E16.5)'
     write(devolun,formatstring) run_params%DE%F			 		!mutation scale factors
   endif 
+
   write(devolun,'(E16.5)') 	run_params%DE%lambda        			!mutation scale factor for best-to-rand/current
   write(devolun,'(L1)') 	run_params%DE%current            		!true: use current/best-to-current mutation
   write(devolun,'(E16.5)') 	run_params%DE%Cr            			!crossover rate

@@ -40,24 +40,23 @@ contains
     integer, intent(in), optional  :: savecount			!save progress every savecount generations
     logical, intent(in), optional  :: resume			!restart from a previous run
      
-    type(codeparams) :: run_params 				!carries the code parameters 
-    integer :: bconstrain					!boundary constraint parameter
+    type(codeparams) :: run_params                              !carries the code parameters 
 
-    type(population), target :: X, BF           		!population of target vectors, best-fit vector  
-    real, dimension(size(lowerbounds)) :: V, U			!donor, trial vectors
+    type(population), target :: X, BF                           !population of target vectors, best-fit vector  
+    real, dimension(size(lowerbounds)) :: V, U                  !donor, trial vectors
     real :: trialF, trialCr                                     !adaptive F and Cr for jDE
 
-    integer :: fcall, accept					!fcall counts function calls, accept counts acceptance rate
-    integer :: civ, gen, n					!civ, gen, n for iterating civilisation, generation, population loops
+    integer :: fcall, accept                                    !fcall counts function calls, accept counts acceptance rate
+    integer :: civ, gen, n                                      !civ, gen, n for iterating civilisation, generation, population loops
 
-    real, dimension(size(lowerbounds)) :: avgvector, bestvector	!for calculating final average and best fit
+    real, dimension(size(lowerbounds)) :: avgvector, bestvector !for calculating final average and best fit
     real :: bestvalue
     real, allocatable :: bestderived(:)
     integer :: bestloc(1)
 
-    real :: Zold, Z = 0.					!evidence
-    integer :: Nsamples = 0					!number of statistically independent samples from posterior
-    integer :: convcount = 0					!number of times delta ln Z < tol in a row so far
+    real :: Zold, Z = 0.                                        !evidence
+    integer :: Nsamples = 0                                     !number of statistically independent samples from posterior
+    integer :: convcount = 0                                    !number of times delta ln Z < tol in a row so far
     
     write (*,*) '============================='
     write (*,*) ' ******** Begin DE *********'
@@ -200,6 +199,5 @@ contains
     deallocate(BF%vectors, BF%values, BF%derived)
 
   end subroutine run_de
-
 
 end module de

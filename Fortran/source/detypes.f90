@@ -2,7 +2,7 @@ module detypes
 
 implicit none
 
-logical, parameter :: verbose = .false. 		!print verbose output
+logical, parameter :: verbose = .false.                 !print verbose output
 
 
 !FIXME: specify kinds in the rest of the program.
