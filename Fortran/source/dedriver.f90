@@ -86,7 +86,7 @@ real function gauss2(params, derived, fcall)
   integer, intent(inout) :: fcall
   
   fcall = fcall + 1
-  gauss2 = (1.-params(1))*(1.-params(1)) + (5.-params(2))*(5.-params(2))
+  gauss2 = (1.-params(1))*(1.-params(1)) + (5.-params(2))*(5.-params(2)) - 8.14897
   derived = [2.*params(1),params(1)+params(2)]
   
 end function gauss2
@@ -99,6 +99,7 @@ real function flatprior(X)
 
   real, dimension(2), intent(in) :: X
   flatprior = 1.0 / dPrior
+
 end function flatprior
 
 

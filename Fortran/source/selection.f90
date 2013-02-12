@@ -1,15 +1,15 @@
-module select
+module selection
 
 use detypes
 
 implicit none
 
 private
-public selection
+public selector
 
 contains 
 
-  subroutine selection(X, U, trialF, trialCr, n, lowerbounds, upperbounds, &
+  subroutine selector(X, U, trialF, trialCr, n, lowerbounds, upperbounds, &
                        run_params, fcall, func, accept)
 
     type(population), intent(inout) :: X
@@ -64,6 +64,6 @@ contains
        accept = accept + 1
     end if
 
-  end subroutine selection
+  end subroutine selector
 
-end module select
+end module selection
