@@ -18,25 +18,27 @@ contains
 
   !Main differential evolution routine.  
   subroutine run_de(func, prior, lowerbounds, upperbounds, path, nDerived, maxciv, maxgen, NP, F, Cr, lambda, current, expon, &
-                    bndry, jDE, tolerance, tolcount, savecount, resume)
+                    bndry, jDE, doBayesian, maxNodePop, Ztolerance, tolcount, savecount, resume)
     real, external :: func, prior 				!function to be minimized (assumed -ln[likelihood]), prior function
     real, dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space
-    character(len=*), intent(in) :: path			!path to save samples, resume files, etc  
-    integer, intent(in), optional :: nDerived	 		!input number of derived quantities to output
-    integer, intent(in), optional :: maxciv 			!maximum number of civilisations
-    integer, intent(in), optional :: maxgen 			!maximum number of generations per civilisation
-    integer, intent(in), optional :: NP 			!population size (individuals per generation)
+    character(len=*), intent(in)   :: path			!path to save samples, resume files, etc  
+    integer, intent(in), optional  :: nDerived	 		!input number of derived quantities to output
+    integer, intent(in), optional  :: maxciv 			!maximum number of civilisations
+    integer, intent(in), optional  :: maxgen 			!maximum number of generations per civilisation
+    integer, intent(in), optional  :: NP 			!population size (individuals per generation)
     real, dimension(:), intent(in), optional :: F		!scale factor(s).  Note that this must be entered as an array.
-    real, intent(in), optional :: Cr 				!crossover factor
-    real, intent(in), optional :: lambda 			!mixing factor between best and rand/current
-    logical, intent(in), optional :: current 			!use current vector for mutation
-    logical, intent(in), optional :: expon 			!use exponential crossover
-    integer, intent(in), optional :: bndry                      !boundary constraint: 1 -> brick wall, 2 -> random re-initialization, 3 -> reflection
-    logical, intent(in), optional :: jDE                        !use self-adaptive choices for rand/1/bin parameters as described in Brest et al 2006
-    real, intent(in), optional :: tolerance			!input tolerance in log-evidence
-    integer, intent(in), optional :: tolcount	 		!input number of times delta ln Z < tol in a row for convergence
-    integer, intent(in), optional :: savecount			!save progress every savecount generations
-    logical, intent(in), optional :: resume			!restart from a previous run
+    real, intent(in), optional     :: Cr 			!crossover factor
+    real, intent(in), optional     :: lambda 			!mixing factor between best and rand/current
+    logical, intent(in), optional  :: current 			!use current vector for mutation
+    logical, intent(in), optional  :: expon 			!use exponential crossover
+    integer, intent(in), optional  :: bndry                     !boundary constraint: 1 -> brick wall, 2 -> random re-initialization, 3 -> reflection
+    logical, intent(in), optional  :: jDE                       !use self-adaptive choices for rand/1/bin parameters as described in Brest et al 2006
+    logical, intent(in), optional  :: doBayesian                !calculate log evidence and posterior weightings
+    real, intent(in), optional     :: maxNodePop                !population at which node is partitioned in binary space partitioning for posterior
+    real, intent(in), optional     :: Ztolerance		!input tolerance in log-evidence
+    integer, intent(in), optional  :: tolcount	 		!input number of times delta ln Z < tol in a row for convergence
+    integer, intent(in), optional  :: savecount			!save progress every savecount generations
+    logical, intent(in), optional  :: resume			!restart from a previous run
      
     type(codeparams) :: run_params 				!carries the code parameters 
     integer :: bconstrain					!boundary constraint parameter
@@ -65,8 +67,8 @@ contains
     
     !Assign specified or default values to run_params, bconstrain
     call param_assign(run_params, lowerbounds, upperbounds, nDerived=nDerived, maxciv=maxciv, maxgen=maxgen, NP=NP, F=F, &
-                       Cr=Cr, lambda=lambda, current=current, expon=expon, bndry=bndry, jDE=jDE, tolerance=tolerance, &
-                       tolcount=tolcount, savecount=savecount)
+                       Cr=Cr, lambda=lambda, current=current, expon=expon, bndry=bndry, jDE=jDE, doBayesian=doBayesian, &
+                       maxNodePop=maxNodePop, Ztolerance=Ztolerance, tolcount=tolcount, savecount=savecount)
 
     !Resume from saved run or initialise save files for a new one
     if (present(resume)) then
@@ -90,7 +92,7 @@ contains
     allocate(BF%vectors(1, run_params%D), BF%derived(1, run_params%D_derived), BF%values(1), bestderived(run_params%D_derived))
     
     !If required, initialise the linked tree used for estimating the evidence and posterior
-    if (run_params%calcZ) call initree(lowerbounds,upperbounds)
+    if (run_params%calcZ) call initree(lowerbounds,upperbounds,run_params%maxNodePop)
 
     !Initialise internal variables
     fcall = 0

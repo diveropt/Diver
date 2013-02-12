@@ -13,7 +13,7 @@ contains
   !Assign parameter values (defaults if not specified) to run_params and print DE parameter values to screen
 
   subroutine param_assign(run_params, lowerbounds, upperbounds, nDerived, maxciv, maxgen, NP, F, &
-                          Cr, lambda, current, expon, bndry, jDE, tolerance, tolcount, savecount)
+                          Cr, lambda, current, expon, bndry, jDE, doBayesian, maxNodePop, Ztolerance, tolcount, savecount)
 
     type(codeparams), intent(out) :: run_params 
     real, dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space 
@@ -28,7 +28,9 @@ contains
     logical, intent(in), optional :: expon 			!use exponential crossover
     integer, intent(in), optional :: bndry                      !boundary constraint: 1 -> brick wall, 2 -> random re-initialization, 3 -> reflection
     logical, intent(in), optional :: jDE                        !use self-adaptive DE 
-    real, intent(in), optional :: tolerance			!input tolerance in log-evidence
+    logical, intent(in), optional  :: doBayesian                !calculate log evidence and posterior weightings
+    real, intent(in), optional  :: maxNodePop                   !population at which node is partitioned in binary space partitioning for posterior
+    real, intent(in), optional :: Ztolerance			!input tolerance in log-evidence
     integer, intent(in), optional :: tolcount	 		!input number of times delta ln Z < tol in a row for convergence
     integer, intent(in), optional :: savecount			!save progress every savecount generations
 
@@ -46,38 +48,49 @@ contains
     endif
 
     if (present(nDerived)) then 
-       run_params%D_derived = nDerived
+      call setIfPositive_int(nDerived, run_params%D_derived, 'nDerived')
     else
        run_params%D_derived = 0					!default is no derived quantities
     end if
 
     if (present(maxciv)) then
-       run_params%numciv = maxciv
+      call setIfPositive_int(maxciv, run_params%numciv, 'maxciv')
     else
        run_params%numciv = 2000					!arbitrary default value for numciv
     end if
 
     if (present(maxgen)) then
-       run_params%numgen = maxgen
+      call setIfPositive_int(maxgen, run_params%numgen, 'maxgen')
     else 
        run_params%numgen = 100					!arbitrary default value for numgen
     end if
 
-    if (present(tolerance)) then 
-       run_params%tol = tolerance
+    if (present(doBayesian)) then 
+       run_params%calcZ = doBayesian
+    else
+       run_params%calcZ = .false.				!default is not to do Bayesian stuff
+    end if
+
+    if (present(maxNodePop)) then 
+       call setIfPositive_real(maxNodePop, run_params%maxNodePop, 'maxNodePop')
+    else
+       run_params%maxNodePop = 3.0				!default for maxNodePop
+    end if
+
+    if (present(Ztolerance)) then 
+       call setIfPositive_real(Ztolerance, run_params%tol, 'Ztolerance')
     else
        run_params%tol = 1.d-4					!default for tolerance
     end if
-    if (run_params%tol .gt. 0.0) run_params%calcZ = .true.	!enable posterior and evidence calculation if tol is +ve
 
     if (present(tolcount)) then 
-       run_params%convcountreq = tolcount
+      call setIfPositive_int(tolcount, run_params%convcountreq, 'tolcount')
     else
        run_params%convcountreq = 4				!default for tolerance counter
     end if
 
     if (present(savecount)) then 
-       run_params%savefreq = savecount
+      call setIfPositive_int(savecount, run_params%savefreq, 'savecount')
     else
        run_params%savefreq = 1					!default for tolerance counter
     end if
@@ -221,6 +234,36 @@ contains
   end subroutine param_assign
 
 
+  !set parameter only if value is positive (real parameter)
+  subroutine setIfPositive_real(invar, outvar, string)
+
+    real :: invar, outvar
+    character(LEN=*) :: string
+
+    if (invar .le. 0.0) then
+      write(*,*) 'ERROR: '//string//' cannot be negative.'
+      stop
+    else
+      outvar = invar
+    endif
+
+  end subroutine setIfPositive_real
+
+
+  !set parameter only if value is positive (integer parameter)
+  subroutine setIfPositive_int(invar, outvar, string)
+
+    integer :: invar, outvar
+    character(LEN=*) :: string
+
+    if (invar .le. 0) then
+      write(*,*) 'ERROR: '//string//' cannot be negative.'
+      stop
+    else
+      outvar = invar
+    endif
+
+  end subroutine setIfPositive_int
 
 
   !initializes first generation of target vectors

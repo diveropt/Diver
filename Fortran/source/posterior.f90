@@ -32,17 +32,18 @@ end type
 real, allocatable  :: ranges(:)			!Prior box side lengths
 integer :: D = 0				!Dimension of parameter space being scanned
 integer :: totalCells = 0			!Number of cells in binary space partitioning
-real, parameter :: maxNodePop = 3.0 		!Population above which to do binary partitioning
 logical :: debug = .false.			!Debugging flag for posterior routines
+real :: maxNodePop                              !Population at which to divide cells
 
 public initree, getweights
-private climbTree, growTree, growBranches, addToEndOfPtList
+private climbTree, growTree, growBranches, addToEndOfPtList, maxNodePop
 
 contains 
 
-  subroutine initree(lowerbounds,upperbounds)
+  subroutine initree(lowerbounds,upperbounds,maxpop)
   !Initialises the root of the tree and the starting point of the list of tree nodes
     real, dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space 
+    real, intent(in) :: maxpop                                  !population at which to divide cells    
     totalCells = 1
     D = size(lowerbounds)
     allocate(root, ranges(D))
@@ -51,6 +52,7 @@ contains
     root%lowerbounds = lowerbounds
     ranges = upperbounds - lowerbounds
     allocate(firstListNode)
+    maxNodePop = maxpop
   end subroutine initree
 
 
@@ -58,10 +60,10 @@ contains
   !Calculates evidence weights of points in a new generation
 
     type(population), target, intent(inout) :: X  !current generation of target vectors
-    real prior					!prior pdf function
+    real prior					  !prior pdf function
     external prior
-    type(Point), pointer :: individual	 	!pointer to a holder for an individual point in parameter space
-    integer :: NP, i				!size of generation, iteration variable
+    type(Point), pointer :: individual	 	  !pointer to a holder for an individual point in parameter space
+    integer :: NP, i				  !size of generation, iteration variable
 
     nullify(individual)
 

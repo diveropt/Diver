@@ -30,7 +30,8 @@ type codeparams                 			!code parameters (remember to expand io::save
    integer :: numciv, numgen				!maximum number of civilizations, generations
    real :: tol						!tolerance in log-evidence
    integer :: convcountreq				!number of times delta ln Z < tol in a row for convergence
-   logical :: calcZ = .false.				!calculate evidence or not
+   real :: maxNodePop                                   !maximum population to allow in a cell before partitioning it
+   logical :: calcZ      				!calculate evidence or not
    integer :: savefreq					!frequency with which to save progress
 end type codeparams
 
