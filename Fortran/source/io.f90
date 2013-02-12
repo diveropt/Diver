@@ -91,7 +91,9 @@ subroutine save_state(path, civ, gen, Z, Zold, Nsamples, convcount, run_params)
 
   write(devolun,'(I6)') 	run_params%DE%NP               			!population size
   write(formatstring,'(A1,I4,A6)') '(',size(run_params%DE%F),'E16.5)'
-  write(devolun,formatstring) 	run_params%DE%F			 		!mutation scale factors
+  if (.not. run_params%DE%jDE) then
+    write(devolun,formatstring) run_params%DE%F	                                !mutation scale factors
+  end if
   write(devolun,'(E16.5)') 	run_params%DE%lambda        			!mutation scale factor for best-to-rand/current
   write(devolun,'(L1)') 	run_params%DE%current            		!true: use current/best-to-current mutation
   write(devolun,'(E16.5)') 	run_params%DE%Cr            			!crossover rate

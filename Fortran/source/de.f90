@@ -19,43 +19,42 @@ contains
   !Main differential evolution routine.  
   subroutine run_de(func, prior, lowerbounds, upperbounds, path, nDerived, maxciv, maxgen, NP, F, Cr, lambda, current, expon, &
                     bndry, jDE, tolerance, tolcount, savecount, resume)
-    real, external :: func, prior 				!function to be minimized (assumed -ln[likelihood]), prior function
-    real, dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space
-    character(len=*), intent(in) :: path			!path to save samples, resume files, etc  
-    integer, intent(in), optional :: nDerived	 		!input number of derived quantities to output
-    integer, intent(in), optional :: maxciv 			!maximum number of civilisations
-    integer, intent(in), optional :: maxgen 			!maximum number of generations per civilisation
-    integer, intent(in), optional :: NP 			!population size (individuals per generation)
-    real, dimension(:), intent(in), optional :: F		!scale factor(s).  Note that this must be entered as an array.
-    real, intent(in), optional :: Cr 				!crossover factor
-    real, intent(in), optional :: lambda 			!mixing factor between best and rand/current
-    logical, intent(in), optional :: current 			!use current vector for mutation
-    logical, intent(in), optional :: expon 			!use exponential crossover
+    real, external :: func, prior                               !function to be minimized (assumed -ln[likelihood]), prior function
+    real, dimension(:), intent(in) :: lowerbounds, upperbounds  !boundaries of parameter space
+    character(len=*), intent(in) :: path                        !path to save samples, resume files, etc  
+    integer, intent(in), optional :: nDerived                   !input number of derived quantities to output
+    integer, intent(in), optional :: maxciv                     !maximum number of civilisations
+    integer, intent(in), optional :: maxgen                     !maximum number of generations per civilisation
+    integer, intent(in), optional :: NP                         !population size (individuals per generation)
+    real, dimension(:), intent(in), optional :: F               !scale factor(s).  Note that this must be entered as an array.
+    real, intent(in), optional :: Cr                            !crossover factor
+    real, intent(in), optional :: lambda                        !mixing factor between best and rand/current
+    logical, intent(in), optional :: current                    !use current vector for mutation
+    logical, intent(in), optional :: expon                      !use exponential crossover
     integer, intent(in), optional :: bndry                      !boundary constraint: 1 -> brick wall, 2 -> random re-initialization, 3 -> reflection
     logical, intent(in), optional :: jDE                        !use self-adaptive choices for rand/1/bin parameters as described in Brest et al 2006
-    real, intent(in), optional :: tolerance			!input tolerance in log-evidence
-    integer, intent(in), optional :: tolcount	 		!input number of times delta ln Z < tol in a row for convergence
-    integer, intent(in), optional :: savecount			!save progress every savecount generations
-    logical, intent(in), optional :: resume			!restart from a previous run
+    real, intent(in), optional :: tolerance                     !input tolerance in log-evidence
+    integer, intent(in), optional :: tolcount                   !input number of times delta ln Z < tol in a row for convergence
+    integer, intent(in), optional :: savecount                  !save progress every savecount generations
+    logical, intent(in), optional :: resume                     !restart from a previous run
      
-    type(codeparams) :: run_params 				!carries the code parameters 
-    integer :: bconstrain					!boundary constraint parameter
+    type(codeparams) :: run_params                              !carries the code parameters 
 
-    type(population), target :: X, BF           		!population of target vectors, best-fit vector  
-    real, dimension(size(lowerbounds)) :: V, U			!donor, trial vectors
+    type(population), target :: X, BF                           !population of target vectors, best-fit vector  
+    real, dimension(size(lowerbounds)) :: V, U                  !donor, trial vectors
     real :: trialF, trialCr                                     !adaptive F and Cr for jDE
 
-    integer :: fcall, accept					!fcall counts function calls, accept counts acceptance rate
-    integer :: civ, gen, n					!civ, gen, n for iterating civilisation, generation, population loops
+    integer :: fcall, accept                                    !fcall counts function calls, accept counts acceptance rate
+    integer :: civ, gen, n                                      !civ, gen, n for iterating civilisation, generation, population loops
 
-    real, dimension(size(lowerbounds)) :: avgvector, bestvector	!for calculating final average and best fit
+    real, dimension(size(lowerbounds)) :: avgvector, bestvector !for calculating final average and best fit
     real :: bestvalue
     real, allocatable :: bestderived(:)
     integer :: bestloc(1)
 
-    real :: Zold, Z = 0.					!evidence
-    integer :: Nsamples = 0					!number of statistically independent samples from posterior
-    integer :: convcount = 0					!number of times delta ln Z < tol in a row so far
+    real :: Zold, Z = 0.                                        !evidence
+    integer :: Nsamples = 0                                     !number of statistically independent samples from posterior
+    integer :: convcount = 0                                    !number of times delta ln Z < tol in a row so far
     
     write (*,*) '============================='
     write (*,*) ' ******** Begin DE *********'
@@ -207,8 +206,8 @@ contains
     integer :: totsamples				!total number of samples
     
     !Find weights for posterior pdf / evidence calculation
-    call getweights(X,prior)
-    
+    call getweights(X,prior) !get segfaults somewhere in here
+  
     !Find total number of samples
     totsamples = oldsamples + newsamples
 
