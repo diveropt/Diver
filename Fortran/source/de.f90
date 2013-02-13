@@ -62,7 +62,7 @@ contains
     write (*,*) ' ******** Begin DE *********'
 
     !seed the random number generator from the system clock
-    call random_seed()
+    call init_random_seed()
     
     !Assign specified or default values to run_params, bconstrain
     call param_assign(run_params, lowerbounds, upperbounds, nDerived=nDerived, maxciv=maxciv, maxgen=maxgen, NP=NP, F=F, &
@@ -91,7 +91,7 @@ contains
     allocate(BF%vectors(1, run_params%D), BF%derived(1, run_params%D_derived), BF%values(1), bestderived(run_params%D_derived))
     
     !If required, initialise the linked tree used for estimating the evidence and posterior
-    if (run_params%calcZ) call initree(lowerbounds,upperbounds,run_params%maxNodePop)
+    if (run_params%calcZ) call iniTree(lowerbounds,upperbounds,run_params%maxNodePop)
 
     !Initialise internal variables
     fcall = 0
@@ -106,7 +106,7 @@ contains
 
        !Initialise the first generation
        call initialize(X, run_params, lowerbounds, upperbounds, fcall, func)
-       if (run_params%calcZ) call updateEvidence(X, Z, prior, Nsamples, run_params%DE%NP)        
+       if (run_params%calcZ) call updateEvidence(X, Z, prior, Nsamples)        
        
        !Internal (normal) DE loop: calculates population for each generation
        genloop: do gen = 2, run_params%numgen 
@@ -137,7 +137,7 @@ contains
           if (verbose) write (*,*) '  Acceptance rate: ', accept/real(run_params%DE%NP)
 
           if (run_params%calcZ) then
-             call updateEvidence(X, Z, prior, Nsamples, run_params%DE%NP)
+             call updateEvidence(X, Z, prior, Nsamples)
           endif
 
           !Do periodic save
@@ -175,7 +175,7 @@ contains
       
        if (run_params%calcZ) then
          !Reassess the previous civilisations' contribution to the evidence
-         call reassessEvidence(Z,Zold)
+         call polishEvidence(Z,Zold,prior)
          !Break out if posterior/evidence is converged
          if (run_params%calcZ .and. evidenceDone(Z,Zold,run_params%tol,convcount,run_params%convcountreq)) exit
        endif
@@ -197,7 +197,9 @@ contains
     if (allocated(X%CrjDE)) deallocate(X%CrjDE)
     if (allocated(run_params%DE%F)) deallocate(run_params%DE%F)
     deallocate(BF%vectors, BF%values, BF%derived)
+    if (run_params%calcZ) call clearTree
 
   end subroutine run_de
+
 
 end module de

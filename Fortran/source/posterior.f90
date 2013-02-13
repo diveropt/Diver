@@ -35,12 +35,12 @@ integer :: totalCells = 0			!Number of cells in binary space partitioning
 logical :: debug = .false.			!Debugging flag for posterior routines
 real :: maxNodePop                              !Population at which to divide cells
 
-public initree, getweights
-private climbTree, growTree, growBranches, addToEndOfPtList, maxNodePop
+public iniTree, clearTree, growTree
+private burnTree, climbTree, tendTree, growBranches, addToEndOfPtList, maxNodePop
 
 contains 
 
-  subroutine initree(lowerbounds,upperbounds,maxpop)
+  subroutine iniTree(lowerbounds,upperbounds,maxpop)
   !Initialises the root of the tree and the starting point of the list of tree nodes
     real, dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space 
     real, intent(in) :: maxpop                                  !population at which to divide cells    
@@ -53,11 +53,56 @@ contains
     ranges = upperbounds - lowerbounds
     allocate(firstListNode)
     maxNodePop = maxpop
-  end subroutine initree
+  end subroutine iniTree
+  
+
+  subroutine clearTree
+  !Start the tree over
+    totalCells = 1
+    call burnTree(root)
+  end subroutine clearTree
 
 
-  subroutine getweights(X,prior)
-  !Calculates evidence weights of points in a new generation
+  recursive subroutine burnTree(currentNode)
+  !Burns off the tree everywhere upwards of currentNode
+
+    type(Node), pointer, intent(in) :: currentNode
+
+    if (currentNode%branchesDifferInDim .ne. 0) then	
+      !Node is not the tip of the tree, so has branches.  Get 'em.
+      call burnTree(currentNode%branchA)
+      call burnTree(currentNode%branchB)
+      deallocate(currentNode%branchA%upperbounds,currentNode%branchA%lowerbounds) 
+      deallocate(currentNode%branchB%upperbounds,currentNode%branchB%lowerbounds) 
+      deallocate(currentNode%branchA,currentNode%branchB)
+    endif
+
+  end subroutine burnTree
+
+
+  real function getWeight(vector, prior)
+  !Finds the posterior weight of a single individual, using the existing tree structure
+
+    real, intent (IN), target :: vector(:)        !target vector 
+    real :: prior				  !prior pdf function
+    external prior
+    type (Point), pointer :: individual                           
+    real, target :: weight
+
+    allocate(individual)
+    individual%vector => vector
+    individual%weight => weight
+    
+    call climbTree(individual, root, justLooking=.true.)    
+    getWeight = individual%weight * prior(vector) * dble(totalCells)
+    
+    deallocate(individual)
+
+  end function getWeight
+
+
+  subroutine growTree(X,prior)
+  !Grows the tree with points in a new generation, and calculates their posterior weights
 
     type(population), target, intent(inout) :: X  !current generation of target vectors
     real prior					  !prior pdf function
@@ -94,7 +139,7 @@ contains
 
     !Work through the linked list and check if additional branching is required, 
     !deallocating each entry as we go, and adding more to the end where required
-    call growTree(firstListNode)
+    call tendTree(firstListNode)
 
     !$OMP PARALLEL DO
     do i = 1, NP
@@ -104,36 +149,56 @@ contains
 
     nullify(individual)
 
-  end subroutine getweights
+  end subroutine growTree
 
 
-  recursive subroutine climbTree(individual,currentNode)
+  recursive subroutine climbTree(individual,currentNode,justLooking)
   !Climbs a single level in the binary space partition tree from currentNode, 
   !or establishes that currentNode is at the top of the tree.
 
     type(Point), pointer, intent(in) :: individual
     type(Node), pointer, intent(in) :: currentNode
+    !Indication that the individual is here for a good time, not a long time
+    logical, optional :: justLooking
+    logical :: onlyLooking
+ 
+    !Default is to assume individual is here to stay
+    if (present(justLooking)) then
+      onlyLooking = justLooking
+    else
+      onlyLooking = .false.
+    endif
 
     if (currentNode%branchesDifferInDim .eq. 0) then	
     !Node is tip of the tree and has no branches, so...
 
       if (debug) write(*,*) 'this is the canopy!'
-      !increment the population of this node
-      currentNode%population = currentNode%population + 1.0
-      if (debug) write(*,*) 'new population: ',currentNode%newpopulation
-      call addToEndOfPtList(individual,currentNode)
 
-      !If this is the first time the current node has had a new point added to it, then
-      !save the node to the linked list of nodes that need to be later checked for splitting
-      if (.not. associated(currentNode%firstnewpt%next)) then 
-        !Create the next entry in the linked list of nodes
-        allocate(currentListNode%next)
-        !Set the next list entry to point back to the current list entry
-        currentListNode%next%prev => currentListNode
-        !Change current list entry to point to the newly-created one
-        currentListNode => currentListNode%next
-        !Save the location of the current node in the newly-created list entry 
-        currentListNode%thisNode => currentNode
+      if (onlyLooking) then
+        
+        !Find the weight of this node and return it
+        if (debug) write(*,*) 'just looking...'
+        individual%weight = product(currentNode%upperbounds - currentNode%lowerbounds) 
+
+      else 
+
+        !increment the population of this node
+        currentNode%population = currentNode%population + 1.0
+        if (debug) write(*,*) 'new population: ',currentNode%newpopulation
+        call addToEndOfPtList(individual,currentNode)
+
+        !If this is the first time the current node has had a new point added to it, then
+        !save the node to the linked list of nodes that need to be later checked for splitting
+        if (.not. associated(currentNode%firstnewpt%next)) then 
+          !Create the next entry in the linked list of nodes
+          allocate(currentListNode%next)
+          !Set the next list entry to point back to the current list entry
+          currentListNode%next%prev => currentListNode
+          !Change current list entry to point to the newly-created one
+          currentListNode => currentListNode%next
+          !Save the location of the current node in the newly-created list entry 
+          currentListNode%thisNode => currentNode
+        endif
 
       endif
 
@@ -144,12 +209,11 @@ contains
       if (individual%vector(currentNode%branchesDifferInDim) .lt. &
        currentNode%branchA%upperbounds(currentNode%branchesDifferInDim)) then
         if (debug) write(*,*) 'moving up branch A...'
-
-        call climbTree(individual,currentNode%branchA)
+        call climbTree(individual,currentNode%branchA,justLooking=onlyLooking)
 
       else 
         if (debug) write(*,*) 'moving up branch B...'
-        call climbTree(individual,currentNode%branchB)
+        call climbTree(individual,currentNode%branchB,justLooking=onlyLooking)
 
       endif
 
@@ -185,7 +249,7 @@ contains
   end subroutine addToEndofPtList
 
 
-  recursive subroutine growTree(workingListNode)
+  recursive subroutine tendTree(workingListNode)
   !Steps through linked list of nodes potentially needing to be partitioned, and
   !does the partitioning
 
@@ -205,7 +269,8 @@ contains
     if (.not. associated(workingListNode%prev)) then
       !it is, so step on to the second node
 
-      call growTree(workingListNode%next)
+      if (debug) write(*,*) 'this is the first node in the list'
+      call tendTree(workingListNode%next)
 
     else
       if (debug) write(*,*) 'this is a later node'
@@ -243,7 +308,7 @@ contains
       !Check if it is the last node in the list
       if (associated(temp)) then
         !If not, step onwards to the next node in the linked list
-        call growTree(temp)
+        call tendTree(temp)
       endif
 
     endif
@@ -252,7 +317,7 @@ contains
     nullify (individual)
     nullify (temppt)
 
-  end subroutine growTree
+  end subroutine tendTree
 
 
   recursive subroutine growBranches(currentNode)
