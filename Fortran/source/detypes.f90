@@ -16,6 +16,7 @@ type deparams                 				!differential evolution parameters
                                                         ! (remember to expand io::save_state and io::resume if you expand this type)
    integer NP                 				!population size
    real, allocatable, dimension(:) ::  F 		!mutation scale factors
+   integer Fsize                                        !number of entries in F
    real lambda                				!mutation scale factor for best-to-rand/current
    logical current            				!true: use current/best-to-current mutation
    real Cr                    				!crossover rate
@@ -29,7 +30,6 @@ type codeparams                 			!code parameters (remember to expand io::save
    integer :: D, D_derived				!dimension of parameter space (known from the bounds given); dimension of derived space
    integer :: numciv, numgen				!maximum number of civilizations, generations
    real :: tol						!tolerance in log-evidence
-   integer :: convcountreq				!number of times delta ln Z < tol in a row for convergence
    real :: maxNodePop                                   !maximum population to allow in a cell before partitioning it
    logical :: calcZ      				!calculate evidence or not
    integer :: savefreq					!frequency with which to save progress

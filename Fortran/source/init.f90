@@ -13,7 +13,7 @@ contains
   !Assign parameter values (defaults if not specified) to run_params and print DE parameter values to screen
 
   subroutine param_assign(run_params, lowerbounds, upperbounds, nDerived, maxciv, maxgen, NP, F, &
-                          Cr, lambda, current, expon, bndry, jDE, doBayesian, maxNodePop, Ztolerance, tolcount, savecount)
+                          Cr, lambda, current, expon, bndry, jDE, doBayesian, maxNodePop, Ztolerance, savecount)
 
     type(codeparams), intent(out) :: run_params 
     real, dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space 
@@ -31,7 +31,6 @@ contains
     logical, intent(in), optional  :: doBayesian                !calculate log evidence and posterior weightings
     real, intent(in), optional  :: maxNodePop                   !population at which node is partitioned in binary space partitioning for posterior
     real, intent(in), optional :: Ztolerance			!input tolerance in log-evidence
-    integer, intent(in), optional :: tolcount	 		!input number of times delta ln Z < tol in a row for convergence
     integer, intent(in), optional :: savecount			!save progress every savecount generations
 
     character (len=30) :: DEstrategy, Fsize			!for printing mutation/crossover DE strategy
@@ -74,19 +73,13 @@ contains
     if (present(maxNodePop)) then 
        call setIfPositive_real(maxNodePop, run_params%maxNodePop, 'maxNodePop')
     else
-       run_params%maxNodePop = 3.0				!default for maxNodePop
+       run_params%maxNodePop = 1.9				!default for maxNodePop
     end if
 
     if (present(Ztolerance)) then 
        call setIfPositive_real(Ztolerance, run_params%tol, 'Ztolerance')
     else
-       run_params%tol = 1.d-4					!default for tolerance
-    end if
-
-    if (present(tolcount)) then 
-      call setIfPositive_int(tolcount, run_params%convcountreq, 'tolcount')
-    else
-       run_params%convcountreq = 4				!default for tolerance counter
+       run_params%tol = 0.1 					!default for tolerance
     end if
 
     if (present(savecount)) then 
@@ -109,6 +102,7 @@ contains
 
     !set values for F, Cr, lambda, current, expon for self-adaptive rand/1/bin DE or regular DE
     jDEset: if (run_params%DE%jDE) then
+
        if (present(F)) write (*,*) 'WARNING: value set for F not used during jDE run'
        if (present(Cr)) write (*,*) 'WARNING: value set for Cr not used during jDE run'
        if (present(lambda)) write (*,*) 'WARNING: lambda not used during jDE run'
@@ -119,7 +113,7 @@ contains
        !in the main subroutine of the program for the trial parameters.
  
        if (present(NP)) then
-          if (NP .ge. 4) then 		!required for picking unique vectors during mutation
+          if (NP .ge. 4) then 					!required for picking unique vectors during mutation
              run_params%DE%NP = NP
           else
              write (*,*) 'WARNING: NP specified is too small. Using smallest permitted NP.'
@@ -129,7 +123,7 @@ contains
           run_params%DE%NP = maxval( [10*run_params%D, 4] )	!conservative rule-of-thumb choice 
        end if
 
-
+       run_params%DE%Fsize = 0
        run_params%DE%lambda = 0.
        run_params%DE%current = .false.
        run_params%DE%expon = .false.
@@ -137,26 +131,30 @@ contains
        if(run_params%DE%jDE) then                               !for printing to the screen
           DEstrategy = 'self-adaptive rand/1/bin (jDE)'
        endif
+
     else                                                        !not using jDE.  Initialize for normal DE
+
        if (present(F)) then
-          if (any(F .le. 0)) write (*,*) 'WARNING: some elements of F are 0 or negative. DE may not converge properly.'
-          if (any(F .ge. 1)) write (*,*) 'WARNING: some elements of F are 1 or greater. DE may not converge properly.'
-          allocate(run_params%DE%F(size(F)))
+          if (any(F .le. 0.)) write (*,*) 'WARNING: some elements of F are 0 or negative. DE may not converge properly.'
+          if (any(F .ge. 1.)) write (*,*) 'WARNING: some elements of F are 1 or greater. DE may not converge properly.'
+          run_params%DE%Fsize = size(F)
+          allocate(run_params%DE%F(run_params%DE%Fsize))
           run_params%DE%F = F
        else
-          allocate(run_params%DE%F(1))
+          run_params%DE%Fsize = 1
+          allocate(run_params%DE%F(run_params%DE%Fsize))
           run_params%DE%F = (/0.7/) 				!rule of thumb: 0.4<F<1.0
        end if
 
        if (present(NP)) then
-          if (NP .ge. (2*size(run_params%DE%F) + 2)) then 		!required for picking unique vectors during mutation
+          if (NP .ge. (2*run_params%DE%Fsize + 2)) then 	!required for picking unique vectors during mutation
              run_params%DE%NP = NP
-          else !nb: if current=true, NP=2*size(run_params%DE%F)+1 would be ok, but not implemented
+          else !nb: if current=true, NP=2*run_params%DE%Fsize+1 would be ok, but not implemented
              write (*,*) 'WARNING: NP specified is too small. Using smallest permitted NP.'
-             run_params%DE%NP = 2*size(run_params%DE%F) + 2
+             run_params%DE%NP = 2*run_params%DE%Fsize + 2
           end if
        else
-          run_params%DE%NP = maxval( [10*run_params%D, 2*size(run_params%DE%F) + 2] )	!conservative rule-of-thumb choice 
+          run_params%DE%NP = maxval( [10*run_params%D, 2*run_params%DE%Fsize + 2] )	!conservative rule-of-thumb choice 
        end if
 
        if (present(Cr)) then  
@@ -210,7 +208,7 @@ contains
           end if
        end if
 
-       write (Fsize, *) size(run_params%DE%F)			!number of mutation scale factors
+       write (Fsize, *) run_params%DE%Fsize			!number of mutation scale factors
        Fsize = adjustl(Fsize)
        DEstrategy = trim(DEstrategy)//trim(Fsize) 	
        

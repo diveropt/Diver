@@ -10,21 +10,12 @@ public converged, evidenceDone
 contains
 
 
-  logical function evidenceDone(Z,Zold,tol,convcount,convcountreq)
+  logical function evidenceDone(Z,Zerr,tol)
 
     real, intent(in) :: Z, tol
-    real, intent(inout) :: Zold
-    integer, intent(inout) :: convcount
-    integer, intent(in) :: convcountreq
+    real, intent(inout) :: Zerr
 
-    evidenceDone = .false.
-    if (abs(log(Z/Zold)) .ge. tol) then
-      convcount = 0
-    else
-      if (convcount .eq. convcountreq-1) evidenceDone = .true.
-      convcount = convcount + 1
-    endif
-    Zold = Z
+    evidenceDone = (log(Z/(Z-Zerr)) .le. tol)
 
   end function evidenceDone
 

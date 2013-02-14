@@ -5,57 +5,87 @@ use posterior
 
 implicit none
 
+integer, parameter :: samlun = 1, devolun=2
+
 contains
 
   !Get posterior weights and update evidence on the fly
-  subroutine updateEvidence(X, Z, prior, oldsamples)
+  subroutine updateEvidence(X, Z, Zerr, prior, oldsamples)
   
     type(population), intent(inout) :: X		!current generation
-    real, intent(inout) :: Z				!evidence
+    real, intent(inout) :: Z, Zerr			!evidence
     real, external :: prior 				!prior funtion
+    real :: sampleratio, totsamples                     !ratio of old samples to total samples, total samples
     integer, intent(inout) :: oldsamples		!previous (running) number of samples
-    integer :: totsamples				!total number of samples
+    integer :: inttotsamples				!total number of samples (integer)
+    real, save :: Zsq_average=0.
     
     !Find weights for posterior pdf / evidence calculation
     call growTree(X,prior)
     
-    !Find total number of samples
-    totsamples = oldsamples + size(X%weights)
+    !Find total number of samples and ratio to the old number
+    inttotsamples = oldsamples + size(X%weights)
+    totsamples = dble(inttotsamples)
+    sampleratio = dble(oldsamples)/totsamples
 
     !Calculate multiplicity for outputting in chains
-    X%multiplicities = X%weights*exp(-X%values)/dble(totsamples)
+    X%multiplicities = X%weights*exp(-X%values)/totsamples
 
     !Update evidence
-    Z = Z*dble(oldsamples)/dble(totsamples) + sum(X%multiplicities)
+    Z = Z*sampleratio + sum(X%multiplicities)
+
+    !Update the standard deviation of the evidence
+    Zsq_average = Zsq_average*sampleratio + sum(X%multiplicities*X%multiplicities*totsamples)
+    Zerr = sqrt((Zsq_average - Z*Z)/totsamples)
+    !FIXME gotta check equivalence of these two calculations
+    Zerr = sqrt(abs((Zerr*sampleratio)**2 + sum(X%multiplicities*(X%multiplicities-1./totsamples))) )
 
     !Update number of samples for next time
-    oldsamples = totsamples
+    oldsamples = inttotsamples
 
   end subroutine updateEvidence
 
   
   !Recalculate evidence and all posterior weights at the end of a civilisation
-  subroutine polishEvidence(Z, oldZ, prior)
+  subroutine polishEvidence(Z, Zerr, prior, Nsamples, path, run_params)
 
-    real :: Z, oldZ
-    real, external :: prior 				!prior funtion
+    type(codeparams), intent(in) :: run_params
+    real, intent(inout) :: Z, Zerr
+    real, external :: prior 				
+    real :: lnlike, multiplicity, vector(run_params%D), derived(run_params%D_derived)
+    integer, intent(in) :: Nsamples
+    integer :: filestatus, reclen, civ, gen, i
+    character(len=*), intent(in) :: path
+    character(len=31) :: formatstring
+    character(len=1) :: LF
+
+    !organise the read/write format
+    write(formatstring,'(A18,I4,A9)') '(2E16.5,2x,2I6,2x,', run_params%D+run_params%D_derived, 'E16.5,A1)'  
+    reclen = 49 + 16*(run_params%D+run_params%D_derived)
 
     !open the chain file
-     !open
-
-    !loop over the points in the chain
+    open(unit=samlun, file=trim(path)//'.sam', &
+     iostat=filestatus, status='OLD', access='DIRECT', recl=reclen, form='FORMATTED')
+    if (filestatus .ne. 0) stop ' Error opening .sam file. Quitting...' 
     
+    !loop over the points in the sam file
+    Z = 0.
+    Zerr = 0.
+    do i = 1, Nsamples
       !read in each point 
-       !vector =
+      read(samlun,formatstring,rec=i) multiplicity, lnlike, civ, gen, vector, derived, LF
       !use the tree to get a new weight for the point
-       !weight = getWeight(vector,prior)
-      !save the new weight of the point to disk
-       !write
-      !add the contribution of the point with the new weight   
-       !Z = Z + weight*exp(-value)
+      multiplicity = getWeight(vector,prior)*exp(-lnlike)/dble(Nsamples) 
+      !save the new multiplicity of the point to disk
+      write(samlun,formatstring,rec=i) multiplicity, lnlike, civ, gen, vector, derived, LF
+      !add the contribution of the point with the new multiplicity to the evidence   
+      Z = Z + multiplicity
+      !add the contribution of the point with the new multiplicity to the error
+      Zerr = Zerr + multiplicity*multiplicity
+    enddo
+    Zerr = sqrt(Zerr - Z*Z/dble(Nsamples))
 
-    !end loop
-    !Z = Z/dble(npts)
+    close(samlun)
 
   end subroutine polishEvidence
 

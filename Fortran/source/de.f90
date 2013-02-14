@@ -18,7 +18,8 @@ contains
 
   !Main differential evolution routine.  
   subroutine run_de(func, prior, lowerbounds, upperbounds, path, nDerived, maxciv, maxgen, NP, F, Cr, lambda, current, expon, &
-                    bndry, jDE, doBayesian, maxNodePop, Ztolerance, tolcount, savecount, resume)
+                    bndry, jDE, doBayesian, maxNodePop, Ztolerance, savecount, resume)
+
     real, external :: func, prior 				!function to be minimized (assumed -ln[likelihood]), prior function
     real, dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space
     character(len=*), intent(in)   :: path			!path to save samples, resume files, etc  
@@ -36,7 +37,6 @@ contains
     logical, intent(in), optional  :: doBayesian                !calculate log evidence and posterior weightings
     real, intent(in), optional     :: maxNodePop                !population at which node is partitioned in binary space partitioning for posterior
     real, intent(in), optional     :: Ztolerance		!input tolerance in log-evidence
-    integer, intent(in), optional  :: tolcount	 		!input number of times delta ln Z < tol in a row for convergence
     integer, intent(in), optional  :: savecount			!save progress every savecount generations
     logical, intent(in), optional  :: resume			!restart from a previous run
      
@@ -54,9 +54,9 @@ contains
     real, allocatable :: bestderived(:)
     integer :: bestloc(1)
 
-    real :: Zold, Z = 0.                                        !evidence
+    real :: Z, Zerr = 0.                                  !evidence
     integer :: Nsamples = 0                                     !number of statistically independent samples from posterior
-    integer :: convcount = 0                                    !number of times delta ln Z < tol in a row so far
+    integer :: Nsamples_saved = 0                               !number of samples saved to .sam file so far
     
     write (*,*) '============================='
     write (*,*) ' ******** Begin DE *********'
@@ -67,13 +67,13 @@ contains
     !Assign specified or default values to run_params, bconstrain
     call param_assign(run_params, lowerbounds, upperbounds, nDerived=nDerived, maxciv=maxciv, maxgen=maxgen, NP=NP, F=F, &
                        Cr=Cr, lambda=lambda, current=current, expon=expon, bndry=bndry, jDE=jDE, doBayesian=doBayesian, &
-                       maxNodePop=maxNodePop, Ztolerance=Ztolerance, tolcount=tolcount, savecount=savecount)
+                       maxNodePop=maxNodePop, Ztolerance=Ztolerance, savecount=savecount)
 
     !Resume from saved run or initialise save files for a new one
     if (present(resume)) then
-       call io_begin(path, civ, gen, Z, Zold, Nsamples, convcount, run_params, restart=resume)
+       call io_begin(path, civ, gen, Z, Zerr, Nsamples, run_params, restart=resume)
     else
-       call io_begin(path, civ, gen, Z, Zold, Nsamples, convcount, run_params)
+       call io_begin(path, civ, gen, Z, Zerr, Nsamples, run_params)
     endif
 
     !Allocate vector population
@@ -106,7 +106,7 @@ contains
 
        !Initialise the first generation
        call initialize(X, run_params, lowerbounds, upperbounds, fcall, func)
-       if (run_params%calcZ) call updateEvidence(X, Z, prior, Nsamples)        
+       if (run_params%calcZ) call updateEvidence(X, Z, Zerr, prior, Nsamples)        
        
        !Internal (normal) DE loop: calculates population for each generation
        genloop: do gen = 2, run_params%numgen 
@@ -136,12 +136,14 @@ contains
  
           if (verbose) write (*,*) '  Acceptance rate: ', accept/real(run_params%DE%NP)
 
-          if (run_params%calcZ) then
-             call updateEvidence(X, Z, prior, Nsamples)
-          endif
+          !Update the evidence calculation
+          if (run_params%calcZ) call updateEvidence(X, Z, Zerr, prior, Nsamples)
 
           !Do periodic save
-          if (mod(gen,run_params%savefreq) .eq. 0) call save_all(X, path, civ, gen, Z, Zold, Nsamples, convcount, run_params)
+          if (mod(gen,run_params%savefreq) .eq. 0) then
+            Nsamples_saved = Nsamples_saved + run_params%DE%NP 
+            call save_all(X, path, civ, gen, Z, Zerr, Nsamples_saved, run_params)
+          endif
 
           if (converged(X, gen)) exit                !Check generation-level convergence: if satisfied, exit loop
                                                      !PS, comment: it looks like the convergence of the evidence *requires*
@@ -174,10 +176,8 @@ contains
        if (verbose) write (*,*) '  Cumulative function calls: ', fcall
       
        if (run_params%calcZ) then
-         !Reassess the previous civilisations' contribution to the evidence
-         call polishEvidence(Z,Zold,prior)
          !Break out if posterior/evidence is converged
-         if (run_params%calcZ .and. evidenceDone(Z,Zold,run_params%tol,convcount,run_params%convcountreq)) exit
+         if (run_params%calcZ .and. evidenceDone(Z,Zerr,run_params%tol)) exit
        endif
 
     enddo civloop
@@ -186,11 +186,17 @@ contains
     write (*,*) 'Number of civilisations: ', min(civ,run_params%numciv)
     write (*,*) 'Best final vector: ', BF%vectors(1,:)
     write (*,*) 'Value at best final vector: ', BF%values(1)
-    if (run_params%calcZ) write (*,*)   'ln(Evidence): ', log(Z)
+    if (run_params%calcZ) write (*,*)   'ln(Evidence): ', log(Z), ' +/- ', log(Z/(Z-Zerr))
     write (*,*) 'Total Function calls: ', fcall
 
+    !Polish the evidence
+    if (run_params%calcZ) then
+      call polishEvidence(Z, Zerr, prior, Nsamples_saved, path, run_params)     
+      write (*,*)   'corrected ln(Evidence): ', log(Z), ' +/- ', log(Z/(Z-Zerr))
+    endif
+
     !Do final save operation
-    call save_all(X, path, civ, gen, Z, Zold, Nsamples, convcount, run_params, final=.true.)
+    call save_all(X, path, civ, gen, Z, Zerr, Nsamples_saved, run_params, final=.true.)
 
     deallocate(X%vectors, X%values, X%weights, X%derived, X%multiplicities) 
     if (allocated(X%FjDE)) deallocate(X%FjDE)

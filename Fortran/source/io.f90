@@ -5,24 +5,24 @@ use detypes
 implicit none
 
 private
-public save_all, io_begin
+public save_all, io_begin, resume
 
 integer, parameter :: samlun = 1, devolun=2
 
 contains
 
 
-subroutine io_begin(path, civ, gen, Z, Zold, Nsamples, convcount, run_params, restart)
+subroutine io_begin(path, civ, gen, Z, Zerr, Nsamples, run_params, restart)
 
   character(len=*), intent(in) :: path
-  integer, intent(in) :: civ, gen, Nsamples, convcount
-  real, intent(in) :: Z, Zold
-  type(codeparams), intent(in) :: run_params
+  integer, intent(inout) :: civ, gen, Nsamples
+  real, intent(inout) :: Z, Zerr
+  type(codeparams), intent(inout) :: run_params
   logical, intent(in), optional :: restart
   integer :: filestatus  
  
   if (present(restart) .and. restart) then
-    call resume(path, civ, gen, Z, Zold, Nsamples, convcount, run_params)
+    call resume(path, civ, gen, Z, Zerr, Nsamples, run_params)
   else
     !Create .sam and .devo files
     write(*,*) 'Creating DEvoPack output files at '//trim(path)//'.*'
@@ -36,17 +36,17 @@ subroutine io_begin(path, civ, gen, Z, Zold, Nsamples, convcount, run_params, re
 end subroutine io_begin
 
 
-subroutine save_all(X, path, civ, gen, Z, Zold, Nsamples, convcount, run_params, final)
+subroutine save_all(X, path, civ, gen, Z, Zerr, Nsamples, run_params, final)
 
   type(population), intent(in) :: X
   character(len=*), intent(in) :: path
-  integer, intent(in) :: civ, gen, Nsamples, convcount
-  real, intent(in) :: Z, Zold
+  integer, intent(in) :: civ, gen, Nsamples
+  real, intent(in) :: Z, Zerr
   type(codeparams), intent(in) :: run_params
   logical, intent(in), optional :: final
 
   if (.not. present(final) .or. (present(final) .and. .not. final)) call save_samples(X, path, civ, gen, run_params)  
-  call save_state(path, civ, gen, Z, Zold, Nsamples, convcount, run_params)
+  call save_state(path, civ, gen, Z, Zerr, Nsamples, run_params)
 
 end subroutine save_all
 
@@ -71,35 +71,29 @@ subroutine save_samples(X, path, civ, gen, run_params)
 end subroutine save_samples
 
 
-subroutine save_state(path, civ, gen, Z, Zold, Nsamples, convcount, run_params)
+subroutine save_state(path, civ, gen, Z, Zerr, Nsamples, run_params)
 
   character(len=*), intent(in) :: path
-  integer, intent(in) :: civ, gen, Nsamples, convcount
-  real, intent(in) :: Z, Zold
+  integer, intent(in) :: civ, gen, Nsamples
+  real, intent(in) :: Z, Zerr
   type(codeparams), intent(in) :: run_params
-  integer :: filestatus, n_mutation_sfs
+  integer :: filestatus
   character(len=12) :: formatstring
   
-  !Find how many mutation scale factors there are
-  if (run_params%DE%jDE) then
-     n_mutation_sfs = 0 !no universal set of scale factors in jDE
-  else
-     n_mutation_sfs = size(run_params%DE%F)
-  end if
-
   !Save restart info
   open(unit=devolun, file=trim(path)//'.devo', iostat=filestatus, action='WRITE', status='OLD')
   if (filestatus .ne. 0) stop ' Error opening devo file.  Quitting...'
 
   write(devolun,'(2I6)') 	civ, gen					!current civilisation, generation
-  write(devolun,'(2E16.5)') 	Z, Zold						!current evidence, evidence from previous gen
+  write(devolun,'(2E16.5)') 	Z, Zerr						!current evidence and uncertainty
   write(devolun,'(I6)') 	Nsamples					!total number of independent samples so far
-  write(devolun,'(I6)') 	convcount					!number of times delta ln Z < tol in a row so far
 
   write(devolun,'(I6)') 	run_params%DE%NP               			!population size
+  write(devolun,'(L1)') 	run_params%DE%jDE            			!true: use jDE
+  write(devolun,'(I4)')         run_params%DE%Fsize                             !number of mutation scale factors
 
-  if (n_mutation_sfs .ne. 0) then
-    write(formatstring,'(A1,I4,A6)') '(',n_mutation_sfs,'E16.5)'
+  if (run_params%DE%Fsize .ne. 0) then
+    write(formatstring,'(A1,I4,A6)') '(',run_params%DE%Fsize,'E16.5)'
     write(devolun,formatstring) run_params%DE%F			 		!mutation scale factors
   endif 
 
@@ -107,10 +101,11 @@ subroutine save_state(path, civ, gen, Z, Zold, Nsamples, convcount, run_params)
   write(devolun,'(L1)') 	run_params%DE%current            		!true: use current/best-to-current mutation
   write(devolun,'(E16.5)') 	run_params%DE%Cr            			!crossover rate
   write(devolun,'(L1)')  	run_params%DE%expon               		!when true, use exponential crossover (else use binomial)
+  write(devolun,'(I6)')  	run_params%DE%bconstrain               		!boundary constraint to use
   write(devolun,'(2I6)') 	run_params%D, run_params%D_derived		!dim of parameter space (known from the bounds given); dim of derived space
   write(devolun,'(2I6)') 	run_params%numciv, run_params%numgen		!maximum number of civilizations, generations
   write(devolun,'(E16.5)') 	run_params%tol					!tolerance in log-evidence
-  write(devolun,'(I6)') 	run_params%convcountreq				!number of times delta ln Z < tol in a row for convergence
+  write(devolun,'(E16.5)') 	run_params%maxNodePop				!maximum population to allow in a cell before partitioning it
   write(devolun,'(L1)') 	run_params%calcZ				!calculate evidence or not
   write(devolun,'(I6)') 	run_params%savefreq				!frequency with which to save progress
 
@@ -119,16 +114,64 @@ subroutine save_state(path, civ, gen, Z, Zold, Nsamples, convcount, run_params)
 end subroutine save_state
 
 
+subroutine read_state(path, civ, gen, Z, Zerr, Nsamples, run_params)
+
+  real, intent(out) :: Z, Zerr
+  integer, intent(out) :: civ, gen, Nsamples
+  integer :: filestatus
+  character(len=*), intent(in) :: path
+  character(len=12) :: formatstring
+  type(codeparams), intent(out) :: run_params
+  
+  !Read in run info
+  open(unit=devolun, file=trim(path)//'.devo', iostat=filestatus, action='READ', status='OLD')
+  if (filestatus .ne. 0) stop ' Error opening devo file.  Quitting...'
+
+  read(devolun,'(2I6)') 	civ, gen					!current civilisation, generation
+  read(devolun,'(2E16.5)') 	Z, Zerr						!current evidence and uncertainty
+  read(devolun,'(I6)') 		Nsamples					!total number of independent samples so far
+
+  read(devolun,'(I6)') 		run_params%DE%NP               			!population size
+  read(devolun,'(L1)') 		run_params%DE%jDE            			!true: use jDE
+  read(devolun,'(I4)')          run_params%DE%Fsize                             !number of mutation scale factors
+
+  if (run_params%DE%Fsize .ne. 0) then
+    read(devolun,'(I4)') run_params%DE%Fsize 
+    write(formatstring,'(A1,I4,A6)') '(',run_params%DE%Fsize,'E16.5)'
+    read(devolun,formatstring) run_params%DE%F			 		!mutation scale factors
+  endif 
+
+  read(devolun,'(E16.5)') 	run_params%DE%lambda        			!mutation scale factor for best-to-rand/current
+  read(devolun,'(L1)') 		run_params%DE%current            		!true: use current/best-to-current mutation
+  read(devolun,'(E16.5)') 	run_params%DE%Cr            			!crossover rate
+  read(devolun,'(L1)')  	run_params%DE%expon               		!when true, use exponential crossover (else use binomial)
+  read(devolun,'(I6)')  	run_params%DE%bconstrain               		!boundary constraint to use
+  read(devolun,'(2I6)') 	run_params%D, run_params%D_derived		!dim of parameter space (known from the bounds given); dim of derived space
+  read(devolun,'(2I6)') 	run_params%numciv, run_params%numgen		!maximum number of civilizations, generations
+  read(devolun,'(E16.5)') 	run_params%tol					!tolerance in log-evidence
+  read(devolun,'(E16.5)') 	run_params%maxNodePop				!maximum population to allow in a cell before partitioning it
+  read(devolun,'(L1)') 		run_params%calcZ				!calculate evidence or not
+  read(devolun,'(I6)') 		run_params%savefreq				!frequency with which to save progress
+
+  close(devolun)
+
+end subroutine read_state
+
+
 !Resumes from a previous run
-subroutine resume(path, civ, gen, Z, Zold, Nsamples, convcount, run_params)
+subroutine resume(path, civ, gen, Z, Zerr, Nsamples, run_params)
 
   character(len=*), intent(in) :: path
-  integer, intent(in) :: civ, gen, Nsamples, convcount
-  real, intent(in) :: Z, Zold
-  type(codeparams), intent(in) :: run_params
+  integer, intent(inout) :: civ, gen, Nsamples
+  real, intent(inout) :: Z, Zerr
+  type(codeparams), intent(inout) :: run_params
+  type(codeparams) :: run_params_restored
 
   write(*,*) 'Restoring from previous run...'
-  !FIXME mirror save_state, do some error-checking on overrides/disagreements with run_params
+  !Read the run state
+  call read_state(path, civ, gen, Z, Zerr, Nsamples, run_params_restored)
+  !FIXME Do some error-checking on overrides/disagreements between run_params
+  run_params = run_params_restored
 
 end subroutine resume
 
