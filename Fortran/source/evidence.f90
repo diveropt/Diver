@@ -10,15 +10,14 @@ integer, parameter :: samlun = 1, devolun=2
 contains
 
   !Get posterior weights and update evidence on the fly
-  subroutine updateEvidence(X, Z, Zerr, prior, oldsamples)
+  subroutine updateEvidence(X, Z, Zmsq, Zerr, prior, oldsamples)
   
     type(population), intent(inout) :: X		!current generation
-    real, intent(inout) :: Z, Zerr			!evidence
+    real, intent(inout) :: Z, Zmsq, Zerr		!evidence, mean square of weights, error on evidence
     real, external :: prior 				!prior funtion
     real :: sampleratio, totsamples                     !ratio of old samples to total samples, total samples
     integer, intent(inout) :: oldsamples		!previous (running) number of samples
     integer :: inttotsamples				!total number of samples (integer)
-    real, save :: Zsq_average=0.
     
     !Find weights for posterior pdf / evidence calculation
     call growTree(X,prior)
@@ -34,23 +33,21 @@ contains
     !Update evidence
     Z = Z*sampleratio + sum(X%multiplicities)
 
-    !Update the standard deviation of the evidence
-    Zsq_average = Zsq_average*sampleratio + sum(X%multiplicities*X%multiplicities*totsamples)
-    Zerr = sqrt((Zsq_average - Z*Z)/totsamples)
-    !FIXME gotta check equivalence of these two calculations
-    Zerr = sqrt(abs((Zerr*sampleratio)**2 + sum(X%multiplicities*(X%multiplicities-1./totsamples))) )
-
+    !Update the mean square of the weights and the standard deviation of the evidence
+    Zmsq = Zmsq*sampleratio + sum(X%multiplicities*X%multiplicities*totsamples)
+    Zerr = sqrt((Zmsq - Z*Z)/totsamples)
+    
     !Update number of samples for next time
     oldsamples = inttotsamples
 
   end subroutine updateEvidence
 
   
-  !Recalculate evidence and all posterior weights at the end of a civilisation
-  subroutine polishEvidence(Z, Zerr, prior, Nsamples, path, run_params)
+  !Recalculate evidence and all posterior weights at the end of a run
+  subroutine polishEvidence(Z, Zmsq, Zerr, prior, Nsamples, path, run_params)
 
     type(codeparams), intent(in) :: run_params
-    real, intent(inout) :: Z, Zerr
+    real, intent(inout) :: Z, Zmsq, Zerr
     real, external :: prior 				
     real :: lnlike, multiplicity, vector(run_params%D), derived(run_params%D_derived)
     integer, intent(in) :: Nsamples
@@ -70,7 +67,7 @@ contains
     
     !loop over the points in the sam file
     Z = 0.
-    Zerr = 0.
+    Zmsq = 0.
     do i = 1, Nsamples
       !read in each point 
       read(samlun,formatstring,rec=i) multiplicity, lnlike, civ, gen, vector, derived, LF
@@ -81,9 +78,11 @@ contains
       !add the contribution of the point with the new multiplicity to the evidence   
       Z = Z + multiplicity
       !add the contribution of the point with the new multiplicity to the error
-      Zerr = Zerr + multiplicity*multiplicity
+      Zmsq = Zmsq + multiplicity*multiplicity
     enddo
-    Zerr = sqrt(Zerr - Z*Z/dble(Nsamples))
+    Zmsq = Zmsq*dble(Nsamples)
+    Zerr = sqrt((Zmsq - Z*Z)/dble(Nsamples))
+    
 
     close(samlun)
 

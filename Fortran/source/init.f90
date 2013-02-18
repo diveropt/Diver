@@ -79,7 +79,7 @@ contains
     if (present(Ztolerance)) then 
        call setIfPositive_real(Ztolerance, run_params%tol, 'Ztolerance')
     else
-       run_params%tol = 0.1 					!default for tolerance
+       run_params%tol = 0.01 					!default for tolerance
     end if
 
     if (present(savecount)) then 

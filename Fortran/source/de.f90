@@ -55,7 +55,7 @@ contains
     real, allocatable :: bestderived(:)
     integer :: bestloc(1)
 
-    real :: Z, Zerr = 0.                                  !evidence
+    real :: Z, Zmsq, Zerr = 0.                                   !evidence
     integer :: Nsamples = 0                                     !number of statistically independent samples from posterior
     integer :: Nsamples_saved = 0                               !number of samples saved to .sam file so far
     
@@ -72,9 +72,9 @@ contains
 
     !Resume from saved run or initialise save files for a new one
     if (present(resume)) then
-       call io_begin(path, civ, gen, Z, Zerr, Nsamples, run_params, restart=resume)
+       call io_begin(path, civ, gen, Z, Zmsq, Zerr, Nsamples, run_params, restart=resume)
     else
-       call io_begin(path, civ, gen, Z, Zerr, Nsamples, run_params)
+       call io_begin(path, civ, gen, Z, Zmsq, Zerr, Nsamples, run_params)
     endif
 
     !Allocate vector population
@@ -112,7 +112,7 @@ contains
 
        !Initialise the first generation
        call initialize(X, run_params, lowerbounds, upperbounds, fcall, func)
-       if (run_params%calcZ) call updateEvidence(X, Z, Zerr, prior, Nsamples)        
+       !Don't use initial generation for estimating evidence, as it biases the BSP
        
        !Internal (normal) DE loop: calculates population for each generation
        genloop: do gen = 2, run_params%numgen 
@@ -152,12 +152,12 @@ contains
           if (verbose) write (*,*) '  Acceptance rate: ', accept/real(run_params%DE%NP)
 
           !Update the evidence calculation
-          if (run_params%calcZ) call updateEvidence(X, Z, Zerr, prior, Nsamples)
+          if (run_params%calcZ) call updateEvidence(X, Z, Zmsq, Zerr, prior, Nsamples)
 
           !Do periodic save
           if (mod(gen,run_params%savefreq) .eq. 0) then
             Nsamples_saved = Nsamples_saved + run_params%DE%NP 
-            call save_all(X, path, civ, gen, Z, Zerr, Nsamples_saved, run_params)
+            call save_all(X, path, civ, gen, Z, Zmsq, Zerr, Nsamples_saved, run_params)
           endif
 
           if (converged(X, gen)) exit                !Check generation-level convergence: if satisfied, exit loop
@@ -192,7 +192,7 @@ contains
       
        if (run_params%calcZ) then
          !Break out if posterior/evidence is converged
-         if (run_params%calcZ .and. evidenceDone(Z,Zerr,run_params%tol)) exit
+         if (evidenceDone(Z,Zerr,run_params%tol)) exit
        endif
 
     enddo civloop
@@ -206,12 +206,12 @@ contains
 
     !Polish the evidence
     if (run_params%calcZ) then
-      call polishEvidence(Z, Zerr, prior, Nsamples_saved, path, run_params)     
+      call polishEvidence(Z, Zmsq, Zerr, prior, Nsamples_saved, path, run_params)     
       write (*,*)   'corrected ln(Evidence): ', log(Z), ' +/- ', log(Z/(Z-Zerr))
     endif
 
     !Do final save operation
-    call save_all(X, path, civ, gen, Z, Zerr, Nsamples_saved, run_params, final=.true.)
+    call save_all(X, path, civ, gen, Z, Zmsq, Zerr, Nsamples_saved, run_params, final=.true.)
 
     deallocate(X%vectors, X%values, X%weights, X%derived, X%multiplicities)
     deallocate(Xtemp%vectors, Xtemp%values)

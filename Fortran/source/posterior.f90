@@ -6,21 +6,21 @@ implicit none
 
 !Linked binary tree node type
 type Node
-  type(Node), pointer :: trunk => null(), branchA => null(), branchB => null()
-  type(Point), pointer :: firstnewpt => null(), lastnewpt => null()
+  type (Node), pointer :: trunk => null(), branchA => null(), branchB => null()
+  type (Point), pointer :: firstnewpt => null(), lastnewpt => null()
   real :: population = 0
   integer :: newpopulation = 0
   integer :: branchesDifferInDim = 0
   real, allocatable :: upperbounds(:), lowerbounds(:)
 end type Node
-type(Node), pointer :: root
+type (Node), pointer :: root
 
 !Entry in linked list of binary tree nodes
 type ListNode
-  type(Node), pointer :: thisnode => null()
-  type(ListNode), pointer :: next => null(), prev => null()  
+  type (Node), pointer :: thisnode => null()
+  type (ListNode), pointer :: next => null(), prev => null()  
 end type ListNode
-type(ListNode), pointer :: firstListNode => null(), currentListNode => null()
+type (ListNode), pointer :: firstListNode => null(), currentListNode => null()
 
 !Entry in linked list of individuals (points in parameter space)
 type Point
@@ -29,11 +29,20 @@ type Point
   real, pointer :: weight => null()
 end type
 
+!Entry in linked list of duplicate individuals (points in parameter space)
+type Duplicate
+  type (Duplicate), pointer :: next => null()
+  type (Point), pointer :: point => null()
+  type (Node), pointer :: stoppingNode => null()
+end type
+type (Duplicate), pointer :: firstDuplicate => null(), lastDuplicate => null()
+
 real, allocatable  :: ranges(:)			!Prior box side lengths
 integer :: D = 0				!Dimension of parameter space being scanned
 integer :: totalCells = 0			!Number of cells in binary space partitioning
 logical :: debug = .false.			!Debugging flag for posterior routines
 real :: maxNodePop                              !Population at which to divide cells
+real, parameter :: duplicate_tol = 10.          !Scaling factor for epsilon in duplicate test
 
 public iniTree, clearTree, growTree
 private burnTree, climbTree, tendTree, growBranches, addToEndOfPtList, maxNodePop
@@ -120,7 +129,7 @@ contains
     if (debug) write(*,*) 'current number of cells: ',totalCells
     if (debug) write(*,*) 'about to climb'
 
-    !FIXME check thread safety of parallelising following loop
+    !FIXME parallelise the following loop (maybe not so easy)
     do i = 1, NP
 
       !Sort each of the new points into the existing tree structure, saving each
@@ -141,6 +150,19 @@ contains
     !deallocating each entry as we go, and adding more to the end where required
     call tendTree(firstListNode)
 
+    !Repeat if any duplicates have been identified
+    do while (associated(firstDuplicate))
+      if (debug) write(*,*) 'Dealing with duplicates...'
+      !Reset the list of nodes to be checked for branching  
+      currentListNode => firstListNode
+      nullify(currentListNode%next)
+      !Run any stragglers (duplicates) up the tree
+      call straggleUpTree(firstDuplicate)
+      !Work through any new entries in the linked list of nodes needing to be 
+      !checked for branching.
+      call tendTree(firstListNode)
+    end do
+
     !$OMP PARALLEL DO
     do i = 1, NP
       X%weights(i) = X%weights(i) * prior(X%vectors(i,:)) * dble(totalCells)
@@ -150,6 +172,98 @@ contains
     nullify(individual)
 
   end subroutine growTree
+
+
+  recursive subroutine tendTree(workingListNode)
+  !Steps through linked list of nodes potentially needing to be partitioned, and
+  !does the partitioning
+
+    type(ListNode), pointer, intent(inout) :: workingListNode
+    type(ListNode), pointer :: temp 
+    type(Point), pointer :: individual, temppt
+    real :: nodeWeight
+    integer :: i
+
+    nullify (temp)
+    nullify (individual)
+    nullify (temppt)
+
+    if (debug) write(*,*) 'attempting to grow tree'
+  
+    !Check if this is the first (=permanent) node in the list
+    if (.not. associated(workingListNode%prev)) then
+      !it is, so step on to the second node
+
+      if (debug) write(*,*) 'this is the first node in the list'
+      call tendTree(workingListNode%next)
+
+    else
+      if (debug) write(*,*) 'this is a later node'
+      !it isn't.  Check if this node needs partitioning.
+
+      if (workingListNode%thisNode%population .gt. maxNodePop) then
+        !Current node needs to grow new branches
+
+        call growBranches(workingListNode%thisNode)
+
+      else
+
+        !No new branches required.  The weightings of the points in the 
+        !new population of this node are given by the weighting of the node
+        nodeWeight = product(workingListNode%thisNode%upperbounds - workingListNode%thisNode%lowerbounds)
+        individual => workingListNode%thisNode%firstnewpt
+
+        do i = 1, workingListNode%thisNode%newpopulation
+          individual%weight = nodeWeight
+          temppt => individual%next
+          if (debug) write(*,*) 'deallocating individual'
+          deallocate(individual)
+          if (associated(temppt)) individual => temppt
+        enddo
+
+      endif
+
+      !Save pointer to next node in the list
+      temp => workingListNode%next
+
+      !Done with growing the tree for this node for now; set its new population to zero
+      workingListNode%thisNode%newpopulation = 0
+
+      !Remove this node from the linked list 
+      deallocate(workingListNode)
+
+      !Check if this is the last node in the list
+      if (associated(temp)) then
+        !If not, step onwards to the next node in the linked list
+        call tendTree(temp)
+      endif
+
+    endif
+
+    nullify (temp)
+    nullify (individual)
+    nullify (temppt)
+
+  end subroutine tendTree
+
+
+  recursive subroutine straggleUpTree(straggler)
+  !Sends stragglers climbing up the tree at a late stage, when
+  !they cannot interfere with duplicates in the same 
+  !generation who had already climbed.
+
+    type(Duplicate), pointer, intent(inout) :: straggler
+
+    !Send current straggler on up the tree to another node
+    call climbTree(straggler%point, straggler%stoppingNode)
+
+    !If this is not the last straggler, send the next one up
+    if (associated(straggler%next)) call straggleUpTree(straggler%next)
+
+    !Remove this duplicate from the linked list
+    deallocate(straggler)
+
+  end subroutine straggleUpTree
 
 
   recursive subroutine climbTree(individual,currentNode,justLooking)
@@ -184,12 +298,13 @@ contains
 
         !increment the population of this node
         currentNode%population = currentNode%population + 1.0
-        if (debug) write(*,*) 'new population: ',currentNode%newpopulation
         call addToEndOfPtList(individual,currentNode)
+        if (debug) write(*,*) 'new population: ',currentNode%newpopulation
 
         !If this is the first time the current node has had a new point added to it, then
         !save the node to the linked list of nodes that need to be later checked for splitting
         if (.not. associated(currentNode%firstnewpt%next)) then 
+          if (debug) write(*,*) 'Adding node to list for later checking'
           !Create the next entry in the linked list of nodes
           allocate(currentListNode%next)
           !Set the next list entry to point back to the current list entry
@@ -249,87 +364,20 @@ contains
   end subroutine addToEndofPtList
 
 
-  recursive subroutine tendTree(workingListNode)
-  !Steps through linked list of nodes potentially needing to be partitioned, and
-  !does the partitioning
-
-    type(ListNode), pointer, intent(inout) :: workingListNode
-    type(ListNode), pointer :: temp 
-    type(Point), pointer :: individual, temppt
-    real :: nodeWeight
-    integer :: i
-
-    nullify (temp)
-    nullify (individual)
-    nullify (temppt)
-
-    if (debug) write(*,*) 'attempting to grow tree'
-  
-    !Check if this is the first (=permanent) node in the list
-    if (.not. associated(workingListNode%prev)) then
-      !it is, so step on to the second node
-
-      if (debug) write(*,*) 'this is the first node in the list'
-      call tendTree(workingListNode%next)
-
-    else
-      if (debug) write(*,*) 'this is a later node'
-      !it isn't.  Check if this node needs partitioning.
-
-      if (workingListNode%thisNode%population .gt. maxNodePop) then
-        !Current node needs to grow new branches
-
-        call growBranches(workingListNode%thisNode)
-
-      else
-
-        !No new branches required.  The weightings of the points in the 
-        !new population of this node are given by the weighting of the node
-        nodeWeight = product(workingListNode%thisNode%upperbounds - workingListNode%thisNode%lowerbounds)
-        individual => workingListNode%thisNode%firstnewpt
-
-        do i = 1, workingListNode%thisNode%newpopulation
-          individual%weight = nodeWeight
-          temppt => individual%next
-          if (debug) write(*,*) 'deallocating individual'
-          deallocate(individual)
-          if (associated(temppt)) individual => temppt
-        enddo
-
-      endif
-
-      !Save pointer to next node in the list
-      temp => workingListNode%next
-
-      !Done with growing the tree for this node; set its new population to zero and remove it from the linked list
-      workingListNode%thisNode%newpopulation = 0
-      deallocate(workingListNode)
-
-      !Check if it is the last node in the list
-      if (associated(temp)) then
-        !If not, step onwards to the next node in the linked list
-        call tendTree(temp)
-      endif
-
-    endif
-
-    nullify (temp)
-    nullify (individual)
-    nullify (temppt)
-
-  end subroutine tendTree
-
-
   recursive subroutine growBranches(currentNode)
   !Adds two new branches from a node, sorts the old population of the trunk node into them evenly,
   !and sends the new individuals in the trunk climbing up the new branches
 
     type(Node), pointer, intent(in) :: currentNode
     type(Point), pointer :: individual, temppt
-    integer :: i, splitIndex(1)
+    integer :: i, j, splitIndex(1)
+    real :: ptRegistry(D, currentNode%newpopulation)
+    logical :: dupeFlags(currentNode%newpopulation)
 
     nullify(individual)
     nullify(temppt)
+    ptRegistry = 0.
+    dupeFlags = .false.
 
     !Create the two new nodes and set their boundaries to those of the trunk node
     allocate(currentNode%branchA, currentNode%branchB)
@@ -358,25 +406,53 @@ contains
     !Send the points in the new population off up the tree
     individual => currentNode%firstnewpt
 
-    if (currentNode%newpopulation .gt. 1) then
-      do i = 1, currentNode%newpopulation - 1
- 
-        !Need to save the next point in the list for next iteration in the loop,  
-        !as the current point will be appended to the end of a different list 
-        !after it is sent up the tree
-        temppt => individual%next
+    do i = 1, currentNode%newpopulation
+      
+      !Need to save the next point in the list for next iteration in the loop,  
+      !as the current point will be appended to the end of a different list 
+      !after it is sent up the tree
+      if (i .ne. currentNode%newpopulation) temppt => individual%next
+
+      !Work out if the current individual is a duplicate of any already sent in this loop
+      forall(j=1:i) dupeFlags(j) = all(abs(ptRegistry(:,j) - individual%vector) .le. &
+       duplicate_tol*epsilon(individual%vector)*abs(individual%vector))
+
+      !Don't allow duplicates to be sent climbing at this stage
+      if (.not. any(dupeFlags)) then
+
+        !Save details of current point
+        ptRegistry(:,i) = individual%vector
+
         !Send current new point on up the tree to another node
-
         call climbTree(individual,currentNode)
-        !Set next point to send up the tree
 
-        individual => temppt
+      else
 
-     enddo
+        if (debug) write(*,*) 'Duplicate found.'
+       
+        !Remove the individual from the list of points to be sent climbing
+        nullify(individual%next)
 
-    endif
-    call climbTree(individual,currentNode)
- 
+        !Save the duplicate point for later
+        if (.not. associated(firstDuplicate)) then
+          !If this is the first duplicate point in the list, put it in the first entry in the list of duplicates
+          allocate(firstDuplicate)
+          lastDuplicate => firstDuplicate
+        else
+          !Otherwise, make a new entry at the end of the list of duplicate points 
+          allocate(lastDuplicate%next)
+          lastDuplicate => lastDuplicate%next
+        endif    
+        lastDuplicate%point => individual
+        lastDuplicate%stoppingNode => currentNode
+        
+      endif
+
+      !Set next point to try sending up the tree
+      if (i .ne. currentNode%newpopulation) individual => temppt
+
+    enddo
+
     !Set the population of the current node back to zero
     currentNode%population = 0.0
     currentNode%newpopulation = 0

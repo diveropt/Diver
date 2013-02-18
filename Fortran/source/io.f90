@@ -12,17 +12,17 @@ integer, parameter :: samlun = 1, devolun=2
 contains
 
 
-subroutine io_begin(path, civ, gen, Z, Zerr, Nsamples, run_params, restart)
+subroutine io_begin(path, civ, gen, Z, Zmsq, Zerr, Nsamples, run_params, restart)
 
   character(len=*), intent(in) :: path
   integer, intent(inout) :: civ, gen, Nsamples
-  real, intent(inout) :: Z, Zerr
+  real, intent(inout) :: Z, Zmsq, Zerr
   type(codeparams), intent(inout) :: run_params
   logical, intent(in), optional :: restart
   integer :: filestatus  
  
   if (present(restart) .and. restart) then
-    call resume(path, civ, gen, Z, Zerr, Nsamples, run_params)
+    call resume(path, civ, gen, Z, Zmsq, Zerr, Nsamples, run_params)
   else
     !Create .sam and .devo files
     write(*,*) 'Creating DEvoPack output files at '//trim(path)//'.*'
@@ -36,17 +36,17 @@ subroutine io_begin(path, civ, gen, Z, Zerr, Nsamples, run_params, restart)
 end subroutine io_begin
 
 
-subroutine save_all(X, path, civ, gen, Z, Zerr, Nsamples, run_params, final)
+subroutine save_all(X, path, civ, gen, Z, Zmsq, Zerr, Nsamples, run_params, final)
 
   type(population), intent(in) :: X
   character(len=*), intent(in) :: path
   integer, intent(in) :: civ, gen, Nsamples
-  real, intent(in) :: Z, Zerr
+  real, intent(in) :: Z, Zmsq, Zerr
   type(codeparams), intent(in) :: run_params
   logical, intent(in), optional :: final
 
   if (.not. present(final) .or. (present(final) .and. .not. final)) call save_samples(X, path, civ, gen, run_params)  
-  call save_state(path, civ, gen, Z, Zerr, Nsamples, run_params)
+  call save_state(path, civ, gen, Z, Zmsq, Zerr, Nsamples, run_params)
 
 end subroutine save_all
 
@@ -71,11 +71,11 @@ subroutine save_samples(X, path, civ, gen, run_params)
 end subroutine save_samples
 
 
-subroutine save_state(path, civ, gen, Z, Zerr, Nsamples, run_params)
+subroutine save_state(path, civ, gen, Z, Zmsq, Zerr, Nsamples, run_params)
 
   character(len=*), intent(in) :: path
   integer, intent(in) :: civ, gen, Nsamples
-  real, intent(in) :: Z, Zerr
+  real, intent(in) :: Z, Zmsq, Zerr
   type(codeparams), intent(in) :: run_params
   integer :: filestatus
   character(len=12) :: formatstring
@@ -85,7 +85,7 @@ subroutine save_state(path, civ, gen, Z, Zerr, Nsamples, run_params)
   if (filestatus .ne. 0) stop ' Error opening devo file.  Quitting...'
 
   write(devolun,'(2I6)') 	civ, gen					!current civilisation, generation
-  write(devolun,'(2E16.5)') 	Z, Zerr						!current evidence and uncertainty
+  write(devolun,'(2E16.5)') 	Z, Zmsq, Zerr					!current evidence, mean square and uncertainty
   write(devolun,'(I6)') 	Nsamples					!total number of independent samples so far
 
   write(devolun,'(I6)') 	run_params%DE%NP               			!population size
@@ -114,9 +114,9 @@ subroutine save_state(path, civ, gen, Z, Zerr, Nsamples, run_params)
 end subroutine save_state
 
 
-subroutine read_state(path, civ, gen, Z, Zerr, Nsamples, run_params)
+subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Nsamples, run_params)
 
-  real, intent(out) :: Z, Zerr
+  real, intent(out) :: Z, Zmsq, Zerr
   integer, intent(out) :: civ, gen, Nsamples
   integer :: filestatus
   character(len=*), intent(in) :: path
@@ -128,7 +128,7 @@ subroutine read_state(path, civ, gen, Z, Zerr, Nsamples, run_params)
   if (filestatus .ne. 0) stop ' Error opening devo file.  Quitting...'
 
   read(devolun,'(2I6)') 	civ, gen					!current civilisation, generation
-  read(devolun,'(2E16.5)') 	Z, Zerr						!current evidence and uncertainty
+  read(devolun,'(2E16.5)') 	Z, Zmsq, Zerr					!current evidence, mean square and uncertainty
   read(devolun,'(I6)') 		Nsamples					!total number of independent samples so far
 
   read(devolun,'(I6)') 		run_params%DE%NP               			!population size
@@ -159,19 +159,20 @@ end subroutine read_state
 
 
 !Resumes from a previous run
-subroutine resume(path, civ, gen, Z, Zerr, Nsamples, run_params)
+subroutine resume(path, civ, gen, Z, Zmsq, Zerr, Nsamples, run_params)
 
   character(len=*), intent(in) :: path
   integer, intent(inout) :: civ, gen, Nsamples
-  real, intent(inout) :: Z, Zerr
+  real, intent(inout) :: Z, Zmsq, Zerr
   type(codeparams), intent(inout) :: run_params
   type(codeparams) :: run_params_restored
 
   write(*,*) 'Restoring from previous run...'
   !Read the run state
-  call read_state(path, civ, gen, Z, Zerr, Nsamples, run_params_restored)
+  call read_state(path, civ, gen, Z, Zmsq, Zerr, Nsamples, run_params_restored)
   !FIXME Do some error-checking on overrides/disagreements between run_params
   run_params = run_params_restored
+  !FIXME Rebuild the binary spanning tree by reading the points in by generation and sending them climbing
 
 end subroutine resume
 
