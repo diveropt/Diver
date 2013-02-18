@@ -32,20 +32,39 @@ contains
     type(population), intent(in) :: X                !current generation of target vectors
     integer, intent(in) :: n                         !index of current vector
     type(codeparams), intent(in) :: run_params
-    real, dimension(run_params%D) :: genmutation  !donor vector
-    integer :: totF                                  !number of F scale factors
-    integer, dimension(2*size(run_params%DE%F)) :: r !index of random vectors X_J, X_K
+    real, dimension(run_params%D) :: genmutation     !donor vector
+    integer, dimension(2*run_params%DE%Fsize) :: r   !index of random vectors X_J, X_K
     integer ri                                       !index of (random or current) vector X_I
-    integer q
+    integer,  dimension(1) :: rbest                  !index of best vector (array to make minloc() happy)
+    integer q                                        !use to iterate over the scale factors F(q)
     real, dimension(run_params%D) :: sumF            !the summed difference vector over the F's
 
-    totF=size(run_params%DE%F)
+    !assign rbest
+    if (run_params%DE%lambda .gt. 0.0) then
+       rbest = minloc(X%values) 
+    else
+       rbest = (/n/)                          !don't want to restrict options for ri, r(q)
+    end if
+
+    !assign ri
+    if(run_params%DE%current .or. (run_params%DE%lambda .eq. 1.0)) then 
+       ri = n                                !use current target vector for mutation (for lambda=1, don't need unique ri)
+    else                                     !for rand/ or rand-to-best/
+       do                                    !choose random ri not equal to n or rbest (if lambda>0)
+          call random_int(ri, 1, run_params%DE%NP)
+          if ( any( (/n, rbest(1)/) .eq. ri) ) then 
+             cycle                           !ri not unique, keep trying
+          else
+             exit                            !finished picking ri
+          end if
+       end do 
+    end if
 
     !assign unique r(q)'s from population
-    do q=1, 2*totF
+    do q=1, 2*run_params%DE%Fsize
        do
           call random_int(r(q), 1, run_params%DE%NP)
-          if ( any( (/r(1:q-1), n/) .eq. r(q)) ) then
+          if ( any( (/r(1:q-1), n, ri, rbest(1)/) .eq. r(q)) ) then
              cycle                           !continue picking new r(q)'s until unique
           else   
              exit                            !r(q) unique, begin picking r(q+1) 
@@ -53,27 +72,14 @@ contains
        end do 
     end do
 
-    !assign ri
-    if(run_params%DE%current) then 
-       ri = n                                !use current target vector for mutation
-    else
-       do                                    !choose random unique ri
-          call random_int(ri, 1, run_params%DE%NP)
-          if ( any( (/r(:), n/) .eq. ri) ) then 
-             cycle 
-          else
-             exit 
-          end if
-       end do 
-    end if
-
     !find the difference vector associated with the F's:
-    do q=1, totF
-       sumF(:) = run_params%DE%F(q)*(X%vectors(r(q),:) - X%vectors(r(2*q),:))
+    sumF(:) = 0.0
+    do q=1, run_params%DE%Fsize
+       sumF(:) = run_params%DE%F(q)*(X%vectors(r(2*q-1),:) - X%vectors(r(2*q),:)) + sumF(:)
     end do
-    
+
     !V = lambda*X_best + (1-lambda)*X_I + Sum_q F(q)*(X_J(q) - X_K(q))
-    genmutation(:) =  run_params%DE%lambda*bestvector(X, run_params) + (1-run_params%DE%lambda)*X%vectors(ri,:) + sumF(:)
+    genmutation(:) =  run_params%DE%lambda*X%vectors(rbest(1), :) + (1-run_params%DE%lambda)*X%vectors(ri,:) + sumF(:)
 
   end function genmutation
   
@@ -122,19 +128,6 @@ contains
     endif
 
   end function newF
-
-
-  function bestvector(X, run_params)            !returns the best vector in the population
-    type(population), intent(in) :: X
-    type(codeparams), intent(in) :: run_params
-    integer, dimension(1) :: locbest        !the index of the best vector
-    real, dimension(run_params%D) :: bestvector !the best vector in the current population
-
-    locbest = minloc(X%values)
-    bestvector(:) = X%vectors(locbest(1), :)
-
-  end function bestvector
-
 
 
   subroutine random_int(harvest, min, max) !choose a random integer between min and max, inclusive

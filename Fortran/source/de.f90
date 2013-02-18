@@ -42,7 +42,8 @@ contains
      
     type(codeparams) :: run_params                              !carries the code parameters 
 
-    type(population), target :: X, BF                           !population of target vectors, best-fit vector  
+    type(population), target :: X, BF                           !population of target vectors, best-fit vector
+    type(population) :: Xtemp                                   !population for the next generation
     real, dimension(size(lowerbounds)) :: V, U                  !donor, trial vectors
     real :: trialF, trialCr                                     !adaptive F and Cr for jDE
 
@@ -79,12 +80,17 @@ contains
     !Allocate vector population
     allocate(X%vectors(run_params%DE%NP, run_params%D))
     allocate(X%derived(run_params%DE%NP, run_params%D_derived))
-    allocate(X%values(run_params%DE%NP), X%weights(run_params%DE%NP), X%multiplicities(run_params%DE%NP)) 
+    allocate(X%values(run_params%DE%NP), X%weights(run_params%DE%NP), X%multiplicities(run_params%DE%NP))
+    allocate(Xtemp%vectors(run_params%DE%NP, run_params%D))
+    allocate(Xtemp%derived(run_params%DE%NP, run_params%D_derived))
+    allocate(Xtemp%values(run_params%DE%NP))
 
     !for self-adaptive DE (jDE), allocate space for the populations of parameters
     if (run_params%DE%jDE) then
        allocate(X%FjDE(run_params%DE%NP))
        allocate(X%CrjDE(run_params%DE%NP))
+       allocate(Xtemp%FjDE(run_params%DE%NP))
+       allocate(Xtemp%CrjDE(run_params%DE%NP))
     endif
     
     !Allocate best-fit containers
@@ -123,17 +129,26 @@ contains
              call gencrossover(X, V, U, n, run_params, trialCr)  	!trial vectors
 
              !choose next generation of target vectors
-             call selector(X, U, trialF, trialCr, n, lowerbounds, upperbounds, run_params, fcall, func, accept)
+             call selector(X, Xtemp, U, trialF, trialCr, n, lowerbounds, upperbounds, run_params, fcall, func, accept)
             
-             if(run_params%DE%jDE) then 
-                if (verbose) write (*,*) n, X%vectors(n, :), '->', X%values(n), '|', X%FjDE(n), X%CrjDE(n)
+             if (run_params%DE%jDE) then 
+                if (verbose) write (*,*) n, Xtemp%vectors(n, :), '->', Xtemp%values(n), '|', Xtemp%FjDE(n), Xtemp%CrjDE(n)
              else
-                if (verbose) write (*,*) n, X%vectors(n, :), '->', X%values(n)
+                if (verbose) write (*,*) n, Xtemp%vectors(n, :), '->', Xtemp%values(n)
              end if
 
           end do poploop
           !$END OMP PARALLEL DO
  
+          !replace old generation with newly calculated one
+          X%vectors = Xtemp%vectors
+          X%values = Xtemp%values
+          X%derived = Xtemp%derived
+          if (run_params%DE%jDE) then
+             X%FjDE = Xtemp%FjDE
+             X%CrjDE = Xtemp%CrjDE
+          end if
+
           if (verbose) write (*,*) '  Acceptance rate: ', accept/real(run_params%DE%NP)
 
           !Update the evidence calculation
@@ -198,9 +213,12 @@ contains
     !Do final save operation
     call save_all(X, path, civ, gen, Z, Zerr, Nsamples_saved, run_params, final=.true.)
 
-    deallocate(X%vectors, X%values, X%weights, X%derived, X%multiplicities) 
+    deallocate(X%vectors, X%values, X%weights, X%derived, X%multiplicities)
+    deallocate(Xtemp%vectors, Xtemp%values)
     if (allocated(X%FjDE)) deallocate(X%FjDE)
     if (allocated(X%CrjDE)) deallocate(X%CrjDE)
+    if (allocated(Xtemp%FjDE)) deallocate(Xtemp%FjDE)
+    if (allocated(Xtemp%CrjDE)) deallocate(Xtemp%CrjDE)
     if (allocated(run_params%DE%F)) deallocate(run_params%DE%F)
     deallocate(BF%vectors, BF%values, BF%derived)
     if (run_params%calcZ) call clearTree

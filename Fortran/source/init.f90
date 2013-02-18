@@ -149,9 +149,9 @@ contains
        if (present(NP)) then
           if (NP .ge. (2*run_params%DE%Fsize + 2)) then 	!required for picking unique vectors during mutation
              run_params%DE%NP = NP
-          else !nb: if current=true, NP=2*run_params%DE%Fsize+1 would be ok, but not implemented
+          else !nb: if current=true and/or lambda=0, NP could be smaller, but it's a bad idea, so not implemented
              write (*,*) 'WARNING: NP specified is too small. Using smallest permitted NP.'
-             run_params%DE%NP = 2*run_params%DE%Fsize + 2
+             run_params%DE%NP = 2*run_params%DE%Fsize + 3
           end if
        else
           run_params%DE%NP = maxval( [10*run_params%D, 2*run_params%DE%Fsize + 2] )	!conservative rule-of-thumb choice 

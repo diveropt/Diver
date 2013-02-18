@@ -9,10 +9,11 @@ public selector
 
 contains 
 
-  subroutine selector(X, U, trialF, trialCr, n, lowerbounds, upperbounds, &
+  subroutine selector(X, Xtemp, U, trialF, trialCr, n, lowerbounds, upperbounds, &
                        run_params, fcall, func, accept)
 
-    type(population), intent(inout) :: X
+    type(population), intent(in) :: X
+    type(population), intent(inout) :: Xtemp
     integer, intent(inout) :: fcall, accept
     real, dimension(:), intent(in) :: U
     real, intent(in) :: trialF, trialCr
@@ -50,18 +51,25 @@ contains
        trialvector = U                    
        trialvalue = func(U(:), trialderived, fcall)  
     end if
-
     !when the trial vector is at least as good as the current member  
     !of the population, use the trial vector for the next generation
     if (trialvalue .le. X%values(n)) then
-       X%vectors(n,:) = trialvector 
-       X%derived(n,:) = trialderived
-       X%values(n) = trialvalue
+       Xtemp%vectors(n,:) = trialvector 
+       Xtemp%derived(n,:) = trialderived
+       Xtemp%values(n) = trialvalue
        if (run_params%DE%jDE) then            !in jDE, also keep F and Cr
-          X%FjDE(n) = trialF
-          X%CrjDE(n) = trialCr
+          Xtemp%FjDE(n) = trialF
+          Xtemp%CrjDE(n) = trialCr
        end if
        accept = accept + 1
+    else
+       Xtemp%vectors(n,:) = X%vectors(n,:) 
+       Xtemp%derived(n,:) = X%derived(n,:)
+       Xtemp%values(n) = X%values(n)
+       if (run_params%DE%jDE) then
+          Xtemp%FjDE(n) = X%FjDE(n)
+          Xtemp%CrjDE(n) = X%CrjDE(n)
+       end if
     end if
 
   end subroutine selector
