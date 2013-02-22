@@ -5,6 +5,9 @@ use posterior
 
 implicit none
 
+private
+public updateEvidence, polishEvidence
+
 integer, parameter :: samlun = 1, devolun=2
 
 contains
@@ -44,7 +47,7 @@ contains
 
   
   !Recalculate evidence and all posterior weights at the end of a run
-  subroutine polishEvidence(Z, Zmsq, Zerr, prior, Nsamples, path, run_params)
+  subroutine polishEvidence(Z, Zmsq, Zerr, prior, Nsamples, path, run_params, update)
 
     type(codeparams), intent(in) :: run_params
     real, intent(inout) :: Z, Zmsq, Zerr
@@ -55,10 +58,11 @@ contains
     character(len=*), intent(in) :: path
     character(len=31) :: formatstring
     character(len=1) :: LF
+    logical, intent(in) :: update
 
     !organise the read/write format
-    write(formatstring,'(A18,I4,A9)') '(2E16.5,2x,2I6,2x,', run_params%D+run_params%D_derived, 'E16.5,A1)'  
-    reclen = 49 + 16*(run_params%D+run_params%D_derived)
+    write(formatstring,'(A18,I4,A9)') '(2E20.9,2x,2I6,2x,', run_params%D+run_params%D_derived, 'E20.9,A1)'  
+    reclen = 57 + 20*(run_params%D+run_params%D_derived)
 
     !open the chain file
     open(unit=samlun, file=trim(path)//'.sam', &
@@ -71,18 +75,19 @@ contains
     do i = 1, Nsamples
       !read in each point 
       read(samlun,formatstring,rec=i) multiplicity, lnlike, civ, gen, vector, derived, LF
+      !Could implement a skip out if this is the first generation (burn in), but this gen should not be in the sam file anyway
+      !if (gen .eq. 1) cycle
       !use the tree to get a new weight for the point
       multiplicity = getWeight(vector,prior)*exp(-lnlike)/dble(Nsamples) 
       !save the new multiplicity of the point to disk
-      write(samlun,formatstring,rec=i) multiplicity, lnlike, civ, gen, vector, derived, LF
+      if (update) write(samlun,formatstring,rec=i) multiplicity, lnlike, civ, gen, vector, derived, LF
       !add the contribution of the point with the new multiplicity to the evidence   
       Z = Z + multiplicity
       !add the contribution of the point with the new multiplicity to the error
       Zmsq = Zmsq + multiplicity*multiplicity
     enddo
     Zmsq = Zmsq*dble(Nsamples)
-    Zerr = sqrt((Zmsq - Z*Z)/dble(Nsamples))
-    
+    Zerr = sqrt((Zmsq - Z*Z)/dble(Nsamples))   
 
     close(samlun)
 

@@ -208,11 +208,14 @@ contains
 
       else
 
+        if (debug) write(*,*) 'done growing here.'
+
         !No new branches required.  The weightings of the points in the 
         !new population of this node are given by the weighting of the node
         nodeWeight = product(workingListNode%thisNode%upperbounds - workingListNode%thisNode%lowerbounds)
         individual => workingListNode%thisNode%firstnewpt
 
+        if (debug) write(*,*) 'clearing individuals from this node'
         do i = 1, workingListNode%thisNode%newpopulation
           individual%weight = nodeWeight
           temppt => individual%next
@@ -378,6 +381,8 @@ contains
     nullify(temppt)
     ptRegistry = 0.
     dupeFlags = .false.
+
+    if (debug) write(*,*) 'Growing branches...'
 
     !Create the two new nodes and set their boundaries to those of the trunk node
     allocate(currentNode%branchA, currentNode%branchB)

@@ -6,7 +6,7 @@ implicit none
 
  integer, parameter :: NP=10, numgen=15, numciv=1, nDerived=2
  character (len=300) :: path='example_output/example'
- real, parameter ::  Cr=0.9, tol = 1e-3			!recommend 0<F<1, 0<=Cr<=1.  Set tol negative to forget posterior/evidence
+ real, parameter ::  Cr=0.9, tol = 1e-3			!recommend 0<F<1, 0<=Cr<=1
  real, parameter, dimension(1) :: F=0.6
  real, parameter, dimension(2) :: lowerbounds=-50.0	!boundaries of parameter space
  real, parameter, dimension(2) :: upperbounds=50.0
@@ -112,6 +112,7 @@ use examples
 
 implicit none
 
-  call run_de(gauss2, flatprior, lowerbounds, upperbounds, path, nDerived=nDerived, lambda=1., doBayesian=.true.)
+  call run_de(gauss2, flatprior, lowerbounds, upperbounds, path, nDerived=nDerived, jDE=.true., doBayesian=.true., Ztolerance=1.e-2&
+  ,resume=.false.)
 
 end program dedriver

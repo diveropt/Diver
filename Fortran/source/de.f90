@@ -1,11 +1,13 @@
 module de
 
+use detypes
 use init
 use io
 use converge
 use selection
 use mutation
 use crossover
+use posterior
 use evidence
 
 implicit none
@@ -49,13 +51,14 @@ contains
 
     integer :: fcall, accept                                    !fcall counts function calls, accept counts acceptance rate
     integer :: civ, gen, n                                      !civ, gen, n for iterating civilisation, generation, population loops
+    integer :: civstart=1, genstart=1                           !starting values of civ, gen
 
     real, dimension(size(lowerbounds)) :: avgvector, bestvector !for calculating final average and best fit
     real :: bestvalue
     real, allocatable :: bestderived(:)
     integer :: bestloc(1)
 
-    real :: Z, Zmsq, Zerr = 0.                                   !evidence
+    real :: Z=0., Zmsq=0., Zerr = 0.                            !evidence
     integer :: Nsamples = 0                                     !number of statistically independent samples from posterior
     integer :: Nsamples_saved = 0                               !number of samples saved to .sam file so far
     
@@ -69,13 +72,6 @@ contains
     call param_assign(run_params, lowerbounds, upperbounds, nDerived=nDerived, maxciv=maxciv, maxgen=maxgen, NP=NP, F=F, &
                        Cr=Cr, lambda=lambda, current=current, expon=expon, bndry=bndry, jDE=jDE, doBayesian=doBayesian, &
                        maxNodePop=maxNodePop, Ztolerance=Ztolerance, savecount=savecount)
-
-    !Resume from saved run or initialise save files for a new one
-    if (present(resume)) then
-       call io_begin(path, civ, gen, Z, Zmsq, Zerr, Nsamples, run_params, restart=resume)
-    else
-       call io_begin(path, civ, gen, Z, Zmsq, Zerr, Nsamples, run_params)
-    endif
 
     !Allocate vector population
     allocate(X%vectors(run_params%DE%NP, run_params%D))
@@ -103,71 +99,95 @@ contains
     fcall = 0
     BF%values(1) = huge(BF%values(1))
 
+    !Resume from saved run or initialise save files for a new one
+    if (present(resume)) then
+       call io_begin(path, civstart, genstart, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params, X, BF, prior=prior, &
+        restart=resume)
+       if (resume) genstart = genstart + 1
+    else
+       call io_begin(path, civstart, genstart, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params, X, BF, prior=prior)
+    endif
+
     !Run a number of sequential DE optimisations, exiting either after a set number of
     !runs through or after the evidence has been calculated to a desired accuracy
-    civloop: do civ = 1, run_params%numciv
+    civloop: do civ = civstart, run_params%numciv
+
+       if (run_params%calcZ) then
+          !Break out if posterior/evidence is converged
+          if (evidenceDone(Z,Zerr,run_params%tol)) exit
+       endif
 
        if (verbose) write (*,*) '-----------------------------'
        if (verbose) write (*,*) 'Civilisation: ', civ
-
-       !Initialise the first generation
-       call initialize(X, run_params, lowerbounds, upperbounds, fcall, func)
-       !Don't use initial generation for estimating evidence, as it biases the BSP
        
        !Internal (normal) DE loop: calculates population for each generation
-       genloop: do gen = 2, run_params%numgen 
+       genloop: do gen = genstart, run_params%numgen 
 
           if (verbose) write (*,*) '  -----------------------------'
           if (verbose) write (*,*) '  Generation: ', gen
-   
-          accept = 0
+     
+          if (gen .eq. 1) then 
 
-          !$OMP PARALLEL DO
-          poploop: do n=1, run_params%DE%NP                             !evolves one member of the population
-
-             call mutate(X, V, n, run_params, trialF)                   !create new donor vector V
-             call gencrossover(X, V, U, n, run_params, trialCr)  	!trial vectors
-
-             !choose next generation of target vectors
-             call selector(X, Xtemp, U, trialF, trialCr, n, lowerbounds, upperbounds, run_params, fcall, func, accept)
+            !Initialise the first generation
+            call initialize(X, run_params, lowerbounds, upperbounds, fcall, func)
+            !Don't use initial generation for estimating evidence, as it biases the BSP
+            if (civ .eq. 1) call save_run_params(path, run_params)
             
-             if (run_params%DE%jDE) then 
-                if (verbose) write (*,*) n, Xtemp%vectors(n, :), '->', Xtemp%values(n), '|', Xtemp%FjDE(n), Xtemp%CrjDE(n)
-             else
-                if (verbose) write (*,*) n, Xtemp%vectors(n, :), '->', Xtemp%values(n)
+          else
+             
+             accept = 0
+
+             !$OMP PARALLEL DO
+             poploop: do n=1, run_params%DE%NP                             !evolves one member of the population
+
+                call mutate(X, V, n, run_params, trialF)                   !create new donor vector V
+                call gencrossover(X, V, U, n, run_params, trialCr)         !trial vectors
+
+                !choose next generation of target vectors
+                call selector(X, Xtemp, U, trialF, trialCr, n, lowerbounds, upperbounds, run_params, fcall, func, accept)
+               
+                if (run_params%DE%jDE) then 
+                   if (verbose) write (*,*) n, Xtemp%vectors(n, :), '->', Xtemp%values(n), '|', Xtemp%FjDE(n), Xtemp%CrjDE(n)
+                else
+                   if (verbose) write (*,*) n, Xtemp%vectors(n, :), '->', Xtemp%values(n)
+                end if
+
+             end do poploop
+             !$END OMP PARALLEL DO
+ 
+             !replace old generation with newly calculated one
+             X%vectors = Xtemp%vectors
+             X%values = Xtemp%values
+             X%derived = Xtemp%derived
+             if (run_params%DE%jDE) then
+                X%FjDE = Xtemp%FjDE
+                X%CrjDE = Xtemp%CrjDE
              end if
 
-          end do poploop
-          !$END OMP PARALLEL DO
- 
-          !replace old generation with newly calculated one
-          X%vectors = Xtemp%vectors
-          X%values = Xtemp%values
-          X%derived = Xtemp%derived
-          if (run_params%DE%jDE) then
-             X%FjDE = Xtemp%FjDE
-             X%CrjDE = Xtemp%CrjDE
-          end if
+             if (verbose) write (*,*) '  Acceptance rate: ', accept/real(run_params%DE%NP)
 
-          if (verbose) write (*,*) '  Acceptance rate: ', accept/real(run_params%DE%NP)
+             !Update the evidence calculation
+             if (run_params%calcZ) call updateEvidence(X, Z, Zmsq, Zerr, prior, Nsamples)
 
-          !Update the evidence calculation
-          if (run_params%calcZ) call updateEvidence(X, Z, Zmsq, Zerr, prior, Nsamples)
+             !Do periodic save
+             if (mod(gen,run_params%savefreq) .eq. 0) then
+                Nsamples_saved = Nsamples_saved + run_params%DE%NP 
+                call save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params)
+             endif
 
-          !Do periodic save
-          if (mod(gen,run_params%savefreq) .eq. 0) then
-            Nsamples_saved = Nsamples_saved + run_params%DE%NP 
-            call save_all(X, path, civ, gen, Z, Zmsq, Zerr, Nsamples_saved, run_params)
           endif
 
-          if (converged(X, gen)) exit                !Check generation-level convergence: if satisfied, exit loop
+          if (converged(X, gen)) exit                !Check generation-level convergence: if satisfied, exit genloop
                                                      !PS, comment: it looks like the convergence of the evidence *requires*
                                                      !that the generation-level convergence check is done, as continuing to
                                                      !evolve a population after it has converged just results in many more 
                                                      !copies of the same point ending up in the database, which seems to
                                                      !start to introduce a bias in the evidence.
+
        end do genloop
        
+       genstart = 1
+
        avgvector = sum(X%vectors, dim=1)/real(run_params%DE%NP)
        bestloc = minloc(X%values)
        bestvector = X%vectors(bestloc(1),:)
@@ -190,11 +210,6 @@ contains
        if (verbose) write (*,*) '  Value at best final vector in this civilisation: ', bestvalue
        if (verbose) write (*,*) '  Cumulative function calls: ', fcall
       
-       if (run_params%calcZ) then
-         !Break out if posterior/evidence is converged
-         if (evidenceDone(Z,Zerr,run_params%tol)) exit
-       endif
-
     enddo civloop
 
     write (*,*) '============================='
@@ -206,12 +221,12 @@ contains
 
     !Polish the evidence
     if (run_params%calcZ) then
-      call polishEvidence(Z, Zmsq, Zerr, prior, Nsamples_saved, path, run_params)     
+      call polishEvidence(Z, Zmsq, Zerr, prior, Nsamples_saved, path, run_params, .true.)     
       write (*,*)   'corrected ln(Evidence): ', log(Z), ' +/- ', log(Z/(Z-Zerr))
     endif
 
     !Do final save operation
-    call save_all(X, path, civ, gen, Z, Zmsq, Zerr, Nsamples_saved, run_params, final=.true.)
+    call save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params, final=.true.)
 
     deallocate(X%vectors, X%values, X%weights, X%derived, X%multiplicities)
     deallocate(Xtemp%vectors, Xtemp%values)
