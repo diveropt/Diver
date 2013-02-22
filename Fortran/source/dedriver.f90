@@ -112,6 +112,7 @@ use examples
 
 implicit none
 
-  call run_de(gauss2, flatprior, lowerbounds, upperbounds, path, nDerived=nDerived, lambda=1., doBayesian=.true.)
+  call run_de(gauss2, flatprior, lowerbounds, upperbounds, path, nDerived=nDerived, lambda=1., &
+        maxciv=1, NP=5)
 
 end program dedriver

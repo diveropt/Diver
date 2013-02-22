@@ -12,8 +12,8 @@ contains
 
   !Assign parameter values (defaults if not specified) to run_params and print DE parameter values to screen
 
-  subroutine param_assign(run_params, lowerbounds, upperbounds, nDerived, maxciv, maxgen, NP, F, &
-                          Cr, lambda, current, expon, bndry, jDE, doBayesian, maxNodePop, Ztolerance, savecount)
+  subroutine param_assign(run_params, lowerbounds, upperbounds, nDerived, maxciv, maxgen, NP, F, Cr, lambda, current, &
+                          expon, bndry, jDE, removeDuplicates, doBayesian, maxNodePop, Ztolerance, savecount)
 
     type(codeparams), intent(out) :: run_params 
     real, dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space 
@@ -28,6 +28,7 @@ contains
     logical, intent(in), optional :: expon 			!use exponential crossover
     integer, intent(in), optional :: bndry                      !boundary constraint: 1 -> brick wall, 2 -> random re-initialization, 3 -> reflection
     logical, intent(in), optional :: jDE                        !use self-adaptive DE 
+    logical, intent(in), optional :: removeDuplicates           !weed out duplicate vectors within a single generation
     logical, intent(in), optional  :: doBayesian                !calculate log evidence and posterior weightings
     real, intent(in), optional  :: maxNodePop                   !population at which node is partitioned in binary space partitioning for posterior
     real, intent(in), optional :: Ztolerance			!input tolerance in log-evidence
@@ -123,14 +124,18 @@ contains
           run_params%DE%NP = maxval( [10*run_params%D, 4] )	!conservative rule-of-thumb choice 
        end if
 
+       if (present(removeDuplicates)) then
+          run_params%DE%removeDuplicates = removeDuplicates
+       else
+          run_params%DE%removeDuplicates = .false.              !with jDE mutation, duplicates are rare (CHECK THIS)
+       end if
+
        run_params%DE%Fsize = 0
        run_params%DE%lambda = 0.
        run_params%DE%current = .false.
        run_params%DE%expon = .false.
-
-       if(run_params%DE%jDE) then                               !for printing to the screen
-          DEstrategy = 'self-adaptive rand/1/bin (jDE)'
-       endif
+       
+       DEstrategy = 'self-adaptive rand/1/bin (jDE)'            !for printing to the screen
 
     else                                                        !not using jDE.  Initialize for normal DE
 
@@ -189,6 +194,14 @@ contains
           run_params%DE%expon = expon
        else
           run_params%DE%expon = .false.     			!default rand/1/bin
+       end if
+
+       if (present(removeDuplicates)) then
+          run_params%DE%removeDuplicates = removeDuplicates
+       else if (run_params%DE%current) then
+          run_params%DE%removeDuplicates = .false.              !with current mutation, duplicate are rare (CHECK THIS)
+       else
+          run_params%DE%removeDuplicates = .true.
        end if
 
        !for printing the parameter choice, DE mutation/crossover strategy, and boundary constraints to screen

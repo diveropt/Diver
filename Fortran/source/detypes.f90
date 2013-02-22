@@ -2,7 +2,7 @@ module detypes
 
 implicit none
 
-logical, parameter :: verbose = .false.                 !print verbose output
+logical, parameter :: verbose = .true.                 !print verbose output
 
 
 !FIXME: specify kinds in the rest of the program.
@@ -23,6 +23,7 @@ type deparams                 				!differential evolution parameters
    logical expon               				!when true, use exponential crossover (else use binomial)
    integer bconstrain                                   !boundary constraints for selection
    logical jDE                                          !when true, use self-adaptive Cr and F for DE
+   logical removeDuplicates                             !when true, weeds out duplicate vectors within a generation
 end type deparams
 
 type codeparams                 			!code parameters (remember to expand io::save_state and io::resume if you expand this type)

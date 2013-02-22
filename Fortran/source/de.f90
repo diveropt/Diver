@@ -18,7 +18,7 @@ contains
 
   !Main differential evolution routine.  
   subroutine run_de(func, prior, lowerbounds, upperbounds, path, nDerived, maxciv, maxgen, NP, F, Cr, lambda, current, expon, &
-                    bndry, jDE, doBayesian, maxNodePop, Ztolerance, savecount, resume)
+                    bndry, jDE, removeDuplicates, doBayesian, maxNodePop, Ztolerance, savecount, resume)
 
     real, external :: func, prior 				!function to be minimized (assumed -ln[likelihood]), prior function
     real, dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space
@@ -34,6 +34,7 @@ contains
     logical, intent(in), optional  :: expon 			!use exponential crossover
     integer, intent(in), optional  :: bndry                     !boundary constraint: 1 -> brick wall, 2 -> random re-initialization, 3 -> reflection
     logical, intent(in), optional  :: jDE                       !use self-adaptive choices for rand/1/bin parameters as described in Brest et al 2006
+    logical, intent(in), optional  :: removeDuplicates          !weed out duplicate vectors within a single generation
     logical, intent(in), optional  :: doBayesian                !calculate log evidence and posterior weightings
     real, intent(in), optional     :: maxNodePop                !population at which node is partitioned in binary space partitioning for posterior
     real, intent(in), optional     :: Ztolerance		!input tolerance in log-evidence
@@ -66,9 +67,9 @@ contains
     call init_random_seed()
     
     !Assign specified or default values to run_params, bconstrain
-    call param_assign(run_params, lowerbounds, upperbounds, nDerived=nDerived, maxciv=maxciv, maxgen=maxgen, NP=NP, F=F, &
-                       Cr=Cr, lambda=lambda, current=current, expon=expon, bndry=bndry, jDE=jDE, doBayesian=doBayesian, &
-                       maxNodePop=maxNodePop, Ztolerance=Ztolerance, savecount=savecount)
+    call param_assign(run_params, lowerbounds, upperbounds, nDerived=nDerived, maxciv=maxciv, maxgen=maxgen, NP=NP, F=F, Cr=Cr, &
+                       lambda=lambda, current=current, expon=expon, bndry=bndry, jDE=jDE, removeDuplicates=removeDuplicates, &
+                       doBayesian=doBayesian, maxNodePop=maxNodePop, Ztolerance=Ztolerance, savecount=savecount)
 
     !Resume from saved run or initialise save files for a new one
     if (present(resume)) then
@@ -140,14 +141,7 @@ contains
           end do poploop
           !$END OMP PARALLEL DO
  
-          !replace old generation with newly calculated one
-          X%vectors = Xtemp%vectors
-          X%values = Xtemp%values
-          X%derived = Xtemp%derived
-          if (run_params%DE%jDE) then
-             X%FjDE = Xtemp%FjDE
-             X%CrjDE = Xtemp%CrjDE
-          end if
+          call replace_generation(X, Xtemp, run_params)                 !replace old generation with newly calculated one
 
           if (verbose) write (*,*) '  Acceptance rate: ', accept/real(run_params%DE%NP)
 

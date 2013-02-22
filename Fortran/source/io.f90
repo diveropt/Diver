@@ -108,6 +108,7 @@ subroutine save_state(path, civ, gen, Z, Zmsq, Zerr, Nsamples, run_params)
   write(devolun,'(E16.5)') 	run_params%maxNodePop				!maximum population to allow in a cell before partitioning it
   write(devolun,'(L1)') 	run_params%calcZ				!calculate evidence or not
   write(devolun,'(I6)') 	run_params%savefreq				!frequency with which to save progress
+  write(devolun,'(L1)') 	run_params%DE%removeDuplicates         		!true: remove duplicate vectors in a generation
 
   close(devolun)
 
@@ -152,6 +153,7 @@ subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Nsamples, run_params)
   read(devolun,'(E16.5)') 	run_params%maxNodePop				!maximum population to allow in a cell before partitioning it
   read(devolun,'(L1)') 		run_params%calcZ				!calculate evidence or not
   read(devolun,'(I6)') 		run_params%savefreq				!frequency with which to save progress
+  read(devolun,'(L1)')  	run_params%DE%removeDuplicates			!true: remove duplicate vectors in a generation
 
   close(devolun)
 
