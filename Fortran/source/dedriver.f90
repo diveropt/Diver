@@ -17,13 +17,15 @@ contains
 
 !Functions to be minimized.  Assumed to be -ln(Likelihood)
 
-real function constant(params, derived, fcall)
+real function constant(params, derived, fcall, quit)
 
   real, dimension(size(lowerbounds)), intent(in) :: params
   real, dimension(nDerived), intent(out) :: derived
   integer, intent(inout) :: fcall 
+  logical, intent(out) :: quit
 
   fcall = fcall + 1
+  quit = .false.
   !-lnlike
   constant = 0. 
   !derived quantities (other functions of the parameters)
@@ -32,13 +34,15 @@ real function constant(params, derived, fcall)
 end function constant
 
 
-real function step(params, derived, fcall)
+real function step(params, derived, fcall, quit)
 
   real, dimension(size(lowerbounds)), intent(in) :: params
   real, dimension(nDerived), intent(out) :: derived
   integer, intent(inout) :: fcall
+  logical, intent(out) :: quit
   
   fcall = fcall + 1
+  quit = .false.
   if (params(1) .gt. 0.0) then
     step = 0. 
   else 
@@ -49,13 +53,15 @@ real function step(params, derived, fcall)
 end function step
 
 
-real function linear(params, derived, fcall)
+real function linear(params, derived, fcall, quit)
 
   real, dimension(size(lowerbounds)), intent(in) :: params
   real, dimension(nDerived), intent(out) :: derived
   integer, intent(inout) :: fcall
+  logical, intent(out) :: quit
   
   fcall = fcall + 1
+  quit = .false.
   if (params(1) .gt. 0.0) then
     linear = params(1) 
   else 
@@ -66,26 +72,34 @@ real function linear(params, derived, fcall)
 end function linear
 
 
-real function gauss1(params, derived, fcall)
+real function gauss1(params, derived, fcall, quit)
 
   real, dimension(size(lowerbounds)), intent(in) :: params
   real, dimension(nDerived), intent(out) :: derived
   integer, intent(inout) :: fcall
+  logical, intent(out) :: quit
   
   fcall = fcall + 1
+  quit = .false.
   gauss1 = params(1)*params(1) + params(2)*params(2)
   derived = [2.*params(1),params(1)+params(2)]
   
 end function gauss1
 
 
-real function gauss2(params, derived, fcall)
+real function gauss2(params, derived, fcall, quit)
 
   real, dimension(size(lowerbounds)), intent(in) :: params
   real, dimension(nDerived), intent(out) :: derived
   integer, intent(inout) :: fcall
+  logical, intent(out) :: quit
   
   fcall = fcall + 1
+  !if (fcall .lt. 30000) then 
+    quit = .false.
+  !else
+  !  quit = .true.
+  !endif
   gauss2 = (1.-params(1))*(1.-params(1)) + (5.-params(2))*(5.-params(2)) - 8.14897
   derived = [2.*params(1),params(1)+params(2)]
   
@@ -112,7 +126,9 @@ use examples
 
 implicit none
 
-  call run_de(gauss2, flatprior, lowerbounds, upperbounds, path, nDerived=nDerived, jDE=.true., doBayesian=.true., Ztolerance=1.e-2&
-  ,resume=.false.)
+  call run_de(gauss2, flatprior, lowerbounds, upperbounds, path, nDerived=nDerived, jDE=.true., doBayesian=.true., &
+  resume=.false., savecount=5)
+  !call run_de(gauss2, flatprior, lowerbounds, upperbounds, path, nDerived=nDerived, lambda=1., &
+  !      maxciv=1, NP=5)
 
 end program dedriver

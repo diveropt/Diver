@@ -20,7 +20,7 @@ contains
 
   !Main differential evolution routine.  
   subroutine run_de(func, prior, lowerbounds, upperbounds, path, nDerived, maxciv, maxgen, NP, F, Cr, lambda, current, expon, &
-                    bndry, jDE, doBayesian, maxNodePop, Ztolerance, savecount, resume)
+                    bndry, jDE, removeDuplicates, doBayesian, maxNodePop, Ztolerance, savecount, resume)
 
     real, external :: func, prior 				!function to be minimized (assumed -ln[likelihood]), prior function
     real, dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space
@@ -36,6 +36,7 @@ contains
     logical, intent(in), optional  :: expon 			!use exponential crossover
     integer, intent(in), optional  :: bndry                     !boundary constraint: 1 -> brick wall, 2 -> random re-initialization, 3 -> reflection
     logical, intent(in), optional  :: jDE                       !use self-adaptive choices for rand/1/bin parameters as described in Brest et al 2006
+    logical, intent(in), optional  :: removeDuplicates          !weed out duplicate vectors within a single generation
     logical, intent(in), optional  :: doBayesian                !calculate log evidence and posterior weightings
     real, intent(in), optional     :: maxNodePop                !population at which node is partitioned in binary space partitioning for posterior
     real, intent(in), optional     :: Ztolerance		!input tolerance in log-evidence
@@ -61,7 +62,8 @@ contains
     real :: Z=0., Zmsq=0., Zerr = 0.                            !evidence
     integer :: Nsamples = 0                                     !number of statistically independent samples from posterior
     integer :: Nsamples_saved = 0                               !number of samples saved to .sam file so far
-    
+    logical :: quit						!flag passed from user function to indicate need to stop 
+   
     write (*,*) '============================='
     write (*,*) ' ******** Begin DE *********'
 
@@ -69,9 +71,9 @@ contains
     call init_random_seed()
     
     !Assign specified or default values to run_params, bconstrain
-    call param_assign(run_params, lowerbounds, upperbounds, nDerived=nDerived, maxciv=maxciv, maxgen=maxgen, NP=NP, F=F, &
-                       Cr=Cr, lambda=lambda, current=current, expon=expon, bndry=bndry, jDE=jDE, doBayesian=doBayesian, &
-                       maxNodePop=maxNodePop, Ztolerance=Ztolerance, savecount=savecount)
+    call param_assign(run_params, lowerbounds, upperbounds, nDerived=nDerived, maxciv=maxciv, maxgen=maxgen, NP=NP, F=F, Cr=Cr, &
+                       lambda=lambda, current=current, expon=expon, bndry=bndry, jDE=jDE, removeDuplicates=removeDuplicates, &
+                       doBayesian=doBayesian, maxNodePop=maxNodePop, Ztolerance=Ztolerance, savecount=savecount)
 
     !Allocate vector population
     allocate(X%vectors(run_params%DE%NP, run_params%D))
@@ -114,7 +116,10 @@ contains
 
        if (run_params%calcZ) then
           !Break out if posterior/evidence is converged
-          if (evidenceDone(Z,Zerr,run_params%tol)) exit
+          if (evidenceDone(Z,Zerr,run_params%tol)) then
+            if (civ .eq. civstart) gen = genstart-1
+            exit
+          endif
        endif
 
        if (verbose) write (*,*) '-----------------------------'
@@ -129,7 +134,7 @@ contains
           if (gen .eq. 1) then 
 
             !Initialise the first generation
-            call initialize(X, run_params, lowerbounds, upperbounds, fcall, func)
+            call initialize(X, run_params, lowerbounds, upperbounds, fcall, func, quit)
             !Don't use initial generation for estimating evidence, as it biases the BSP
             if (civ .eq. 1) call save_run_params(path, run_params)
             
@@ -144,7 +149,7 @@ contains
                 call gencrossover(X, V, U, n, run_params, trialCr)         !trial vectors
 
                 !choose next generation of target vectors
-                call selector(X, Xtemp, U, trialF, trialCr, n, lowerbounds, upperbounds, run_params, fcall, func, accept)
+                call selector(X, Xtemp, U, trialF, trialCr, n, lowerbounds, upperbounds, run_params, fcall, func, quit, accept)
                
                 if (run_params%DE%jDE) then 
                    if (verbose) write (*,*) n, Xtemp%vectors(n, :), '->', Xtemp%values(n), '|', Xtemp%FjDE(n), Xtemp%CrjDE(n)
@@ -155,14 +160,7 @@ contains
              end do poploop
              !$END OMP PARALLEL DO
  
-             !replace old generation with newly calculated one
-             X%vectors = Xtemp%vectors
-             X%values = Xtemp%values
-             X%derived = Xtemp%derived
-             if (run_params%DE%jDE) then
-                X%FjDE = Xtemp%FjDE
-                X%CrjDE = Xtemp%CrjDE
-             end if
+             call replace_generation(X, Xtemp, run_params)                 !replace old generation with newly calculated one
 
              if (verbose) write (*,*) '  Acceptance rate: ', accept/real(run_params%DE%NP)
 
@@ -170,14 +168,21 @@ contains
              if (run_params%calcZ) call updateEvidence(X, Z, Zmsq, Zerr, prior, Nsamples)
 
              !Do periodic save
-             if (mod(gen,run_params%savefreq) .eq. 0) then
-                Nsamples_saved = Nsamples_saved + run_params%DE%NP 
+             if (mod(gen,run_params%savefreq) .eq. 0) then 
                 call save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params)
              endif
 
           endif
 
+          if (quit) then
+            write(*,*) 'Quit requested by objective function - saving and exiting.'
+            call save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params, &
+             final=(mod(gen,run_params%savefreq) .eq. 0) )
+            stop
+          endif
+
           if (converged(X, gen)) exit                !Check generation-level convergence: if satisfied, exit genloop
+
                                                      !PS, comment: it looks like the convergence of the evidence *requires*
                                                      !that the generation-level convergence check is done, as continuing to
                                                      !evolve a population after it has converged just results in many more 
@@ -205,12 +210,15 @@ contains
        if (verbose) write (*,*) '  ============================='
        if (verbose) write (*,*) '  Number of generations in this civilisation: ', min(gen,run_params%numgen)
        if (verbose) write (*,*) '  Average final vector in this civilisation: ', avgvector
-       if (verbose) write (*,*) '  Value at average final vector in this civilisation: ', func(avgvector, bestderived, fcall) 
+       if (verbose) write (*,*) '  Value at average final vector in this civilisation: ', func(avgvector, bestderived, fcall, quit) 
        if (verbose) write (*,*) '  Best final vector in this civilisation: ', bestvector
        if (verbose) write (*,*) '  Value at best final vector in this civilisation: ', bestvalue
        if (verbose) write (*,*) '  Cumulative function calls: ', fcall
       
     enddo civloop
+
+    !Correct civ in cases where the loop has gone through at least once
+    if (civ .ne. civstart) civ = civ - 1
 
     write (*,*) '============================='
     write (*,*) 'Number of civilisations: ', min(civ,run_params%numciv)
@@ -226,7 +234,8 @@ contains
     endif
 
     !Do final save operation
-    call save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params, final=.true.)
+    call save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params, &
+     final = ( (mod(gen,run_params%savefreq) .eq. 0) .or. (civ .eq. civstart) ) )
 
     deallocate(X%vectors, X%values, X%weights, X%derived, X%multiplicities)
     deallocate(Xtemp%vectors, Xtemp%values)

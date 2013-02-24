@@ -50,12 +50,16 @@ subroutine save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_sav
 
   type(population), intent(in) :: X, BF
   character(len=*), intent(in) :: path
-  integer, intent(in) :: civ, gen, Nsamples, Nsamples_saved, fcall
+  integer, intent(inout) :: Nsamples_saved
+  integer, intent(in) :: civ, gen, Nsamples, fcall
   real, intent(in) :: Z, Zmsq, Zerr
   type(codeparams), intent(in) :: run_params
   logical, intent(in), optional :: final
 
-  if (.not. present(final) .or. (present(final) .and. .not. final)) call save_samples(X, path, civ, gen, run_params)  
+  if (.not. present(final) .or. (present(final) .and. .not. final)) then
+    Nsamples_saved = Nsamples_saved + run_params%DE%NP 
+    call save_samples(X, path, civ, gen, run_params)  
+  endif
   call save_state(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params, X, BF)
 
 end subroutine save_all
@@ -97,7 +101,7 @@ subroutine save_run_params(path, run_params)
 
   if (run_params%DE%Fsize .ne. 0) then
     write(formatstring,'(A1,I4,A6)') '(',run_params%DE%Fsize,'E20.9)'
-    write(rparamlun,formatstring) run_params%DE%F			 		!mutation scale factors
+    write(rparamlun,formatstring) run_params%DE%F			 	!mutation scale factors
   endif 
 
   write(rparamlun,'(E20.9)') 	run_params%DE%lambda        			!mutation scale factor for best-to-rand/current
@@ -111,6 +115,7 @@ subroutine save_run_params(path, run_params)
   write(rparamlun,'(E20.9)') 	run_params%maxNodePop				!maximum population to allow in a cell before partitioning it
   write(rparamlun,'(L1)') 	run_params%calcZ				!calculate evidence or not
   write(rparamlun,'(I6)') 	run_params%savefreq				!frequency with which to save progress
+  write(rparamlun,'(L1)') 	run_params%DE%removeDuplicates         		!true: remove duplicate vectors in a generation
 
   close(rparamlun)
 
@@ -192,6 +197,7 @@ subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, f
   read(rparamlun,'(E20.9)') 	run_params%maxNodePop				!maximum population to allow in a cell before partitioning it
   read(rparamlun,'(L1)') 	run_params%calcZ				!calculate evidence or not
   read(rparamlun,'(I6)') 	run_params%savefreq				!frequency with which to save progress
+  read(rparamlun,'(L1)')  	run_params%DE%removeDuplicates			!true: remove duplicate vectors in a generation
 
   close(rparamlun)
 
@@ -210,7 +216,7 @@ subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, f
   read(devolun,formatstring)	BF%derived(1,:) 				!derived parameters at current best fit
 
   write(formatstring,'(A1,I6,A6)') '(',run_params%DE%NP*run_params%D,'E20.9)'
-  read(devolun,formatstring)	X%vectors					!currect population
+  read(devolun,formatstring)	X%vectors					!current population
   write(formatstring,'(A1,I6,A6)') '(',run_params%DE%NP*run_params%D_derived,'E20.9)'
   read(devolun,formatstring)	X%derived					!current derived values
   write(formatstring,'(A1,I4,A6)') '(',run_params%DE%NP,'E20.9)'
@@ -276,11 +282,11 @@ subroutine resume(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall
   endif
 
   if (mod(Nsamples_saved,run_params%DE%NP) .ne. 0) then
-    stop 'Error: resumed run does not contain only full generations - probably the file is corrupted.'
+    stop 'Error: resumed run does not contain only full generations - file likely corrupted.'
   endif
   if (Nsamples .ne. Nsamples_saved) then
-    write(*,*) 'WARNING: running evidence from restored chain will differ to saved value, as not all'
-    write(*,*) 'points used for the previous error calculation were saved.'
+    write(*,*) 'WARNING: running evidence from restored chain will differ to saved value, '
+    write(*,*) 'as not all points used for the previous error calculation were saved.'
     require_Z_match = .false.
   endif
 
@@ -345,8 +351,7 @@ subroutine resume(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall
     endif
   endif
 
-  write(*,*) 'Restored successfully.'  
-
+  write(*,*) 'Restored successfully.'
 
 end subroutine resume
 
