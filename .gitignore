@@ -21,6 +21,7 @@ Fortran/build/
 Fortran/devopack_f
 Fortran/example_output/example.devo
 Fortran/example_output/example.sam
+Fortran/example_output/example.rparam
 Fortran/example_output/scripts/
 Fortran/example_output/parse/
 Fortran/example_output/plots/

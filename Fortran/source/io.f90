@@ -110,6 +110,11 @@ subroutine save_run_params(path, run_params)
   write(rparamlun,'(L1)')  	run_params%DE%expon               		!when true, use exponential crossover (else use binomial)
   write(rparamlun,'(I6)')  	run_params%DE%bconstrain               		!boundary constraint to use
   write(rparamlun,'(2I6)') 	run_params%D, run_params%D_derived		!dim of parameter space (known from the bounds given); dim of derived space
+  write(rparamlun,'(I6)')	run_params%D_discrete                           !dimenension of discrete parameter space
+  if (run_params%D_discrete .ne. 0) then
+    write(formatstring,'(A1,I4,A6)') '(',run_params%D_discrete,'I6)'
+    write(rparamlun,formatstring) run_params%discrete			 	!discrete dimensions
+  endif 
   write(rparamlun,'(2I6)') 	run_params%numciv, run_params%numgen		!maximum number of civilizations, generations
   write(rparamlun,'(E20.9)') 	run_params%tol					!tolerance in log-evidence
   write(rparamlun,'(E20.9)') 	run_params%maxNodePop				!maximum population to allow in a cell before partitioning it
@@ -144,12 +149,12 @@ subroutine save_state(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, f
   write(formatstring,'(A1,I4,A6)') '(',run_params%D,'E20.9)'			
   write(devolun,formatstring)	BF%vectors(1,:)					!current best-fit vector
   write(formatstring,'(A1,I4,A6)') '(',run_params%D_derived,'E20.9)'
-  write(devolun,formatstring)	BF%derived(1,:) 				!derived parameters at current best fit
+  if (run_params%D_derived .gt. 0) write(devolun,formatstring)	BF%derived(1,:) !derived parameters at current best fit
 
   write(formatstring,'(A1,I6,A6)') '(',run_params%DE%NP*run_params%D,'E20.9)'
   write(devolun,formatstring)	X%vectors					!currect population
   write(formatstring,'(A1,I6,A6)') '(',run_params%DE%NP*run_params%D_derived,'E20.9)'
-  write(devolun,formatstring)	X%derived					!current derived values
+  if (run_params%D_derived .gt. 0) write(devolun,formatstring)	X%derived	!current derived values
   write(formatstring,'(A1,I4,A6)') '(',run_params%DE%NP,'E20.9)'
   write(devolun,formatstring)	X%values					!current population fitnesses
   if (run_params%DE%jDE) then
@@ -192,6 +197,14 @@ subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, f
   read(rparamlun,'(L1)')  	run_params%DE%expon               		!when true, use exponential crossover (else use binomial)
   read(rparamlun,'(I6)')  	run_params%DE%bconstrain               		!boundary constraint to use
   read(rparamlun,'(2I6)') 	run_params%D, run_params%D_derived		!dim of parameter space (known from the bounds given); dim of derived space
+  read(rparamlun,'(I6)') 	run_params%D_discrete				!dimension of discrete parameter space
+  if (run_params%D_discrete .gt. 0) then
+     allocate(run_params%discrete(run_params%D_discrete))
+     write(formatstring,'(A1,I4,A6)') '(',run_params%D_discrete,'I6)'
+     read(rparamlun,formatstring) run_params%discrete		 		!discrete dimensions in parameter sapce
+  else
+     allocate(run_params%discrete(0))
+  endif
   read(rparamlun,'(2I6)') 	run_params%numciv, run_params%numgen		!maximum number of civilizations, generations
   read(rparamlun,'(E20.9)') 	run_params%tol					!tolerance in log-evidence
   read(rparamlun,'(E20.9)') 	run_params%maxNodePop				!maximum population to allow in a cell before partitioning it
@@ -257,6 +270,9 @@ subroutine resume(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall
   !Do some error-checking on overrides/disagreements between run_params
   if (run_params%D .ne. run_params_restored%D) stop 'Restored and new runs have different dimensionality.'
   if (run_params%D_derived .ne. run_params_restored%D_derived) stop 'Restored and new runs have different number of derived params.'
+  if (run_params%D_discrete .ne. run_params_restored%D_discrete) stop &
+       'Restored and new runs have different number of discrete parameters.'
+  if ( any(run_params%discrete .ne. run_params_restored%discrete)) stop 'Restored and new runs have different discrete parameters.'
     
   if (run_params%calcZ) then
     if (.not. run_params_restored%calcZ) stop 'Error: cannot resume in Bayesian mode from non-Bayesian run.'

@@ -5,7 +5,9 @@ use detypes
 implicit none
 
 private
-public mutate
+public mutate, init_FjDE
+
+real, parameter :: tau=0.1, Fl=0.1, Fu=0.9 !jDE control parameters as in Brest et al 2006
 
 contains
 
@@ -117,7 +119,6 @@ contains
     integer, intent(in) :: n
     real :: newF
     real :: rand1, rand2
-    real, parameter :: tau=0.1, Fl=0.1, Fu=0.9 !control parameters as in Brest et al 2006
 
     call random_number(rand1)
     if (rand1 .lt. tau) then     
@@ -128,6 +129,16 @@ contains
     endif
 
   end function newF
+
+  function init_FjDE(run_params)
+    type(codeparams), intent(in) ::run_params
+    real, dimension(run_params%DE%NP) :: init_FjDE
+    real, dimension(run_params%DE%NP) :: rand
+    
+    call random_number(rand)
+    init_FjDE =  Fl + rand*Fu
+
+  end function init_FjDE
 
 
   subroutine random_int(harvest, min, max) !choose a random integer between min and max, inclusive

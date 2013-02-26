@@ -5,7 +5,7 @@ use detypes
 implicit none
 
 private
-public selector, replace_generation
+public selector, replace_generation, roundvector
 
 contains 
 
@@ -24,7 +24,7 @@ contains
     real, external :: func
 
     real :: trialvalue
-    real, dimension(size(U)) :: trialvector  
+    real, dimension(size(U)) :: trialvector, evalvector 
     real, dimension(size(X%derived(1,:))) :: trialderived
 
     trialderived = 0.
@@ -38,19 +38,23 @@ contains
           case (2)                           !randomly re-initialize
              call random_number(trialvector(:))
              trialvector(:) = trialvector(:)*(upperbounds - lowerbounds) + lowerbounds
-             trialvalue = func(trialvector, trialderived, fcall, quit)
+             evalvector = roundvector(trialvector, run_params) !same as trialvector unless some dimensions are discrete
+             trialvalue = func(evalvector, trialderived, fcall, quit)
           case (3)                           !reflection
              trialvector = U
              where (U .gt. upperbounds) trialvector = upperbounds - (U - upperbounds)
              where (U .lt. lowerbounds) trialvector = lowerbounds + (lowerbounds - U)
-             trialvalue = func(trialvector, trialderived, fcall, quit)
+             evalvector = roundvector(trialvector, run_params) !same as trialvector unless some dimensions are discrete
+             trialvalue = func(evalvector, trialderived, fcall, quit)
           case default                       !boundary constraints not enforced
-             trialvector = U                
-             trialvalue = func(U(:), trialderived, fcall, quit)  
+             trialvector = U             
+             evalvector = roundvector(trialvector, run_params) !same as trialvector unless some dimensions are discrete
+             trialvalue = func(evalvector, trialderived, fcall, quit)
           end select
     else                                     !trial vector is within parameter space bounds, so use it
-       trialvector = U                    
-       trialvalue = func(U(:), trialderived, fcall, quit)  
+       trialvector = U    
+       evalvector = roundvector(trialvector, run_params) !same as trialvector unless some dimensions are discrete
+       trialvalue = func(evalvector, trialderived, fcall, quit)  
     end if
     !when the trial vector is at least as good as the current member  
     !of the population, use the trial vector for the next generation
@@ -76,6 +80,19 @@ contains
   end subroutine selector
 
 
+  !rounds vectors to nearest discrete values for all dimensions listed in run_params%discrete
+  !all other dimensions are kept the same
+  function roundvector(trialvector, run_params)
+    real, dimension(:), intent(in) :: trialvector
+    type(codeparams), intent(in) :: run_params
+    real, dimension(run_params%D) :: roundvector
+
+    roundvector = trialvector
+    roundvector(run_params%discrete) = anint(roundvector(run_params%discrete))
+
+  end function roundvector
+
+
   !replaces old generation (X) with the new generation (Xtemp) calculated during population loop
   subroutine replace_generation(X, Xtemp, run_params)
     type(population), intent(inout) :: X              !old population, will be replaced
@@ -97,22 +114,22 @@ contains
                    picksurvivor: if (Xtemp%values(k) .eq. X%values(k)) then        !vector at k was inherited, so keep it & revert kmatch
                       if (verbose) write (*,*) '  Reverting vector...'                     
                       call replace_vector(Xtemp, X, run_params, kmatch)
-                      if (verbose) write (*,*) kmatch, Xtemp%vectors(kmatch, :), '->', Xtemp%values(kmatch)
+                      if (verbose) write (*,*) kmatch, roundvector(Xtemp%vectors(kmatch, :), run_params), '->', Xtemp%values(kmatch)
 
                    else if (Xtemp%values(kmatch) .eq. X%values(kmatch)) then       !vector at kmatch was inherited. Keep it
                       if (verbose) write (*,*) '  Reverting vector ', k
                       call replace_vector(Xtemp, X, run_params, k)
-                      if (verbose) write (*,*) k, Xtemp%vectors(k, :), '->', Xtemp%values(k)
+                      if (verbose) write (*,*) k, roundvector(Xtemp%vectors(k, :), run_params), '->', Xtemp%values(k)
 
                    else if (X%values(k) .lt. X%values(kmatch)) then                !kmatch improved more, so keep it
                       if (verbose) write (*,*) '  Reverting vector ', k
                       call replace_vector(Xtemp, X, run_params, k)
-                      if (verbose) write (*,*) k, Xtemp%vectors(k, :), '->', Xtemp%values(k)
+                      if (verbose) write (*,*) k, roundvector(Xtemp%vectors(k, :), run_params), '->', Xtemp%values(k)
 
                    else                                                            !k improved more, so keep it
                       if (verbose) write (*,*) '  Reverting vector ', kmatch
                       call replace_vector(Xtemp, X, run_params, kmatch)
-                      if (verbose) write (*,*) kmatch, Xtemp%vectors(kmatch, :), '->', Xtemp%values(kmatch)
+                      if (verbose) write (*,*) kmatch, roundvector(Xtemp%vectors(kmatch, :), run_params), '->', Xtemp%values(kmatch)
 
                    end if picksurvivor
                 end if
@@ -151,5 +168,6 @@ contains
     end if
     
   end subroutine replace_vector
+
 
 end module selection

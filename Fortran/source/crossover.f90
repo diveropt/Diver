@@ -5,7 +5,9 @@ use detypes
 implicit none
 
 private
-public gencrossover
+public gencrossover, init_CrjDE
+
+real, parameter :: tau=0.1                          !jDE control parameter from Brest et al. 2006
 
 contains
 
@@ -98,7 +100,6 @@ contains
     type(population), intent(in) :: X
     integer, intent(in) :: n 
     real :: newCr
-    real, parameter :: tau=0.1                   !control parameter from Brest et al. 2006
     real :: rand
 
     call random_number(rand)
@@ -108,6 +109,17 @@ contains
        newCr = X%CrjDE(n)                        !use Cr from previous generation
     endif 
   end function newCr
+
+
+  function init_CrjDE(run_params)
+    type(codeparams), intent(in) :: run_params
+    real, dimension(run_params%DE%NP) :: init_CrjDE
+    real, dimension(run_params%DE%NP) :: rand
+
+    call random_number(rand)
+    init_CrjDE = rand
+
+  end function init_CrjDE
 
 
   subroutine random_int(harvest, min, max) !choose a random integer between min and max, inclusive

@@ -19,13 +19,14 @@ contains
 
 
   !Main differential evolution routine.  
-  subroutine run_de(func, prior, lowerbounds, upperbounds, path, nDerived, maxciv, maxgen, NP, F, Cr, lambda, current, expon, &
-                    bndry, jDE, removeDuplicates, doBayesian, maxNodePop, Ztolerance, savecount, resume)
+  subroutine run_de(func, prior, lowerbounds, upperbounds, path, nDerived, discrete, maxciv, maxgen, NP, F, Cr, lambda, current, &
+                    expon, bndry, jDE, removeDuplicates, doBayesian, maxNodePop, Ztolerance, savecount, resume)
 
     real, external :: func, prior 				!function to be minimized (assumed -ln[likelihood]), prior function
     real, dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space
     character(len=*), intent(in)   :: path			!path to save samples, resume files, etc  
     integer, intent(in), optional  :: nDerived	 		!input number of derived quantities to output
+    integer, dimension(:), intent(in), optional :: discrete     !a vector listing all discrete dimensions of parameter space
     integer, intent(in), optional  :: maxciv 			!maximum number of civilisations
     integer, intent(in), optional  :: maxgen 			!maximum number of generations per civilisation
     integer, intent(in), optional  :: NP 			!population size (individuals per generation)
@@ -71,9 +72,10 @@ contains
     call init_random_seed()
     
     !Assign specified or default values to run_params, bconstrain
-    call param_assign(run_params, lowerbounds, upperbounds, nDerived=nDerived, maxciv=maxciv, maxgen=maxgen, NP=NP, F=F, Cr=Cr, &
-                       lambda=lambda, current=current, expon=expon, bndry=bndry, jDE=jDE, removeDuplicates=removeDuplicates, &
-                       doBayesian=doBayesian, maxNodePop=maxNodePop, Ztolerance=Ztolerance, savecount=savecount)
+    call param_assign(run_params, lowerbounds, upperbounds, nDerived=nDerived, discrete=discrete, maxciv=maxciv, maxgen=maxgen, &
+                      NP=NP, F=F, Cr=Cr, lambda=lambda, current=current, expon=expon, bndry=bndry, jDE=jDE, & 
+                      removeDuplicates=removeDuplicates, doBayesian=doBayesian, maxNodePop=maxNodePop, Ztolerance=Ztolerance, &
+                      savecount=savecount)
 
     !Allocate vector population
     allocate(X%vectors(run_params%DE%NP, run_params%D))
@@ -147,14 +149,17 @@ contains
 
                 call mutate(X, V, n, run_params, trialF)                   !create new donor vector V
                 call gencrossover(X, V, U, n, run_params, trialCr)         !trial vectors
-
+                
                 !choose next generation of target vectors
                 call selector(X, Xtemp, U, trialF, trialCr, n, lowerbounds, upperbounds, run_params, fcall, func, quit, accept)
                
-                if (run_params%DE%jDE) then 
-                   if (verbose) write (*,*) n, Xtemp%vectors(n, :), '->', Xtemp%values(n), '|', Xtemp%FjDE(n), Xtemp%CrjDE(n)
-                else
-                   if (verbose) write (*,*) n, Xtemp%vectors(n, :), '->', Xtemp%values(n)
+                if (verbose) then
+                   if (run_params%DE%jDE) then 
+                      write (*,*) n, roundvector(Xtemp%vectors(n, :), run_params), '->', Xtemp%values(n), '|', &
+                                  Xtemp%FjDE(n), Xtemp%CrjDE(n)
+                   else
+                      write (*,*) n, roundvector(Xtemp%vectors(n, :), run_params), '->', Xtemp%values(n)
+                   end if
                 end if
 
              end do poploop
@@ -193,7 +198,7 @@ contains
        
        genstart = 1
 
-       avgvector = sum(X%vectors, dim=1)/real(run_params%DE%NP)
+       avgvector = roundvector(sum(X%vectors, dim=1)/real(run_params%DE%NP), run_params)
        bestloc = minloc(X%values)
        bestvector = X%vectors(bestloc(1),:)
        bestderived = X%derived(bestloc(1),:)
@@ -211,7 +216,7 @@ contains
        if (verbose) write (*,*) '  Number of generations in this civilisation: ', min(gen,run_params%numgen)
        if (verbose) write (*,*) '  Average final vector in this civilisation: ', avgvector
        if (verbose) write (*,*) '  Value at average final vector in this civilisation: ', func(avgvector, bestderived, fcall, quit) 
-       if (verbose) write (*,*) '  Best final vector in this civilisation: ', bestvector
+       if (verbose) write (*,*) '  Best final vector in this civilisation: ', roundvector(bestvector, run_params)
        if (verbose) write (*,*) '  Value at best final vector in this civilisation: ', bestvalue
        if (verbose) write (*,*) '  Cumulative function calls: ', fcall
       
@@ -222,7 +227,7 @@ contains
 
     write (*,*) '============================='
     write (*,*) 'Number of civilisations: ', min(civ,run_params%numciv)
-    write (*,*) 'Best final vector: ', BF%vectors(1,:)
+    write (*,*) 'Best final vector: ', roundvector(BF%vectors(1,:), run_params)
     write (*,*) 'Value at best final vector: ', BF%values(1)
     if (run_params%calcZ) write (*,*)   'ln(Evidence): ', log(Z), ' +/- ', log(Z/(Z-Zerr))
     write (*,*) 'Total Function calls: ', fcall
@@ -244,6 +249,7 @@ contains
     if (allocated(Xtemp%FjDE)) deallocate(Xtemp%FjDE)
     if (allocated(Xtemp%CrjDE)) deallocate(Xtemp%CrjDE)
     if (allocated(run_params%DE%F)) deallocate(run_params%DE%F)
+    if (allocated(run_params%discrete)) deallocate(run_params%discrete)
     deallocate(BF%vectors, BF%values, BF%derived)
     if (run_params%calcZ) call clearTree
 

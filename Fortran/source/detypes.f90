@@ -28,7 +28,8 @@ end type deparams
 
 type codeparams                 			!code parameters (remember to expand io::save_state and io::resume if you expand this type)
    type (deparams) DE					!differential evolution parameters
-   integer :: D, D_derived				!dimension of parameter space (known from the bounds given); dimension of derived space
+   integer :: D, D_derived, D_discrete			!dimension of parameter space; dimension of derived space, dimension of discrete parameter space
+   integer, allocatable, dimension(:) :: discrete       !lists the discrete dimensions of parameter space (size D_discrete)
    integer :: numciv, numgen				!maximum number of civilizations, generations
    real :: tol						!tolerance in log-evidence
    real :: maxNodePop                                   !maximum population to allow in a cell before partitioning it

@@ -1,7 +1,9 @@
 module init
 
 use detypes
-use converge
+use mutation, only: init_FjDE    !initializes scale factors for jDE
+use crossover, only: init_CrjDE  !initializes crossovers for jDE
+use selection, only: roundvector !used to round the componenets of vectors that belong to discrete dimensions
 
 implicit none
 
@@ -12,12 +14,13 @@ contains
 
   !Assign parameter values (defaults if not specified) to run_params and print DE parameter values to screen
 
-  subroutine param_assign(run_params, lowerbounds, upperbounds, nDerived, maxciv, maxgen, NP, F, Cr, lambda, current, &
-                          expon, bndry, jDE, removeDuplicates, doBayesian, maxNodePop, Ztolerance, savecount)
+  subroutine param_assign(run_params, lowerbounds, upperbounds, nDerived, discrete, maxciv, maxgen, NP, F, Cr, lambda, &
+                          current, expon, bndry, jDE, removeDuplicates, doBayesian, maxNodePop, Ztolerance, savecount)
 
     type(codeparams), intent(out) :: run_params 
     real, dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space 
     integer, intent(in), optional :: nDerived	 		!input number of derived quantities to output
+    integer, dimension(:), intent(in), optional :: discrete     !lists all discrete dimensions of parameter space
     integer, intent(in), optional :: maxciv 			!maximum number of civilisations
     integer, intent(in), optional :: maxgen 			!maximum number of generations per civilisation
     integer, intent(in), optional :: NP 			!population size (individuals per generation)
@@ -48,9 +51,22 @@ contains
     endif
 
     if (present(nDerived)) then 
-      call setIfPositive_int(nDerived, run_params%D_derived, 'nDerived')
+      call setIfPositive_int(nDerived, run_params%D_derived, 'nDerived') !FIXME: this prevents setting nDerived=0
     else
        run_params%D_derived = 0					!default is no derived quantities
+    end if
+
+    if (present(discrete)) then
+       if (any(discrete .gt. run_params%D) .or. any(discrete .lt. 1)) then
+          write (*,*) 'ERROR: Discrete dimensions specified must be > 1 and < ', run_params%D
+          stop
+       end if
+       !also check that discrete dimensions are not doubly-specified? Doesn't seem to crash...
+       run_params%D_discrete = size(discrete)
+       allocate(run_params%discrete(run_params%D_discrete))
+       run_params%discrete = discrete
+    else
+       allocate(run_params%discrete(0))
     end if
 
     if (present(maxciv)) then
@@ -234,6 +250,7 @@ contains
 
     !print feedback about strategy choice, values of parameters to the screen
     write (*,*) DEstrategy
+    if (size(run_params%discrete) .gt. 0) write (*,*) 'Discrete dimensions:', run_params%discrete 
     write (*,*) 'Parameters:'
     write (*,*) ' NP =', run_params%DE%NP
     if ((run_params%DE%lambda .ne. 1.) .and. (run_params%DE%lambda .ne. 0.)) then
@@ -299,33 +316,28 @@ contains
     integer, intent(inout) :: fcall
     logical, intent(inout) :: quit
     real, external :: func
+    real, dimension(run_params%D) :: evalvector  !vectors used to evaluate function (with 'discrete' dimensions rounded)
     integer :: i
-    real, dimension(run_params%DE%NP) :: rand
-
-    if (verbose) write (*,*) '-----------------------------'
-    if (verbose) write (*,*) 'Generation: ', '1'
 
     X%multiplicities = 1.d0 !Initialise to 1 in case posteriors are not calculated
+
+    if (run_params%DE%jDE) then !initialize population of F and Cr parameters
+       X%FjDE = init_FjDE(run_params)
+       X%CrjDE = init_CrjDE(run_params)
+    end if
 
     !$OMP PARALLEL DO
     do i=1,run_params%DE%NP
        call random_number(X%vectors(i,:))
        X%vectors(i,:) = X%vectors(i,:)*(upperbounds - lowerbounds) + lowerbounds
-       X%values(i) = func(X%vectors(i,:), X%derived(i,:), fcall, quit)
-       if (run_params%DE%jDE) then !initialize population of F and Cr parameters
-          call random_number(rand)
-          X%FjDE = rand*0.9 + 0.1
-          call random_number(rand)
-          X%CrjDE = rand
-          if (verbose) write (*,*) i, X%vectors(i, :), '->', X%values(i), '|', X%FjDE(i), X%CrjDE(i)
-       else
-          if (verbose) write (*,*) i, X%vectors(i, :), '->', X%values(i)
-       end if
+       evalvector = roundvector(X%vectors(i,:), run_params)
+       X%values(i) = func(evalvector, X%derived(i,:), fcall, quit)
+       if (verbose .and. run_params%DE%jDE) write (*,*) i, evalvector, '->', X%values(i), '|', X%FjDE(i), X%CrjDE(i)
+       if (verbose .and. .not. run_params%DE%jDE) write (*,*) i, evalvector, '->', X%values(i)
     end do      
     !$END OMP PARALLEL DO
-
-    if (converged(X, 1)) write (*,*) 'ERROR: initial population converges.' !initializing converged()
-
+   
+   
   end subroutine initialize
 
 

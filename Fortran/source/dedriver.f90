@@ -11,7 +11,7 @@ implicit none
  real, parameter, dimension(2) :: lowerbounds=-50.0	!boundaries of parameter space
  real, parameter, dimension(2) :: upperbounds=50.0
  real, parameter, dimension(2) :: ranges = upperbounds - lowerbounds
- real, parameter :: dPrior = ranges(1)*ranges(2)
+ real, parameter :: dPrior = ranges(1)*ranges(2)!*ranges(3)*ranges(4)
 
 contains
 
@@ -116,19 +116,17 @@ real function flatprior(X)
 
 end function flatprior
 
-
 end module examples
+
 
 
 program dedriver !Tester for general differential evolution
 
-use examples
+  use examples
 
-implicit none
+  implicit none
 
-  call run_de(gauss2, flatprior, lowerbounds, upperbounds, path, nDerived=nDerived, jDE=.true., doBayesian=.true., &
-  resume=.false., savecount=5)
-  !call run_de(gauss2, flatprior, lowerbounds, upperbounds, path, nDerived=nDerived, lambda=1., &
-  !      maxciv=1, NP=5)
+  call run_de(gauss2, flatprior, lowerbounds, upperbounds, path, nDerived=nDerived, doBayesian=.true., &
+  resume=.false., savecount=5, jDE=.true., discrete=(/1,2/))
 
 end program dedriver
