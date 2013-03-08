@@ -25,13 +25,13 @@ subroutine io_begin(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fca
   type(population), intent(inout) :: X, BF
   real, optional, external :: prior
 
-  if (present(restart) .and. restart) then
+  if (present(restart) .and. restart) then !FIXME: make MPI-friendly
     if (present(prior)) then
       call resume(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params, X, BF, prior=prior)
     else
       call resume(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params, X, BF)
     endif
-  else
+  else if (run_params%mpirank .eq. 0) then
     !Create .sam, .rparam and .devo files
     write(*,*) 'Creating DEvoPack output files at '//trim(path)//'.*'
     open(unit=samlun, file=trim(path)//'.sam', iostat=filestatus, action='WRITE', status='REPLACE')
@@ -112,7 +112,7 @@ subroutine save_run_params(path, run_params)
   write(rparamlun,'(2I6)') 	run_params%D, run_params%D_derived		!dim of parameter space (known from the bounds given); dim of derived space
   write(rparamlun,'(I6)')	run_params%D_discrete                           !dimenension of discrete parameter space
   if (run_params%D_discrete .ne. 0) then
-    write(formatstring,'(A1,I4,A6)') '(',run_params%D_discrete,'I6)'
+    write(formatstring,'(A1,I4,A3)') '(',run_params%D_discrete,'I6)'
     write(rparamlun,formatstring) run_params%discrete			 	!discrete dimensions
   endif 
   write(rparamlun,'(2I6)') 	run_params%numciv, run_params%numgen		!maximum number of civilizations, generations

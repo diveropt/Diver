@@ -113,8 +113,8 @@ contains
 
   function init_CrjDE(run_params)
     type(codeparams), intent(in) :: run_params
-    real, dimension(run_params%DE%NP) :: init_CrjDE
-    real, dimension(run_params%DE%NP) :: rand
+    real, dimension(run_params%mpipopchunk) :: init_CrjDE
+    real, dimension(run_params%mpipopchunk) :: rand
 
     call random_number(rand)
     init_CrjDE = rand

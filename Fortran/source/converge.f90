@@ -20,15 +20,16 @@ contains
   end function evidenceDone
 
 
-  logical function converged(X, gen)                  
+  logical function converged(X, gen, run_params)                  
     
     type(population), intent(in) :: X
     integer, intent(in) :: gen
+    type(codeparams), intent(in) :: run_params
 
     logical, parameter :: meanimprovement=.true. !whether to use the mean improvement convergence criteria
 
-    if (meanimprovement) then
-       converged = meanimproveconv(X, gen)
+    if (meanimprovement) then                    !FIXME: make choice of convergence criteria part of run_params
+       converged = meanimproveconv(X, gen, run_params)
     else                                         !FIXME implement other convergence criteria options
        converged = .false.                       !no convergence criteria used
     end if
@@ -36,15 +37,11 @@ contains
   end function converged
 
 
-
-  !FIXME implement other convergence criteria options
-
-
-
-  logical function meanimproveconv(X, gen)       !mean improvement in the average/best fitness of the population
+  logical function meanimproveconv(X, gen, run_params) !mean improvement in the average/best fitness of the population
 
     type(population), intent(in) :: X
     integer, intent(in) :: gen
+    type(codeparams), intent(in) :: run_params
 
     real, parameter :: convthresh=0.1             !if the mean improvement is less than this, population has converged
     integer, parameter :: convstep=5              !mean improvement checked using this many steps
@@ -54,7 +51,7 @@ contains
     real, dimension(convstep), save :: improve    !improvement between oldval, curval over most recent steps, normalized by number of steps stored
 
 
-    if (verbose) write (*,*) '  Checking convergence...'
+    if (verbose .and. (run_params%mpirank .eq. 0)) write (*,*) '  Checking convergence...'
 
     if (gen .eq. 1) then                                          !initialize
        improve = huge(1.0)
@@ -75,13 +72,13 @@ contains
 
     improve = eoshift(improve, shift=-1, boundary=oldval-curval)  !store new improvement, discard oldest improvement
     
-    if (verbose) write (*,*) '  Mean improvement =', sum(improve)
+    if (verbose .and. (run_params%mpirank .eq. 0)) write (*,*) '  Mean improvement =', sum(improve)
     
     if (sum(improve) .lt. convthresh) then 
-       if (verbose) write (*,*) '  Converged.'
+       if (verbose .and. (run_params%mpirank .eq. 0)) write (*,*) '  Converged.'
        meanimproveconv = .true.
     else
-       if (verbose) write (*,*) '  Not converged.'
+       if (verbose .and. (run_params%mpirank .eq. 0)) write (*,*) '  Not converged.'
        meanimproveconv = .false.
     end if
 

@@ -132,8 +132,8 @@ contains
 
   function init_FjDE(run_params)
     type(codeparams), intent(in) ::run_params
-    real, dimension(run_params%DE%NP) :: init_FjDE
-    real, dimension(run_params%DE%NP) :: rand
+    real, dimension(run_params%mpipopchunk) :: init_FjDE
+    real, dimension(run_params%mpipopchunk) :: rand
     
     call random_number(rand)
     init_FjDE =  Fl + rand*Fu

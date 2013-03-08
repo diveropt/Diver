@@ -1,5 +1,6 @@
 module detypes
 
+
 implicit none
 
 logical, parameter :: verbose = .false.                 !print verbose output
@@ -35,6 +36,8 @@ type codeparams                 			!code parameters (remember to expand io::save
    real :: maxNodePop                                   !maximum population to allow in a cell before partitioning it
    logical :: calcZ      				!calculate evidence or not
    integer :: savefreq					!frequency with which to save progress
+   integer :: mpirank					!rank of current process (0 if no MPI)
+   integer :: mpipopchunk				!number of vectors for each process to work on (NP if no MPI)
 end type codeparams
 
 type population

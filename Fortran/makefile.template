@@ -5,6 +5,7 @@
 # the options below to suit your system
 
 # Define fortran compiler and options
+# to enable mpi, add -DUSEMPI to FOPT
 FF=ifort
 FOPT=-O3 -extend_source
 
