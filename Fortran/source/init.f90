@@ -5,11 +5,11 @@ use mutation, only: init_FjDE    !initializes scale factors for jDE
 use crossover, only: init_CrjDE  !initializes crossovers for jDE
 use selection, only: roundvector, replace_generation
 
-#ifdef USEMPI
-  use MPI
-#endif
-
 implicit none
+
+#ifdef USEMPI
+  include 'mpif.h'
+#endif
 
 private
 public param_assign, initialize, init_random_seed, quit_de, int_to_string

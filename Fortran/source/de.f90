@@ -10,11 +10,11 @@ use crossover
 use posterior
 use evidence
 
-#ifdef USEMPI
-use MPI
-#endif
-
 implicit none
+
+#ifdef USEMPI
+  include 'mpif.h'
+#endif
 
 private
 public run_de
@@ -71,7 +71,7 @@ contains
     integer :: Nsamples_saved = 0                               !number of samples saved to .sam file so far
     logical :: quit						!flag passed from user function to indicate need to stop 
 
-    integer :: ierror, mpirank=0                                !MPI error code, rank
+    integer :: ierror		                                !MPI error code
     real :: t1, t2                                              !for timing
 
 
@@ -159,7 +159,6 @@ contains
              
              accept = 0
 
-             !$OMP PARALLEL DO
              poploop: do m=1, run_params%mpipopchunk                       !evolves individual members of the population
 
                 n = run_params%mpipopchunk*run_params%mpirank + m          !current member of the population (same as m if no MPI)
@@ -180,7 +179,6 @@ contains
                 end if
 
              end do poploop
-             !$END OMP PARALLEL DO
 
              call replace_generation(X, Xnew, run_params, accept, init=.false.)                 !replace old generation with newly calculated one
 
@@ -269,9 +267,9 @@ contains
     end if
 
     !Polish the evidence
-    if (run_params%calcZ) then
+    if (run_params%calcZ .and. run_params%mpirank .eq. 0) then
       call polishEvidence(Z, Zmsq, Zerr, prior, Nsamples_saved, path, run_params, .true.)     
-      if (run_params%mpirank .eq. 0) write (*,*)   'corrected ln(Evidence): ', log(Z), ' +/- ', log(Z/(Z-Zerr))
+      write (*,*)   'corrected ln(Evidence): ', log(Z), ' +/- ', log(Z/(Z-Zerr))
     endif
 
     !Do final save operation

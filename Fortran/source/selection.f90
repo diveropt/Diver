@@ -2,11 +2,11 @@ module selection
 
   use detypes
 
-#ifdef USEMPI
-  use MPI
-#endif
-
   implicit none
+
+#ifdef USEMPI
+  include 'mpif.h'
+#endif
 
   private
   public selector, replace_generation, roundvector

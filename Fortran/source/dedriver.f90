@@ -127,6 +127,6 @@ program dedriver !Tester for general differential evolution
   implicit none
 
   call run_de(gauss2, flatprior, lowerbounds, upperbounds, path, nDerived=nDerived, doBayesian=.true., &
-  resume=.false., savecount=5, jDE=.true., discrete=(/1,2/))
+  resume=.false., jDE=.true., discrete=(/1,2/))
 
 end program dedriver
