@@ -7,7 +7,7 @@ use converge
 use selection
 use mutation
 use crossover
-use posterior
+use post
 use evidence
 
 implicit none

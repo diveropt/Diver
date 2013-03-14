@@ -1,7 +1,7 @@
 module evidence
 
 use detypes
-use posterior
+use post
 
 implicit none
 

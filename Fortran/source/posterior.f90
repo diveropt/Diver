@@ -1,4 +1,4 @@
-module posterior
+module post
 
 use detypes
 
@@ -273,8 +273,8 @@ contains
   !Climbs a single level in the binary space partition tree from currentNode, 
   !or establishes that currentNode is at the top of the tree.
 
-    type(Point), pointer, intent(in) :: individual
-    type(Node), pointer, intent(in) :: currentNode
+    type(Point), pointer, intent(inout) :: individual
+    type(Node), pointer, intent(inout) :: currentNode
     !Indication that the individual is here for a good time, not a long time
     logical, optional :: justLooking
     logical :: onlyLooking
@@ -343,8 +343,8 @@ contains
   subroutine addToEndOfPtList(individual, currentNode)
   !Adds an additional individual point to the end of the linked list of new points associated with a node 
 
-    type(Point), pointer, intent(in) :: individual
-    type(Node), pointer, intent(in) :: currentNode
+    type(Point), pointer, intent(inout) :: individual
+    type(Node), pointer, intent(inout) :: currentNode
 
     if (currentNode%newpopulation .eq. 0) then
       !If this is the first new point for this node, put it in the first entry in the list of points to save
@@ -371,7 +371,7 @@ contains
   !Adds two new branches from a node, sorts the old population of the trunk node into them evenly,
   !and sends the new individuals in the trunk climbing up the new branches
 
-    type(Node), pointer, intent(in) :: currentNode
+    type(Node), pointer, intent(inout) :: currentNode
     type(Point), pointer :: individual, temppt
     integer :: i, j, splitIndex(1)
     real :: ptRegistry(D, currentNode%newpopulation)
@@ -474,4 +474,4 @@ contains
   end subroutine growBranches
 
 
-end module posterior
+end module post

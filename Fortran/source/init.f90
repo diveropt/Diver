@@ -53,8 +53,12 @@ contains
 #endif
 
     if (mpirank .eq. 0) then
+       write (*,*) 
        write (*,*) '============================='
-       write (*,*) ' ******** Begin DE *********'
+       write (*,*) ' ******** Begin DE ********* '
+       write (*,*) 'DEIS v0.1'
+       write (*,*) 'Copyright Elinore Roebber and Pat Scott, 2013'
+       write (*,*) 
     end if
 
     run_params%mpirank = mpirank
@@ -239,7 +243,7 @@ contains
        if (present(removeDuplicates)) then
           run_params%DE%removeDuplicates = removeDuplicates
        else if (run_params%DE%current) then
-          run_params%DE%removeDuplicates = .false.              !with current mutation, duplicate are rare (CHECK THIS)
+          run_params%DE%removeDuplicates = .false.              !with current mutation, duplicate are rare (!FIXME CHECK THIS)
        else
           run_params%DE%removeDuplicates = .true.
        end if
