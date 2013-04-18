@@ -44,7 +44,7 @@ type population
   !add array of strings for names?
   real, allocatable, dimension(:,:) :: vectors 				!dimension(NP, D)
   real, allocatable, dimension(:) :: values, weights, multiplicities 	!dimension(NP)
-  real, allocatable, dimension(:,:) :: derived				!dimension(NP, D_derived)
+  real, allocatable, dimension(:,:) :: vectors_and_derived		!dimension(NP, D+D_derived)
   real, allocatable, dimension(:) :: FjDE, CrjDE                        !dimension(NP)
 end type population
 

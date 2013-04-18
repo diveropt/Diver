@@ -30,8 +30,8 @@ contains
     real, external :: func
 
     real :: trialvalue
-    real, dimension(size(U)) :: trialvector, evalvector 
-    real, dimension(size(X%derived(1,:))) :: trialderived
+    real, dimension(size(U)) :: trialvector
+    real, dimension(size(X%vectors_and_derived(1,:))) :: trialderived
 
 
     trialderived = 0.
@@ -45,30 +45,30 @@ contains
           case (2)                           !randomly re-initialize
              call random_number(trialvector(:))
              trialvector(:) = trialvector(:)*(upperbounds - lowerbounds) + lowerbounds
-             evalvector = roundvector(trialvector, run_params) !same as trialvector unless some dimensions are discrete
-             trialvalue = func(evalvector, trialderived, fcall, quit)
+             trialderived(:run_params%D) = roundvector(trialvector, run_params) !same as trialvector unless some dimensions are discrete
+             trialvalue = func(trialderived, fcall, quit)
           case (3)                           !reflection
              trialvector = U
              where (U .gt. upperbounds) trialvector = upperbounds - (U - upperbounds)
              where (U .lt. lowerbounds) trialvector = lowerbounds + (lowerbounds - U)
-             evalvector = roundvector(trialvector, run_params) !same as trialvector unless some dimensions are discrete
-             trialvalue = func(evalvector, trialderived, fcall, quit)
+             trialderived(:run_params%D) = roundvector(trialvector, run_params) !same as trialvector unless some dimensions are discrete
+             trialvalue = func(trialderived, fcall, quit)
           case default                       !boundary constraints not enforced
              trialvector = U             
-             evalvector = roundvector(trialvector, run_params) !same as trialvector unless some dimensions are discrete
-             trialvalue = func(evalvector, trialderived, fcall, quit)
+             trialderived(:run_params%D) = roundvector(trialvector, run_params) !same as trialvector unless some dimensions are discrete
+             trialvalue = func(trialderived, fcall, quit)
           end select
     else                                     !trial vector is within parameter space bounds, so use it
        trialvector = U    
-       evalvector = roundvector(trialvector, run_params) !same as trialvector unless some dimensions are discrete
-       trialvalue = func(evalvector, trialderived, fcall, quit)  
+       trialderived(:run_params%D) = roundvector(trialvector, run_params) !same as trialvector unless some dimensions are discrete
+       trialvalue = func(trialderived, fcall, quit)  
     end if
 
     !when the trial vector is at least as good as the current member  
     !of the population, use the trial vector for the next generation
     if (trialvalue .le. X%values(n)) then
        Xnew%vectors(m,:) = trialvector 
-       Xnew%derived(m,:) = trialderived
+       Xnew%vectors_and_derived(m,:) = trialderived
        Xnew%values(m) = trialvalue
        if (run_params%DE%jDE) then            !in jDE, also keep F and Cr
           Xnew%FjDE(m) = trialF
@@ -77,7 +77,7 @@ contains
        accept = accept + 1
     else
        Xnew%vectors(m,:) = X%vectors(n,:) 
-       Xnew%derived(m,:) = X%derived(n,:)
+       Xnew%vectors_and_derived(m,:) = X%vectors_and_derived(n,:)
        Xnew%values(m) = X%values(n)
        if (run_params%DE%jDE) then
           Xnew%FjDE(m) = X%FjDE(n)
@@ -111,7 +111,7 @@ contains
     real, dimension(run_params%DE%NP, run_params%D) :: allvecs !new vector population. For checking for duplicates
     real, dimension(run_params%D, run_params%DE%NP) :: trallvecs !transposed allvecs, to make MPI_Allgather happy
     real, dimension(run_params%DE%NP) :: allvals      !new values corresponding to allvecs. For checking for duplicates
-    real, dimension(run_params%D_derived, run_params%DE%NP) :: trderived !transposed derived
+    real, dimension(run_params%D+run_params%D_derived, run_params%DE%NP) :: trderived !transposed derived
     integer :: k, kmatch                              !indices for vector compared, possible matching vector
     integer :: ierror  
     
@@ -189,10 +189,12 @@ contains
        X%vectors = allvecs
        X%values = allvals
     end if
-    
-    call MPI_Allgather(transpose(Xnew%derived), run_params%mpipopchunk*run_params%D_derived, MPI_real, trderived, &
-                       run_params%mpipopchunk*run_params%D_derived, MPI_real, MPI_COMM_WORLD, ierror)
-    X%derived = transpose(trderived)
+    	
+    call MPI_Allgather(transpose(Xnew%vectors_and_derived), run_params%mpipopchunk*&
+                       (run_params%D+run_params%D_derived), MPI_real, trderived, &
+                       run_params%mpipopchunk*(run_params%D+run_params%D_derived), &
+                       MPI_real, MPI_COMM_WORLD, ierror)
+    X%vectors_and_derived = transpose(trderived)
 
     if (run_params%DE%jDE) then
        call MPI_Allgather(Xnew%FjDE, run_params%mpipopchunk, MPI_real, X%FjDE, & 
@@ -204,7 +206,7 @@ contains
     !Xnew and X are the same size, so just equate population members
     X%vectors = allvecs
     X%values = allvals
-    X%derived = Xnew%derived
+    X%vectors_and_derived = Xnew%vectors_and_derived
     if (run_params%DE%jDE) then
        X%FjDE = Xnew%FjDE
        X%CrjDE = Xnew%CrjDE
@@ -232,7 +234,7 @@ contains
           Xnew%values(m) = X%values(n)      
        end if
 
-       Xnew%derived(m,:) = X%derived(n,:)
+       Xnew%vectors_and_derived(m,:) = X%vectors_and_derived(n,:)
 
        if (run_params%DE%jDE) then
           Xnew%FjDE(m) = X%FjDE(n)

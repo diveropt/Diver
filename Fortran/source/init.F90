@@ -348,7 +348,6 @@ contains
     integer, intent(inout) :: fcall
     logical, intent(inout) :: quit
     real, external :: func
-    real, dimension(run_params%D) :: evalvector  !vectors used to evaluate function (with 'discrete' dimensions rounded)
     integer :: n, m, accept
 
     X%multiplicities = 1.d0 !Initialise to 1 in case posteriors are not calculated
@@ -366,12 +365,13 @@ contains
           call random_number(Xnew%vectors(m,:))
 
           Xnew%vectors(m,:) = Xnew%vectors(m,:)*(upperbounds - lowerbounds) + lowerbounds
-          evalvector = roundvector(Xnew%vectors(m,:), run_params)
+          Xnew%vectors_and_derived(m,:run_params%D) = roundvector(Xnew%vectors(m,:), run_params)
+          Xnew%values(m) = func(Xnew%vectors_and_derived(m,:), fcall, quit)
 
-          Xnew%values(m) = func(evalvector, Xnew%derived(m,:), fcall, quit)
-
-          if (verbose .and. run_params%DE%jDE) write (*,*) n, evalvector, '->', Xnew%values(m), '|', Xnew%FjDE(m), Xnew%CrjDE(m)
-          if (verbose .and. .not. run_params%DE%jDE) write (*,*) n, evalvector, '->', Xnew%values(m)
+          if (verbose .and. run_params%DE%jDE) write (*,*) n, roundvector(Xnew%vectors(m,:), run_params), &
+           '->', Xnew%values(m), '|', Xnew%FjDE(m), Xnew%CrjDE(m)
+          if (verbose .and. .not. run_params%DE%jDE) write (*,*) n, roundvector(Xnew%vectors(m,:), run_params), &
+           '->', Xnew%values(m)
 
        end do
        !$END OMP PARALLEL DO

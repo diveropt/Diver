@@ -63,7 +63,7 @@ contains
 
     real, dimension(size(lowerbounds)) :: avgvector, bestvector !for calculating final average and best fit
     real :: bestvalue
-    real, allocatable :: bestderived(:)
+    real, allocatable :: bestvecderived(:)
     integer :: bestloc(1)
 
     real :: Z=0., Zmsq=0., Zerr = 0.                            !evidence
@@ -92,10 +92,10 @@ contains
 
     !Allocate vector population: X is the full population, Xnew is the size of the population each process handles
     allocate(X%vectors(run_params%DE%NP, run_params%D))
-    allocate(X%derived(run_params%DE%NP, run_params%D_derived))
+    allocate(X%vectors_and_derived(run_params%DE%NP, run_params%D+run_params%D_derived))
     allocate(X%values(run_params%DE%NP), X%weights(run_params%DE%NP), X%multiplicities(run_params%DE%NP))
     allocate(Xnew%vectors(run_params%mpipopchunk, run_params%D))
-    allocate(Xnew%derived(run_params%mpipopchunk, run_params%D_derived))
+    allocate(Xnew%vectors_and_derived(run_params%mpipopchunk, run_params%D+run_params%D_derived))
     allocate(Xnew%values(run_params%mpipopchunk))
 
     !for self-adaptive DE (jDE), allocate space for the populations of parameters
@@ -107,7 +107,8 @@ contains
     endif
     
     !Allocate best-fit containers
-    allocate(BF%vectors(1, run_params%D), BF%derived(1, run_params%D_derived), BF%values(1), bestderived(run_params%D_derived))
+    allocate(BF%vectors(1, run_params%D), BF%vectors_and_derived(1, run_params%D+run_params%D_derived))
+    allocate(BF%values(1), bestvecderived(run_params%D+run_params%D_derived))
     
     !If required, initialise the linked tree used for estimating the evidence and posterior
     if (run_params%calcZ) call iniTree(lowerbounds,upperbounds,run_params%maxNodePop)
@@ -223,14 +224,14 @@ contains
        avgvector = roundvector(sum(X%vectors, dim=1)/real(run_params%DE%NP), run_params)
        bestloc = minloc(X%values)
        bestvector = X%vectors(bestloc(1),:)
-       bestderived = X%derived(bestloc(1),:)
+       bestvecderived = X%vectors_and_derived(bestloc(1),:)
        bestvalue = minval(X%values)
           
        !Update current best fit
        if (bestvalue .le. BF%values(1)) then
           BF%values(1) = bestvalue
           BF%vectors(1,:) = bestvector
-          BF%derived(1,:) = bestderived
+          BF%vectors_and_derived(1,:) = bestvecderived
        endif
 
        !get the total number of function calls
@@ -241,12 +242,12 @@ contains
 #endif
  
        if (run_params%mpirank .eq. 0) then
+          bestvecderived(:run_params%D) = avgvector
           if (verbose) write (*,*)
           if (verbose) write (*,*) '  ============================='
           if (verbose) write (*,*) '  Number of generations in this civilisation: ', min(gen,run_params%numgen)
           if (verbose) write (*,*) '  Average final vector in this civilisation: ', avgvector
-          if (verbose) write (*,*) '  Value at average final vector in this civilisation: ', &
-                                   func(avgvector, bestderived, fcall, quit) 
+          if (verbose) write (*,*) '  Value at average final vector in this civilisation: ', func(bestvecderived, fcall, quit) 
           if (verbose) write (*,*) '  Best final vector in this civilisation: ', roundvector(bestvector, run_params)
           if (verbose) write (*,*) '  Value at best final vector in this civilisation: ', bestvalue
           if (verbose) write (*,*) '  Cumulative function calls: ', totfcall
@@ -278,7 +279,7 @@ contains
                      final = ( (mod(gen,run_params%savefreq) .eq. 0) .or. (civ .eq. civstart) ) )
     end if
 
-    deallocate(X%vectors, X%values, X%weights, X%derived, X%multiplicities)
+    deallocate(X%vectors, X%values, X%weights, X%vectors_and_derived, X%multiplicities)
     deallocate(Xnew%vectors, Xnew%values)
     if (allocated(X%FjDE)) deallocate(X%FjDE)
     if (allocated(X%CrjDE)) deallocate(X%CrjDE)
@@ -286,7 +287,7 @@ contains
     if (allocated(Xnew%CrjDE)) deallocate(Xnew%CrjDE)
     if (allocated(run_params%DE%F)) deallocate(run_params%DE%F)
     if (allocated(run_params%discrete)) deallocate(run_params%discrete)
-    deallocate(BF%vectors, BF%values, BF%derived)
+    deallocate(BF%vectors, BF%values, BF%vectors_and_derived)
     if (run_params%calcZ) call clearTree
 
 #ifdef USEMPI
