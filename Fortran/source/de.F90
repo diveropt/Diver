@@ -61,7 +61,7 @@ contains
     integer :: n                                                !current member of population being evolved (same as m unless using MPI)
     integer :: civstart=1, genstart=1                           !starting values of civ, gen
 
-    real, dimension(size(lowerbounds)) :: avgvector, bestvector !for calculating final average and best fit
+    real, dimension(size(lowerbounds)) :: bestvector            !for calculating final best fit
     real :: bestvalue
     real, allocatable :: bestvecderived(:)
     integer :: bestloc(1)
@@ -181,7 +181,7 @@ contains
 
              end do poploop
 
-             call replace_generation(X, Xnew, run_params, accept, init=.false.)                 !replace old generation with newly calculated one
+             call replace_generation(X, Xnew, run_params, accept, init=.false.)   !replace old generation with newly calculated one
 
 #ifdef USEMPI
              call MPI_Allreduce(accept, totaccept, 1, MPI_integer, MPI_sum, MPI_COMM_WORLD, ierror)
@@ -221,7 +221,7 @@ contains
        
        genstart = 1
 
-       avgvector = roundvector(sum(X%vectors, dim=1)/real(run_params%DE%NP), run_params)
+       !best fit for this civilization
        bestloc = minloc(X%values)
        bestvector = X%vectors(bestloc(1),:)
        bestvecderived = X%vectors_and_derived(bestloc(1),:)
@@ -236,18 +236,16 @@ contains
 
        !get the total number of function calls
 #ifdef USEMPI
-       call MPI_Allreduce(fcall, totfcall, 1, MPI_integer, MPI_sum, MPI_COMM_WORLD, ierror) !FIXME: undercounting calling func below
+       call MPI_Allreduce(fcall, totfcall, 1, MPI_integer, MPI_sum, MPI_COMM_WORLD, ierror)
 #else
        totfcall = fcall
 #endif
  
        if (run_params%mpirank .eq. 0) then
-          bestvecderived(:run_params%D) = avgvector
+          !bestvecderived(:run_params%D) = avgvector
           if (verbose) write (*,*)
           if (verbose) write (*,*) '  ============================='
           if (verbose) write (*,*) '  Number of generations in this civilisation: ', min(gen,run_params%numgen)
-          if (verbose) write (*,*) '  Average final vector in this civilisation: ', avgvector
-          if (verbose) write (*,*) '  Value at average final vector in this civilisation: ', func(bestvecderived, fcall, quit) 
           if (verbose) write (*,*) '  Best final vector in this civilisation: ', roundvector(bestvector, run_params)
           if (verbose) write (*,*) '  Value at best final vector in this civilisation: ', bestvalue
           if (verbose) write (*,*) '  Cumulative function calls: ', totfcall

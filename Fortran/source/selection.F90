@@ -26,43 +26,55 @@ contains
     integer, intent(in) :: m, n              !current index for population chunk (m) and full population (n)
     real, dimension(:), intent(in) :: lowerbounds, upperbounds 
     type(codeparams), intent(in) :: run_params
-    logical, intent(inout) :: quit   
+    logical, intent(inout) :: quit
     real, external :: func
 
     real :: trialvalue
     real, dimension(size(U)) :: trialvector
     real, dimension(size(X%vectors_and_derived(1,:))) :: trialderived
+    logical :: validvector
 
 
     trialderived = 0.
 
     if (any(U(:) .gt. upperbounds) .or. any(U(:) .lt. lowerbounds)) then 
-       !trial vector exceeds parameter space bounds: apply boundary constraints
+                                             !trial vector exceeds parameter space bounds: apply boundary constraints
        select case (run_params%DE%bconstrain)
           case (1)                           !'brick wall'
-             trialvalue = huge(1.0)
              trialvector(:) = X%vectors(n,:)
+             validvector = .false.
           case (2)                           !randomly re-initialize
              call random_number(trialvector(:))
              trialvector(:) = trialvector(:)*(upperbounds - lowerbounds) + lowerbounds
-             trialderived(:run_params%D) = roundvector(trialvector, run_params) !same as trialvector unless some dimensions are discrete
-             trialvalue = func(trialderived, fcall, quit)
+             validvector = .true.
           case (3)                           !reflection
              trialvector = U
              where (U .gt. upperbounds) trialvector = upperbounds - (U - upperbounds)
              where (U .lt. lowerbounds) trialvector = lowerbounds + (lowerbounds - U)
-             trialderived(:run_params%D) = roundvector(trialvector, run_params) !same as trialvector unless some dimensions are discrete
-             trialvalue = func(trialderived, fcall, quit)
+             validvector = .true.
           case default                       !boundary constraints not enforced
-             trialvector = U             
-             trialderived(:run_params%D) = roundvector(trialvector, run_params) !same as trialvector unless some dimensions are discrete
-             trialvalue = func(trialderived, fcall, quit)
+             trialvector = U  
+             validvector = .true.
           end select
     else                                     !trial vector is within parameter space bounds, so use it
-       trialvector = U    
-       trialderived(:run_params%D) = roundvector(trialvector, run_params) !same as trialvector unless some dimensions are discrete
-       trialvalue = func(trialderived, fcall, quit)  
+       trialvector = U 
+       validvector = .true.
     end if
+
+    trialderived(:run_params%D) = roundvector(trialvector, run_params)
+
+#ifdef USEMPI 
+    !call func even if not a valid vector so that all processes can respond to MPI calls inside likelihood function 
+    trialvalue = func(trialderived, fcall, quit, validvector)
+    if (.not. validvector) trialvalue = huge(1.0)
+#else   
+    !save time by only evaluating likelihood when necessary
+    if (validvector) then 
+       trialvalue = func(trialderived, fcall, quit, validvector)
+    else
+       trialvalue = huge(1.0)
+    end if
+#endif
 
     !when the trial vector is at least as good as the current member  
     !of the population, use the trial vector for the next generation

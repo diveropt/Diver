@@ -366,7 +366,7 @@ contains
 
           Xnew%vectors(m,:) = Xnew%vectors(m,:)*(upperbounds - lowerbounds) + lowerbounds
           Xnew%vectors_and_derived(m,:run_params%D) = roundvector(Xnew%vectors(m,:), run_params)
-          Xnew%values(m) = func(Xnew%vectors_and_derived(m,:), fcall, quit)
+          Xnew%values(m) = func(Xnew%vectors_and_derived(m,:), fcall, quit, .true.)
 
           if (verbose .and. run_params%DE%jDE) write (*,*) n, roundvector(Xnew%vectors(m,:), run_params), &
            '->', Xnew%values(m), '|', Xnew%FjDE(m), Xnew%CrjDE(m)
