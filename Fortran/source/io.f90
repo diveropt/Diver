@@ -164,7 +164,7 @@ subroutine save_state(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, f
   write(formatstring,'(A1,I4,A6)') '(',run_params%D+run_params%D_derived,'E20.9)'
   write(devolun,formatstring)	BF%vectors_and_derived(1,:) 			!reprocessed vector and derived parameters at current best fit
 
-  write(formatstring,'(A1,I4,A6)') '(',run_params%DE%NP,'E20.9)'
+  write(formatstring,'(A1,I6,A6)') '(',run_params%DE%NP,'E20.9)'
   write(devolun,formatstring)	X%values					!current population fitnesses
   write(formatstring,'(A1,I6,A6)') '(',run_params%DE%NP*run_params%D,'E20.9)'
   write(devolun,formatstring)	X%vectors					!currect population
@@ -241,7 +241,7 @@ subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, f
   write(formatstring,'(A1,I4,A6)') '(',run_params%D+run_params%D_derived,'E20.9)'
   read(devolun,formatstring)	BF%vectors_and_derived(1,:) 			!reprocessed vector and derived parameters at current best fit
 
-  write(formatstring,'(A1,I4,A6)') '(',run_params%DE%NP,'E20.9)'
+  write(formatstring,'(A1,I6,A6)') '(',run_params%DE%NP,'E20.9)'
   read(devolun,formatstring)	X%values					!current population fitnesses
   write(formatstring,'(A1,I6,A6)') '(',run_params%DE%NP*run_params%D,'E20.9)'
   read(devolun,formatstring)	X%vectors					!current population
