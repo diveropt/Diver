@@ -26,25 +26,25 @@ contains
   subroutine run_de(func, prior, lowerbounds, upperbounds, path, nDerived, discrete, maxciv, maxgen, NP, F, Cr, lambda, current, &
                     expon, bndry, jDE, removeDuplicates, doBayesian, maxNodePop, Ztolerance, savecount, resume)
 
-    real, external :: func, prior 				!function to be minimized (assumed -ln[likelihood]), prior function
-    real, dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space
+    real(dp), external :: func, prior 				!function to be minimized (assumed -ln[likelihood]), prior function
+    real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space
     character(len=*), intent(in)   :: path			!path to save samples, resume files, etc  
     integer, intent(in), optional  :: nDerived	 		!input number of derived quantities to output
     integer, dimension(:), intent(in), optional :: discrete     !a vector listing all discrete dimensions of parameter space
     integer, intent(in), optional  :: maxciv 			!maximum number of civilisations
     integer, intent(in), optional  :: maxgen 			!maximum number of generations per civilisation
     integer, intent(in), optional  :: NP 			!population size (individuals per generation)
-    real, dimension(:), intent(in), optional :: F		!scale factor(s).  Note that this must be entered as an array.
-    real, intent(in), optional     :: Cr 			!crossover factor
-    real, intent(in), optional     :: lambda 			!mixing factor between best and rand/current
+    real(dp), dimension(:), intent(in), optional :: F		!scale factor(s).  Note that this must be entered as an array.
+    real(dp), intent(in), optional     :: Cr 			!crossover factor
+    real(dp), intent(in), optional     :: lambda 			!mixing factor between best and rand/current
     logical, intent(in), optional  :: current 			!use current vector for mutation
     logical, intent(in), optional  :: expon 			!use exponential crossover
     integer, intent(in), optional  :: bndry                     !boundary constraint: 1 -> brick wall, 2 -> random re-initialization, 3 -> reflection
     logical, intent(in), optional  :: jDE                       !use self-adaptive choices for rand/1/bin parameters as described in Brest et al 2006
     logical, intent(in), optional  :: removeDuplicates          !weed out duplicate vectors within a single generation
     logical, intent(in), optional  :: doBayesian                !calculate log evidence and posterior weightings
-    real, intent(in), optional     :: maxNodePop                !population at which node is partitioned in binary space partitioning for posterior
-    real, intent(in), optional     :: Ztolerance		!input tolerance in log-evidence
+    real(dp), intent(in), optional     :: maxNodePop                !population at which node is partitioned in binary space partitioning for posterior
+    real(dp), intent(in), optional     :: Ztolerance		!input tolerance in log-evidence
     integer, intent(in), optional  :: savecount			!save progress every savecount generations
     logical, intent(in), optional  :: resume			!restart from a previous run
      
@@ -52,8 +52,8 @@ contains
 
     type(population), target :: X, BF                           !population of target vectors, best-fit vector
     type(population) :: Xnew                                    !population for the next generation
-    real, dimension(size(lowerbounds)) :: V, U                  !donor, trial vectors
-    real :: trialF, trialCr                                     !adaptive F and Cr for jDE
+    real(dp), dimension(size(lowerbounds)) :: V, U                  !donor, trial vectors
+    real(dp) :: trialF, trialCr                                     !adaptive F and Cr for jDE
 
     integer :: fcall=0, accept=0                                !fcall counts function calls, accept counts acceptance rate
     integer :: totfcall = 0, totaccept = 0                      !for function calls & acceptance rates for all processes
@@ -61,18 +61,18 @@ contains
     integer :: n                                                !current member of population being evolved (same as m unless using MPI)
     integer :: civstart=1, genstart=1                           !starting values of civ, gen
 
-    real, dimension(size(lowerbounds)) :: bestvector            !for calculating final best fit
-    real :: bestvalue
-    real, allocatable :: bestvecderived(:)
+    real(dp), dimension(size(lowerbounds)) :: bestvector            !for calculating final best fit
+    real(dp) :: bestvalue
+    real(dp), allocatable :: bestvecderived(:)
     integer :: bestloc(1)
 
-    real :: Z=0., Zmsq=0., Zerr = 0.                            !evidence
+    real(dp) :: Z=0., Zmsq=0., Zerr = 0.                            !evidence
     integer :: Nsamples = 0                                     !number of statistically independent samples from posterior
     integer :: Nsamples_saved = 0                               !number of samples saved to .sam file so far
     logical :: quit						!flag passed from user function to indicate need to stop 
 
     integer :: ierror		                                !MPI error code
-    real :: t1, t2                                              !for timing
+    real(dp) :: t1, t2                                              !for timing
 
 
     call cpu_time(t1)
@@ -258,7 +258,7 @@ contains
 
     if (run_params%mpirank .eq. 0) then
        write (*,*) '============================='
-       write (*,*) 'Number of civilisations: ', min(civ,run_params%numciv)
+       write (*,'(A25,I4)') 'Number of civilisations: ', min(civ,run_params%numciv)
        write (*,*) 'Best final vector: ', roundvector(BF%vectors(1,:), run_params)
        write (*,*) 'Value at best final vector: ', BF%values(1)
        if (run_params%calcZ) write (*,*)   'ln(Evidence): ', log(Z), ' +/- ', log(Z/(Z-Zerr))
@@ -294,7 +294,7 @@ contains
 
     call cpu_time(t2)
 
-    write (*,*) 'Total time for process '//trim(int_to_string(run_params%mpirank))//': ', t2-t1
+    write (*,'(A23,I4,A2,F7.2)') 'Total time for process ', run_params%mpirank, ': ', t2-t1
 
   end subroutine run_de
 

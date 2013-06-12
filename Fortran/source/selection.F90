@@ -21,17 +21,17 @@ contains
     type(population), intent(in) :: X
     type(population), intent(inout) :: Xnew
     integer, intent(inout) :: fcall, accept
-    real, dimension(:), intent(in) :: U
-    real, intent(in) :: trialF, trialCr
+    real(dp), dimension(:), intent(in) :: U
+    real(dp), intent(in) :: trialF, trialCr
     integer, intent(in) :: m, n              !current index for population chunk (m) and full population (n)
-    real, dimension(:), intent(in) :: lowerbounds, upperbounds 
+    real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds 
     type(codeparams), intent(in) :: run_params
     logical, intent(inout) :: quit
-    real, external :: func
+    real(dp), external :: func
 
-    real :: trialvalue
-    real, dimension(size(U)) :: trialvector
-    real, dimension(size(X%vectors_and_derived(1,:))) :: trialderived
+    real(dp) :: trialvalue
+    real(dp), dimension(size(U)) :: trialvector
+    real(dp), dimension(size(X%vectors_and_derived(1,:))) :: trialderived
     logical :: validvector
 
 
@@ -66,13 +66,13 @@ contains
 #ifdef USEMPI 
     !call func even if not a valid vector so that all processes can respond to MPI calls inside likelihood function 
     trialvalue = func(trialderived, fcall, quit, validvector)
-    if (.not. validvector) trialvalue = huge(1.0)
+    if (.not. validvector) trialvalue = huge(1.0_dp)
 #else   
     !save time by only evaluating likelihood when necessary
     if (validvector) then 
        trialvalue = func(trialderived, fcall, quit, validvector)
     else
-       trialvalue = huge(1.0)
+       trialvalue = huge(1.0_dp)
     end if
 #endif
 
@@ -103,9 +103,9 @@ contains
   !rounds vectors to nearest discrete values for all dimensions listed in run_params%discrete
   !all other dimensions are kept the same
   function roundvector(trialvector, run_params)
-    real, dimension(:), intent(in) :: trialvector
+    real(dp), dimension(:), intent(in) :: trialvector
     type(codeparams), intent(in) :: run_params
-    real, dimension(run_params%D) :: roundvector
+    real(dp), dimension(run_params%D) :: roundvector
 
     roundvector = trialvector
     roundvector(run_params%discrete) = anint(roundvector(run_params%discrete))
@@ -120,21 +120,24 @@ contains
     type(codeparams), intent(in) :: run_params
     integer, intent(inout) :: accept
     logical, intent(in) :: init
-    real, dimension(run_params%DE%NP, run_params%D) :: allvecs !new vector population. For checking for duplicates
-    real, dimension(run_params%D, run_params%DE%NP) :: trallvecs !transposed allvecs, to make MPI_Allgather happy
-    real, dimension(run_params%DE%NP) :: allvals      !new values corresponding to allvecs. For checking for duplicates
-    real, dimension(run_params%D+run_params%D_derived, run_params%DE%NP) :: trderived !transposed derived
-    integer :: k, kmatch                              !indices for vector compared, possible matching vector
-    integer :: ierror  
+    real(dp), dimension(run_params%DE%NP, run_params%D) :: allvecs   !new vector population. For checking for duplicates
+    real(dp), dimension(run_params%D, run_params%DE%NP) :: trallvecs !transposed allvecs, to make MPI_Allgather happy
+    real(dp), dimension(run_params%DE%NP) :: allvals                 !new values corresponding to allvecs. For checking for duplicates
+    real(dp), dimension(run_params%D+run_params%D_derived, run_params%DE%NP) :: trderived !transposed derived
+    integer :: k, kmatch                                             !indices for vector compared, possible matching vector
+    integer :: ierror, mpi_dp  
     
     !with MPI enabled, Xnew will only contain some elements of the new population. Create allvecs, allvals for duplicate-hunting
 #ifdef USEMPI
-    call MPI_Allgather(transpose(Xnew%vectors), run_params%mpipopchunk*run_params%D, MPI_real, trallvecs, &
-                       run_params%mpipopchunk*run_params%D, MPI_real, MPI_COMM_WORLD, ierror)
+    !create mpi double precsision real which will be compatible with dp kind specified in detypes.f90
+    call MPI_Type_create_f90_real(precision(1.0_dp), range(1.0_dp), mpi_dp, ierror) 
+
+    call MPI_Allgather(transpose(Xnew%vectors), run_params%mpipopchunk*run_params%D, mpi_dp, trallvecs, &
+                       run_params%mpipopchunk*run_params%D, mpi_dp, MPI_COMM_WORLD, ierror)
     allvecs = transpose(trallvecs)
 
-    call MPI_Allgather(Xnew%values, run_params%mpipopchunk, MPI_real, allvals, & 
-                       run_params%mpipopchunk, MPI_real, MPI_COMM_WORLD, ierror)  
+    call MPI_Allgather(Xnew%values, run_params%mpipopchunk, mpi_dp, allvals, & 
+                       run_params%mpipopchunk, mpi_dp, MPI_COMM_WORLD, ierror)  
 #else
     allvecs = Xnew%vectors
     allvals = Xnew%values
@@ -188,13 +191,13 @@ contains
     !replace old population members with those calculated in Xnew
 #ifdef USEMPI
     if (debug_replace_gen) then !this just compares the replaced Xnew%vectors & Xnew%values with allvecs and allvals
-       call MPI_Allgather(transpose(Xnew%vectors), run_params%mpipopchunk*run_params%D, MPI_real, trallvecs, &
-                          run_params%mpipopchunk*run_params%D, MPI_real, MPI_COMM_WORLD, ierror)
+       call MPI_Allgather(transpose(Xnew%vectors), run_params%mpipopchunk*run_params%D, mpi_dp, trallvecs, &
+                          run_params%mpipopchunk*run_params%D, mpi_dp, MPI_COMM_WORLD, ierror)
        X%vectors = transpose(trallvecs)
        if (any(X%vectors .ne. allvecs)) write (*,*) 'ERROR: vectors not transferred properly'
        
-       call MPI_Allgather(Xnew%values, run_params%mpipopchunk, MPI_real, X%values, & 
-                          run_params%mpipopchunk, MPI_real, MPI_COMM_WORLD, ierror)
+       call MPI_Allgather(Xnew%values, run_params%mpipopchunk, mpi_dp, X%values, & 
+                          run_params%mpipopchunk, mpi_dp, MPI_COMM_WORLD, ierror)
        if (any(X%values .ne. allvals)) write (*,*) 'ERROR: values not transferred properly'
 
     else                        !vectors and values have already been gathered
@@ -203,16 +206,16 @@ contains
     end if
     	
     call MPI_Allgather(transpose(Xnew%vectors_and_derived), run_params%mpipopchunk*&
-                       (run_params%D+run_params%D_derived), MPI_real, trderived, &
+                       (run_params%D+run_params%D_derived), mpi_dp, trderived, &
                        run_params%mpipopchunk*(run_params%D+run_params%D_derived), &
-                       MPI_real, MPI_COMM_WORLD, ierror)
+                       mpi_dp, MPI_COMM_WORLD, ierror)
     X%vectors_and_derived = transpose(trderived)
 
     if (run_params%DE%jDE) then
-       call MPI_Allgather(Xnew%FjDE, run_params%mpipopchunk, MPI_real, X%FjDE, & 
-                          run_params%mpipopchunk, MPI_real, MPI_COMM_WORLD, ierror)
-       call MPI_Allgather(Xnew%CrjDE, run_params%mpipopchunk, MPI_real, X%CrjDE, & 
-                          run_params%mpipopchunk, MPI_real, MPI_COMM_WORLD, ierror)
+       call MPI_Allgather(Xnew%FjDE, run_params%mpipopchunk, mpi_dp, X%FjDE, & 
+                          run_params%mpipopchunk, mpi_dp, MPI_COMM_WORLD, ierror)
+       call MPI_Allgather(Xnew%CrjDE, run_params%mpipopchunk, mpi_dp, X%CrjDE, & 
+                          run_params%mpipopchunk, mpi_dp, MPI_COMM_WORLD, ierror)
     end if
 #else
     !Xnew and X are the same size, so just equate population members

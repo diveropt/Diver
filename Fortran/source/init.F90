@@ -22,23 +22,23 @@ contains
                           current, expon, bndry, jDE, removeDuplicates, doBayesian, maxNodePop, Ztolerance, savecount)
 
     type(codeparams), intent(out) :: run_params 
-    real, dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space 
+    real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space 
     integer, intent(in), optional :: nDerived	 		!input number of derived quantities to output
     integer, dimension(:), intent(in), optional :: discrete     !lists all discrete dimensions of parameter space
     integer, intent(in), optional :: maxciv 			!maximum number of civilisations
     integer, intent(in), optional :: maxgen 			!maximum number of generations per civilisation
     integer, intent(in), optional :: NP 			!population size (individuals per generation)
-    real, dimension(:), intent(in), optional :: F		!scale factor(s).  Note that this must be entered as an array.
-    real, intent(in), optional :: Cr 				!crossover factor
-    real, intent(in), optional :: lambda 			!mixing factor between best and rand/current
+    real(dp), dimension(:), intent(in), optional :: F		!scale factor(s).  Note that this must be entered as an array.
+    real(dp), intent(in), optional :: Cr 				!crossover factor
+    real(dp), intent(in), optional :: lambda 			!mixing factor between best and rand/current
     logical, intent(in), optional :: current 			!use current vector for mutation
     logical, intent(in), optional :: expon 			!use exponential crossover
     integer, intent(in), optional :: bndry                      !boundary constraint: 1 -> brick wall, 2 -> random re-initialization, 3 -> reflection
     logical, intent(in), optional :: jDE                        !use self-adaptive DE 
     logical, intent(in), optional :: removeDuplicates           !weed out duplicate vectors within a single generation
     logical, intent(in), optional  :: doBayesian                !calculate log evidence and posterior weightings
-    real, intent(in), optional  :: maxNodePop                   !population at which node is partitioned in binary space partitioning for posterior
-    real, intent(in), optional :: Ztolerance			!input tolerance in log-evidence
+    real(dp), intent(in), optional  :: maxNodePop                   !population at which node is partitioned in binary space partitioning for posterior
+    real(dp), intent(in), optional :: Ztolerance			!input tolerance in log-evidence
     integer, intent(in), optional :: savecount			!save progress every savecount generations
 
     integer :: mpiprocs, mpirank, ierror                        !number of processes running, rank of current process, error code
@@ -107,13 +107,13 @@ contains
     if (present(maxNodePop)) then 
        call setIfPositive_real(maxNodePop, run_params%maxNodePop, 'maxNodePop')
     else
-       run_params%maxNodePop = 1.9				!default for maxNodePop
+       run_params%maxNodePop = 1.9_dp				!default for maxNodePop
     end if
 
     if (present(Ztolerance)) then 
        call setIfPositive_real(Ztolerance, run_params%tol, 'Ztolerance')
     else
-       run_params%tol = 0.01 					!default for tolerance
+       run_params%tol = 0.01_dp					!default for tolerance
     end if
 
     if (present(savecount)) then 
@@ -179,15 +179,15 @@ contains
     else                                                        !not using jDE.  Initialize for normal DE
 
        if (present(F)) then
-          if (any(F .le. 0.)) write (*,*) 'WARNING: some elements of F are 0 or negative. DE may not converge properly.'
-          if (any(F .ge. 1.)) write (*,*) 'WARNING: some elements of F are 1 or greater. DE may not converge properly.'
+          if (any(F .le. 0.0_dp)) write (*,*) 'WARNING: some elements of F are 0 or negative. DE may not converge properly.'
+          if (any(F .ge. 1.0_dp)) write (*,*) 'WARNING: some elements of F are 1 or greater. DE may not converge properly.'
           run_params%DE%Fsize = size(F)
           allocate(run_params%DE%F(run_params%DE%Fsize))
           run_params%DE%F = F
        else
           run_params%DE%Fsize = 1
           allocate(run_params%DE%F(run_params%DE%Fsize))
-          run_params%DE%F = (/0.7/) 				!rule of thumb: 0.4<F<1.0
+          run_params%DE%F = (/0.7_dp/) 				!rule of thumb: 0.4<F<1.0
        end if
 
        if (present(NP)) then                                    
@@ -207,25 +207,25 @@ contains
        end if
 
        if (present(Cr)) then  
-          if (Cr .lt. 0.0) then
+          if (Cr .lt. 0.0_dp) then
              write (*,*) 'WARNING: Cr < 0. Using Cr = 0.' 	!although Cr<0 is functionally equivalent to Cr=0
-             run_params%DE%Cr = 0.0
-          else if (Cr .gt. 1.0) then
+             run_params%DE%Cr = 0.0_dp
+          else if (Cr .gt. 1.0_dp) then
              write (*,*) 'WARNING: Cr > 1. Using Cr = 1.' 	!although Cr>1 is functionally equivalent to Cr=1
-             run_params%DE%Cr = 1.0
+             run_params%DE%Cr = 1.0_dp
           else
              run_params%DE%Cr = Cr
           end if
        else
-          run_params%DE%Cr = 0.9 
+          run_params%DE%Cr = 0.9_dp 
        end if
 
        if (present(lambda)) then
-          if (lambda .lt. 0.0) write (*,*) 'WARNING: lambda < 0. DE may not converge properly.'
-          if (lambda .gt. 1.0) write (*,*) 'WARNING: lambda > 1. DE may not converge properly.'
+          if (lambda .lt. 0.0_dp) write (*,*) 'WARNING: lambda < 0. DE may not converge properly.'
+          if (lambda .gt. 1.0_dp) write (*,*) 'WARNING: lambda > 1. DE may not converge properly.'
           run_params%DE%lambda = lambda
        else
-          run_params%DE%lambda = 0.0     			!default rand/1/bin
+          run_params%DE%lambda = 0.0_dp     			!default rand/1/bin
        end if
 
        if (present(current)) then 
@@ -249,13 +249,13 @@ contains
        end if
 
        !for printing the parameter choice, DE mutation/crossover strategy, and boundary constraints to screen
-       if (run_params%DE%lambda .eq. 0) then  			!mutation strategy
+       if (run_params%DE%lambda .eq. 0.0_dp) then  			!mutation strategy
           if (run_params%DE%current) then
              DEstrategy = 'current/'
           else
              DEstrategy = 'rand/'
           end if
-       else if (run_params%DE%lambda .eq. 1) then
+       else if (run_params%DE%lambda .eq. 1.0_dp) then
           DEstrategy = 'best/'
        else 
           if (run_params%DE%current) then
@@ -283,12 +283,12 @@ contains
        if (size(run_params%discrete) .gt. 0) write (*,*) 'Discrete dimensions:', run_params%discrete
        write (*,*) 'Parameters:'
        write (*,*) ' NP = ', trim(int_to_string(run_params%DE%NP))
-       if ((run_params%DE%lambda .ne. 1.) .and. (run_params%DE%lambda .ne. 0.)) then
-          write (*,*) ' lambda =', run_params%DE%lambda
+       if ((run_params%DE%lambda .ne. 1.0_dp) .and. (run_params%DE%lambda .ne. 0.0_dp)) then
+          write (*,'(A10, F6.4)') ' lambda = ', run_params%DE%lambda
        endif
        if (.not. run_params%DE%jDE) then                   
-          write (*,*) ' F =', run_params%DE%F
-          write (*,*) ' Cr =', run_params%DE%Cr 
+          write (*,'(A5, F6.4)') ' F = ', run_params%DE%F
+          write (*,'(A6, F6.4)') ' Cr = ', run_params%DE%Cr 
        endif
 
        write (*,*) 'Number of processes: ', trim(int_to_string(mpiprocs))
@@ -311,10 +311,10 @@ contains
   !set parameter only if value is positive (real parameter)
   subroutine setIfPositive_real(invar, outvar, string)
 
-    real :: invar, outvar
+    real(dp) :: invar, outvar
     character(LEN=*) :: string
 
-    if (invar .le. 0.0) then
+    if (invar .le. 0.0_dp) then
        call quit_de('ERROR: '//string//' cannot be negative.')
     else
       outvar = invar
@@ -344,13 +344,13 @@ contains
     type(population), intent(inout) :: X
     type(population), intent(inout) :: Xnew
     type(codeparams), intent(in) :: run_params
-    real, dimension(run_params%D), intent(in) :: lowerbounds, upperbounds
+    real(dp), dimension(run_params%D), intent(in) :: lowerbounds, upperbounds
     integer, intent(inout) :: fcall
     logical, intent(inout) :: quit
-    real, external :: func
+    real(dp), external :: func
     integer :: n, m, accept
 
-    X%multiplicities = 1.d0 !Initialise to 1 in case posteriors are not calculated
+    X%multiplicities = 1.0_dp !Initialise to 1 in case posteriors are not calculated
 
     if (run_params%DE%jDE) then !initialize population of F and Cr parameters
        Xnew%FjDE = init_FjDE(run_params)

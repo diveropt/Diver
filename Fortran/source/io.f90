@@ -9,7 +9,7 @@ private
 public io_begin, save_all, save_run_params, resume
 
 integer, parameter :: rawlun=1, samlun = 2, devolun=3, rparamlun=4
-real, parameter :: Ztolscale = 100., Ftolscale = 100.
+real(dp), parameter :: Ztolscale = 100., Ftolscale = 100.
 
 contains
 
@@ -18,12 +18,12 @@ subroutine io_begin(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fca
 
   character(len=*), intent(in) :: path
   integer, intent(inout) :: civ, gen, Nsamples, Nsamples_saved, fcall
-  real, intent(inout) :: Z, Zmsq, Zerr
+  real(dp), intent(inout) :: Z, Zmsq, Zerr
   type(codeparams), intent(inout) :: run_params
   logical, intent(in), optional :: restart
   integer :: filestatus  
   type(population), intent(inout) :: X, BF
-  real, optional, external :: prior
+  real(dp), optional, external :: prior
 
   if (present(restart) .and. restart) then !FIXME: make MPI-friendly
     if (present(prior)) then
@@ -54,7 +54,7 @@ subroutine save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_sav
   character(len=*), intent(in) :: path
   integer, intent(inout) :: Nsamples_saved
   integer, intent(in) :: civ, gen, Nsamples, fcall
-  real, intent(in) :: Z, Zmsq, Zerr
+  real(dp), intent(in) :: Z, Zmsq, Zerr
   type(codeparams), intent(in) :: run_params
   logical, intent(in), optional :: final
 
@@ -144,7 +144,7 @@ subroutine save_state(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, f
 
   character(len=*), intent(in) :: path
   integer, intent(in) :: civ, gen, Nsamples, Nsamples_saved, fcall
-  real, intent(in) :: Z, Zmsq, Zerr
+  real(dp), intent(in) :: Z, Zmsq, Zerr
   type(codeparams), intent(in) :: run_params
   integer :: filestatus
   character(len=14) :: formatstring
@@ -182,7 +182,7 @@ end subroutine save_state
 
 subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params, X, BF)
 
-  real, intent(out) :: Z, Zmsq, Zerr
+  real(dp), intent(out) :: Z, Zmsq, Zerr
   integer, intent(out) :: civ, gen, Nsamples, Nsamples_saved, fcall
   integer :: filestatus
   character(len=*), intent(in) :: path
@@ -264,9 +264,9 @@ subroutine resume(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall
   character(len=*), intent(in) :: path
   integer, intent(inout) :: civ, gen, Nsamples, Nsamples_saved, fcall
   integer :: reclen, filestatus, i, j
-  real, intent(inout) :: Z, Zmsq, Zerr
-  real, optional, external :: prior				  
-  real :: Z_new, Zmsq_new, Zerr_new, Z_3, Zmsq_3, Zerr_3
+  real(dp), intent(inout) :: Z, Zmsq, Zerr
+  real(dp), optional, external :: prior				  
+  real(dp) :: Z_new, Zmsq_new, Zerr_new, Z_3, Zmsq_3, Zerr_3
   character(len=31) :: formatstring
   character(len=1) :: LF
   logical :: require_Z_match = .true.
@@ -338,9 +338,9 @@ subroutine resume(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall
    iostat=filestatus, status='OLD', access='DIRECT', action='READ', recl=reclen, form='FORMATTED')
   if (filestatus .ne. 0) stop ' Error opening .raw file. Quitting...' 
     
-  Z_new = 0.
-  Zmsq_new = 0.
-  Zerr_new = 0.
+  Z_new = 0.0_dp
+  Zmsq_new = 0.0_dp
+  Zerr_new = 0.0_dp
   Nsamples = 0
 
   !loop over the generations in the raw file to recreate the BSP tree

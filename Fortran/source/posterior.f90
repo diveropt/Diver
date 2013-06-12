@@ -8,10 +8,10 @@ implicit none
 type Node
   type (Node), pointer :: trunk => null(), branchA => null(), branchB => null()
   type (Point), pointer :: firstnewpt => null(), lastnewpt => null()
-  real :: population = 0
+  real(dp) :: population = 0.0
   integer :: newpopulation = 0
   integer :: branchesDifferInDim = 0
-  real, allocatable :: upperbounds(:), lowerbounds(:)
+  real(dp), allocatable :: upperbounds(:), lowerbounds(:)
 end type Node
 type (Node), pointer :: root
 
@@ -25,8 +25,8 @@ type (ListNode), pointer :: firstListNode => null(), currentListNode => null()
 !Entry in linked list of individuals (points in parameter space)
 type Point
   type (Point), pointer :: next => null()
-  real, pointer :: vector(:) => null()
-  real, pointer :: weight => null()
+  real(dp), pointer :: vector(:) => null()
+  real(dp), pointer :: weight => null()
 end type
 
 !Entry in linked list of duplicate individuals (points in parameter space)
@@ -37,12 +37,12 @@ type Duplicate
 end type
 type (Duplicate), pointer :: firstDuplicate => null(), lastDuplicate => null()
 
-real, allocatable  :: ranges(:)			!Prior box side lengths
+real(dp), allocatable  :: ranges(:)		!Prior box side lengths
 integer :: D = 0				!Dimension of parameter space being scanned
 integer :: totalCells = 0			!Number of cells in binary space partitioning
 logical :: debug = .false.			!Debugging flag for posterior routines
-real :: maxNodePop                              !Population at which to divide cells
-real, parameter :: duplicate_tol = 10.          !Scaling factor for epsilon in duplicate test
+real(dp) :: maxNodePop                          !Population at which to divide cells
+real(dp), parameter :: duplicate_tol = 10.      !Scaling factor for epsilon in duplicate test
 
 public iniTree, clearTree, growTree
 private burnTree, climbTree, tendTree, growBranches, addToEndOfPtList, maxNodePop
@@ -51,8 +51,8 @@ contains
 
   subroutine iniTree(lowerbounds,upperbounds,maxpop)
   !Initialises the root of the tree and the starting point of the list of tree nodes
-    real, dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space 
-    real, intent(in) :: maxpop                                  !population at which to divide cells    
+    real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space 
+    real(dp), intent(in) :: maxpop                                      !population at which to divide cells    
     totalCells = 1
     D = size(lowerbounds)
     allocate(root, ranges(D))
@@ -89,21 +89,21 @@ contains
   end subroutine burnTree
 
 
-  real function getWeight(vector, prior)
+  real(dp) function getWeight(vector, prior)
   !Finds the posterior weight of a single individual, using the existing tree structure
 
-    real, intent (IN), target :: vector(:)        !target vector 
-    real :: prior				  !prior pdf function
+    real(dp), intent (IN), target :: vector(:)        !target vector 
+    real(dp) :: prior				  !prior pdf function
     external prior
     type (Point), pointer :: individual                           
-    real, target :: weight
+    real(dp), target :: weight
 
     allocate(individual)
     individual%vector => vector
     individual%weight => weight
     
     call climbTree(individual, root, justLooking=.true.)    
-    getWeight = individual%weight * prior(vector) * dble(totalCells)
+    getWeight = individual%weight * prior(vector) * real(totalCells, kind=dp)
     
     deallocate(individual)
 
@@ -114,7 +114,7 @@ contains
   !Grows the tree with points in a new generation, and calculates their posterior weights
 
     type(population), target :: X  !current generation of target vectors
-    real prior					  !prior pdf function
+    real(dp) prior			          !prior pdf function
     external prior
     type(Point), pointer :: individual	 	  !pointer to a holder for an individual point in parameter space
     integer :: NP, i				  !size of generation, iteration variable
@@ -165,7 +165,7 @@ contains
 
     !$OMP PARALLEL DO
     do i = 1, NP
-      X%weights(i) = X%weights(i) * prior(X%vectors(i,:)) * dble(totalCells)
+      X%weights(i) = X%weights(i) * prior(X%vectors(i,:)) * real(totalCells, kind=dp)
     enddo
     !$END OMP PARALLEL DO
 
@@ -181,7 +181,7 @@ contains
     type(ListNode), pointer :: workingListNode
     type(ListNode), pointer :: temp 
     type(Point), pointer :: individual, temppt
-    real :: nodeWeight
+    real(dp) :: nodeWeight
     integer :: i
 
     nullify (temp)
@@ -374,7 +374,7 @@ contains
     type(Node), pointer :: currentNode
     type(Point), pointer :: individual, temppt
     integer :: i, j, splitIndex(1)
-    real :: ptRegistry(D, currentNode%newpopulation)
+    real(dp) :: ptRegistry(D, currentNode%newpopulation)
     logical :: dupeFlags(currentNode%newpopulation)
 
     nullify(individual)
@@ -401,11 +401,11 @@ contains
   
     !Set branch A to the lower half of this partition, branch B to the upper half
     currentNode%branchA%upperbounds(splitIndex) = &
-     0.5*(currentNode%upperbounds(splitIndex)+currentNode%lowerbounds(splitIndex))
+     0.5_dp*(currentNode%upperbounds(splitIndex)+currentNode%lowerbounds(splitIndex))
     currentNode%branchB%lowerbounds(splitIndex) = currentNode%branchA%upperbounds(splitIndex)
 
     !Give each new branch half the old population
-    currentNode%branchA%population = 0.5*(currentNode%population - dble(currentNode%newpopulation))
+    currentNode%branchA%population = 0.5_dp*(currentNode%population - real(currentNode%newpopulation, kind=dp))
     currentNode%branchB%population = currentNode%branchA%population
 
     !Send the points in the new population off up the tree
@@ -459,7 +459,7 @@ contains
     enddo
 
     !Set the population of the current node back to zero
-    currentNode%population = 0.0
+    currentNode%population = 0.0_dp
     currentNode%newpopulation = 0
 
     !Clear the pointers to the linked list of new individuals in the current cell

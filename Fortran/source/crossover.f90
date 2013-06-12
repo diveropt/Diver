@@ -7,7 +7,7 @@ implicit none
 private
 public gencrossover, init_CrjDE
 
-real, parameter :: tau=0.1                          !jDE control parameter from Brest et al. 2006
+real(dp), parameter :: tau=0.1                          !jDE control parameter from Brest et al. 2006
 
 contains
 
@@ -16,10 +16,10 @@ contains
 
     type(population), intent(in) :: X               !current generation of target vectors
     type(codeparams), intent(in) :: run_params
-    real, dimension(run_params%D), intent(in) :: V  !donor vectors
-    real, dimension(run_params%D), intent(out) :: U !trial vectors
+    real(dp), dimension(run_params%D), intent(in) :: V  !donor vectors
+    real(dp), dimension(run_params%D), intent(out) :: U !trial vectors
     integer, intent(in) :: n                        !index of current target vector
-    real, intent(out) :: trialCr                    !self-adapting Cr
+    real(dp), intent(out) :: trialCr                    !self-adapting Cr
 
     if (run_params%DE%jDE) then 
        trialCr = newCr(X, n)
@@ -37,13 +37,13 @@ contains
 
     type(population), intent(in) :: X              !current generation of target vectors
     type(codeparams), intent(in) :: run_params
-    real, dimension(run_params%D), intent(in) :: V !donor vectors
+    real(dp), dimension(run_params%D), intent(in) :: V !donor vectors
     integer, intent(in) :: n                       !index of current target vector
-    real, intent(in), optional :: trialCr          !self-adapting Cr. Used for jDE
-    real, dimension(run_params%D) :: bincrossover  !trial vector created
+    real(dp), intent(in), optional :: trialCr          !self-adapting Cr. Used for jDE
+    real(dp), dimension(run_params%D) :: bincrossover  !trial vector created
     integer :: jrand           
-    real, dimension(run_params%D) :: randj
-    real :: Cr
+    real(dp), dimension(run_params%D) :: randj
+    real(dp) :: Cr
 
     if (present(trialCr)) then
        Cr = trialCr
@@ -68,12 +68,12 @@ contains
 
     type(population), intent(in) :: X   
     type(codeparams), intent(in) :: run_params
-    real, dimension(run_params%D), intent(in) :: V
+    real(dp), dimension(run_params%D), intent(in) :: V
     integer, intent(in) :: n               
-    real, dimension(run_params%D) :: expcrossover 
+    real(dp), dimension(run_params%D) :: expcrossover 
 
     integer L, j                                   !length of crossover, index for vectors
-    real rand
+    real(dp) rand
 
     L=0
     do j=1, run_params%D                           !determine length of the crossover
@@ -99,8 +99,8 @@ contains
   function newCr(X, n)
     type(population), intent(in) :: X
     integer, intent(in) :: n 
-    real :: newCr
-    real :: rand
+    real(dp) :: newCr
+    real(dp) :: rand
 
     call random_number(rand)
     if (rand .lt. tau) then
@@ -113,8 +113,8 @@ contains
 
   function init_CrjDE(run_params)
     type(codeparams), intent(in) :: run_params
-    real, dimension(run_params%mpipopchunk) :: init_CrjDE
-    real, dimension(run_params%mpipopchunk) :: rand
+    real(dp), dimension(run_params%mpipopchunk) :: init_CrjDE
+    real(dp), dimension(run_params%mpipopchunk) :: rand
 
     call random_number(rand)
     init_CrjDE = rand
@@ -125,8 +125,8 @@ contains
   subroutine random_int(harvest, min, max) !choose a random integer between min and max, inclusive
     integer, intent(out) :: harvest
     integer, intent(in) :: min, max
-    real :: range
-    real :: r
+    real(dp) :: range
+    real(dp) :: r
    
     range = max - min
     call random_number(r)

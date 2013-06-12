@@ -16,9 +16,9 @@ contains
   subroutine updateEvidence(X, Z, Zmsq, Zerr, prior, oldsamples)
   
     type(population), intent(inout) :: X		!current generation
-    real, intent(inout) :: Z, Zmsq, Zerr		!evidence, mean square of weights, error on evidence
-    real, external :: prior 				!prior funtion
-    real :: sampleratio, totsamples                     !ratio of old samples to total samples, total samples
+    real(dp), intent(inout) :: Z, Zmsq, Zerr		!evidence, mean square of weights, error on evidence
+    real(dp), external :: prior 			!prior funtion
+    real(dp) :: sampleratio, totsamples                 !ratio of old samples to total samples, total samples
     integer, intent(inout) :: oldsamples		!previous (running) number of samples
     integer :: inttotsamples				!total number of samples (integer)
     
@@ -27,8 +27,8 @@ contains
     
     !Find total number of samples and ratio to the old number
     inttotsamples = oldsamples + size(X%weights)
-    totsamples = dble(inttotsamples)
-    sampleratio = dble(oldsamples)/totsamples
+    totsamples = real(inttotsamples, kind=dp)
+    sampleratio = real(oldsamples, kind=dp)/totsamples
 
     !Calculate multiplicity for outputting in chains
     X%multiplicities = X%weights*exp(-X%values)/totsamples
@@ -50,9 +50,9 @@ contains
   subroutine polishEvidence(Z, Zmsq, Zerr, prior, Nsamples, path, run_params, update)
 
     type(codeparams), intent(in) :: run_params
-    real, intent(inout) :: Z, Zmsq, Zerr
-    real, external :: prior 				
-    real :: lnlike, multiplicity, vector(run_params%D), vectors_and_derived(run_params%D+run_params%D_derived)
+    real(dp), intent(inout) :: Z, Zmsq, Zerr
+    real(dp), external :: prior 				
+    real(dp) :: lnlike, multiplicity, vector(run_params%D), vectors_and_derived(run_params%D+run_params%D_derived)
     integer, intent(in) :: Nsamples
     integer :: filestatus, reclen_raw, reclen_sam, civ, gen, i
     character(len=*), intent(in) :: path
@@ -93,7 +93,7 @@ contains
       !Could implement a skip out if this is the first generation (burn in), but this gen should not be in the raw/sam file anyway
       !if (gen .eq. 1) cycle
       !use the tree to get a new weight for the point
-      multiplicity = getWeight(vector,prior)*exp(-lnlike)/dble(Nsamples) 
+      multiplicity = getWeight(vector,prior)*exp(-lnlike)/real(Nsamples, kind=dp) 
       !save the new multiplicity of the point to disk
       if (update) then
         write(rawlun,formatstring_raw,rec=i) multiplicity, lnlike, civ, gen, vector, LF
@@ -104,8 +104,8 @@ contains
       !add the contribution of the point with the new multiplicity to the error
       Zmsq = Zmsq + multiplicity*multiplicity
     enddo
-    Zmsq = Zmsq*dble(Nsamples)
-    Zerr = sqrt((Zmsq - Z*Z)/dble(Nsamples))   
+    Zmsq = Zmsq*real(Nsamples, kind=dp)
+    Zerr = sqrt((Zmsq - Z*Z)/real(Nsamples, kind=dp))   
 
     close(rawlun)
     if (dosam) close(samlun)
