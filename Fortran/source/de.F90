@@ -27,7 +27,7 @@ contains
                     expon, bndry, jDE, removeDuplicates, doBayesian, maxNodePop, Ztolerance, savecount, resume)
 
     real(dp), external :: func, prior 				!function to be minimized (assumed -ln[likelihood]), prior function
-    real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space
+    real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds !boundaries of parameter space
     character(len=*), intent(in)   :: path			!path to save samples, resume files, etc  
     integer, intent(in), optional  :: nDerived	 		!input number of derived quantities to output
     integer, dimension(:), intent(in), optional :: discrete     !a vector listing all discrete dimensions of parameter space
@@ -35,16 +35,16 @@ contains
     integer, intent(in), optional  :: maxgen 			!maximum number of generations per civilisation
     integer, intent(in), optional  :: NP 			!population size (individuals per generation)
     real(dp), dimension(:), intent(in), optional :: F		!scale factor(s).  Note that this must be entered as an array.
-    real(dp), intent(in), optional     :: Cr 			!crossover factor
-    real(dp), intent(in), optional     :: lambda 			!mixing factor between best and rand/current
+    real(dp), intent(in), optional :: Cr 			!crossover factor
+    real(dp), intent(in), optional :: lambda 			!mixing factor between best and rand/current
     logical, intent(in), optional  :: current 			!use current vector for mutation
     logical, intent(in), optional  :: expon 			!use exponential crossover
     integer, intent(in), optional  :: bndry                     !boundary constraint: 1 -> brick wall, 2 -> random re-initialization, 3 -> reflection
     logical, intent(in), optional  :: jDE                       !use self-adaptive choices for rand/1/bin parameters as described in Brest et al 2006
     logical, intent(in), optional  :: removeDuplicates          !weed out duplicate vectors within a single generation
     logical, intent(in), optional  :: doBayesian                !calculate log evidence and posterior weightings
-    real(dp), intent(in), optional     :: maxNodePop                !population at which node is partitioned in binary space partitioning for posterior
-    real(dp), intent(in), optional     :: Ztolerance		!input tolerance in log-evidence
+    real(dp), intent(in), optional :: maxNodePop                !population at which node is partitioned in binary space partitioning for posterior
+    real(dp), intent(in), optional :: Ztolerance		!input tolerance in log-evidence
     integer, intent(in), optional  :: savecount			!save progress every savecount generations
     logical, intent(in), optional  :: resume			!restart from a previous run
      
@@ -52,8 +52,8 @@ contains
 
     type(population), target :: X, BF                           !population of target vectors, best-fit vector
     type(population) :: Xnew                                    !population for the next generation
-    real(dp), dimension(size(lowerbounds)) :: V, U                  !donor, trial vectors
-    real(dp) :: trialF, trialCr                                     !adaptive F and Cr for jDE
+    real(dp), dimension(size(lowerbounds)) :: V, U              !donor, trial vectors
+    real(dp) :: trialF, trialCr                                 !adaptive F and Cr for jDE
 
     integer :: fcall=0, accept=0                                !fcall counts function calls, accept counts acceptance rate
     integer :: totfcall = 0, totaccept = 0                      !for function calls & acceptance rates for all processes
@@ -61,18 +61,18 @@ contains
     integer :: n                                                !current member of population being evolved (same as m unless using MPI)
     integer :: civstart=1, genstart=1                           !starting values of civ, gen
 
-    real(dp), dimension(size(lowerbounds)) :: bestvector            !for calculating final best fit
+    real(dp), dimension(size(lowerbounds)) :: bestvector        !for calculating final best fit
     real(dp) :: bestvalue
     real(dp), allocatable :: bestvecderived(:)
     integer :: bestloc(1)
 
-    real(dp) :: Z=0., Zmsq=0., Zerr = 0.                            !evidence
+    real(dp) :: Z=0., Zmsq=0., Zerr = 0.                        !evidence
     integer :: Nsamples = 0                                     !number of statistically independent samples from posterior
     integer :: Nsamples_saved = 0                               !number of samples saved to .sam file so far
     logical :: quit						!flag passed from user function to indicate need to stop 
 
     integer :: ierror		                                !MPI error code
-    real(dp) :: t1, t2                                              !for timing
+    real(dp) :: t1, t2                                          !for timing
 
 
     call cpu_time(t1)
@@ -152,7 +152,7 @@ contains
           if (gen .eq. 1) then 
 
             !Initialise the first generation
-            call initialize(X, Xnew, run_params, lowerbounds, upperbounds, fcall, func, quit)
+            call initialize(X, Xnew, run_params, fcall, func, quit)
             !Don't use initial generation for estimating evidence, as it biases the BSP
             if ((civ .eq. 1) .and. (run_params%mpirank .eq. 0)) call save_run_params(path, run_params)
             
@@ -168,7 +168,7 @@ contains
                 call gencrossover(X, V, U, n, run_params, trialCr)         !trial vectors
                 
                 !choose next generation of target vectors
-                call selector(X, Xnew, U, trialF, trialCr, m, n, lowerbounds, upperbounds, run_params, fcall, func, quit, accept)
+                call selector(X, Xnew, U, trialF, trialCr, m, n, run_params, fcall, func, quit, accept)
                
                 if (verbose) then
                    if (run_params%DE%jDE) then 
@@ -181,7 +181,7 @@ contains
 
              end do poploop
 
-             call replace_generation(X, Xnew, run_params, accept, init=.false.)   !replace old generation with newly calculated one
+             call replace_generation(X, Xnew, run_params, func, fcall, quit, accept, init=.false.)   !replace old generation with newly calculated one
 
 #ifdef USEMPI
              call MPI_Allreduce(accept, totaccept, 1, MPI_integer, MPI_sum, MPI_COMM_WORLD, ierror)

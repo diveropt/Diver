@@ -130,15 +130,20 @@ contains
 
   end function newF
 
-  function init_FjDE(run_params)
+  function init_FjDE(run_params,  size)
     type(codeparams), intent(in) ::run_params
-    real(dp), dimension(run_params%mpipopchunk) :: init_FjDE
-    real(dp), dimension(run_params%mpipopchunk) :: rand
+    integer, intent(in) :: size
+    real(dp), dimension(size) :: init_FjDE
+    real(dp), dimension(size) :: rand
+!    real(dp), dimension(run_params%mpipopchunk) :: init_FjDE
+!    real(dp), dimension(run_params%mpipopchunk) :: rand
     
     call random_number(rand)
     init_FjDE =  Fl + rand*Fu
 
   end function init_FjDE
+
+
 
 
   subroutine random_int(harvest, min, max) !choose a random integer between min and max, inclusive

@@ -3,10 +3,9 @@ module detypes
 
 implicit none
 
-logical, parameter :: verbose = .false.                  !print verbose output
+logical, parameter :: verbose = .true.                  !print verbose output
 
 integer, parameter, public :: dp = kind(1.0d0)          !definition of 'double precision' used throughout
-
 
 type deparams                 				!differential evolution parameters 
                                                         ! (remember to expand io::save_state and io::resume if you expand this type)
@@ -24,6 +23,8 @@ end type deparams
 
 type codeparams                 			!code parameters (remember to expand io::save_state and io::resume if you expand this type)
    type (deparams) DE					!differential evolution parameters
+   real(dp), allocatable, dimension(:) :: lowerbounds	!lower bounds on parameter space
+   real(dp), allocatable, dimension(:) :: upperbounds	!upper bounds on parameter space
    integer :: D, D_derived, D_discrete			!dimension of parameter space; dimension of derived space, dimension of discrete parameter space
    integer, allocatable, dimension(:) :: discrete       !lists the discrete dimensions of parameter space (size D_discrete)
    integer :: numciv, numgen				!maximum number of civilizations, generations

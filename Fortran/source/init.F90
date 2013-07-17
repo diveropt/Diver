@@ -67,6 +67,10 @@ contains
     if (size(upperbounds) .ne. run_params%D) call quit_de('ERROR: parameter space bounds do not have the same dimensionality')
     if (any(lowerbounds .ge. upperbounds)) call quit_de('ERROR: invalid parameter space bounds.')
 
+    allocate(run_params%lowerbounds(run_params%D), run_params%upperbounds(run_params%D))
+    run_params%lowerbounds = lowerbounds
+    run_params%upperbounds = upperbounds
+
     if (present(nDerived)) then 
       call setIfPositive_int(nDerived, run_params%D_derived, 'nDerived') !FIXME: this prevents setting nDerived=0
     else
@@ -165,6 +169,8 @@ contains
 
        if (present(removeDuplicates)) then
           run_params%DE%removeDuplicates = removeDuplicates
+       else if (mpiprocs .gt. 1) then 
+          run_params%DE%removeDuplicates = .true.               !FIXME: MPI seems to lead to duplicates in first generation
        else
           run_params%DE%removeDuplicates = .false.              !with jDE mutation, duplicates are rare (CHECK THIS)
        end if
@@ -339,22 +345,21 @@ contains
 
 
   !initializes first generation of target vectors
-  subroutine initialize(X, Xnew, run_params, lowerbounds, upperbounds, fcall, func, quit) 
+  subroutine initialize(X, Xnew, run_params, fcall, func, quit) 
 
     type(population), intent(inout) :: X
     type(population), intent(inout) :: Xnew
     type(codeparams), intent(in) :: run_params
-    real(dp), dimension(run_params%D), intent(in) :: lowerbounds, upperbounds
     integer, intent(inout) :: fcall
     logical, intent(inout) :: quit
     real(dp), external :: func
-    integer :: n, m, accept
+    integer :: n, m, accept=0
 
     X%multiplicities = 1.0_dp !Initialise to 1 in case posteriors are not calculated
 
     if (run_params%DE%jDE) then !initialize population of F and Cr parameters
-       Xnew%FjDE = init_FjDE(run_params)
-       Xnew%CrjDE = init_CrjDE(run_params)
+       Xnew%FjDE = init_FjDE(run_params, run_params%mpipopchunk)
+       Xnew%CrjDE = init_CrjDE(run_params, run_params%mpipopchunk)
     end if
 
        !$OMP PARALLEL DO
@@ -364,7 +369,7 @@ contains
 
           call random_number(Xnew%vectors(m,:))
 
-          Xnew%vectors(m,:) = Xnew%vectors(m,:)*(upperbounds - lowerbounds) + lowerbounds
+          Xnew%vectors(m,:) = Xnew%vectors(m,:)*(run_params%upperbounds - run_params%lowerbounds) + run_params%lowerbounds
           Xnew%vectors_and_derived(m,:run_params%D) = roundvector(Xnew%vectors(m,:), run_params)
           Xnew%values(m) = func(Xnew%vectors_and_derived(m,:), fcall, quit, .true.)
 
@@ -376,7 +381,7 @@ contains
        end do
        !$END OMP PARALLEL DO
 
-       call replace_generation(X, Xnew, run_params, accept, init=.true.)
+       call replace_generation(X, Xnew, run_params, func, fcall, quit, accept, init=.true.)
     
   end subroutine initialize
 

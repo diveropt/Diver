@@ -5,14 +5,16 @@ use detypes
 
 implicit none
 
+ integer, parameter :: param_dim = 2 !dimensions of parameter space
+
  integer, parameter :: NP=10, numgen=15, numciv=1, nDerived=2
  character (len=300) :: path='example_output/example'
- real(dp), parameter ::  Cr=0.9, tol = 1e-3			!recommend 0<F<1, 0<=Cr<=1
- real(dp), parameter, dimension(1) :: F=0.6
- real(dp), parameter, dimension(4) :: lowerbounds=-50.0	!boundaries of parameter space
- real(dp), parameter, dimension(4) :: upperbounds=50.0
- real(dp), parameter, dimension(4) :: ranges = upperbounds - lowerbounds
- real(dp), parameter :: dPrior = ranges(1)*ranges(2)*ranges(3)*ranges(4)
+ real(dp), parameter ::  Cr=0.9, tol = 1e-3, lambda=0.8		!0<=Cr<=1, 0<=lambda<=1
+ real(dp), parameter, dimension(1) :: F=0.6			!recommend 0<F<1
+ real(dp), parameter, dimension(param_dim) :: lowerbounds=-5.	!boundaries of parameter space
+ real(dp), parameter, dimension(param_dim) :: upperbounds=5.
+ real(dp), parameter, dimension(param_dim) :: ranges = upperbounds - lowerbounds
+ real(dp), parameter :: dPrior = product(ranges)
 
 contains
 
@@ -78,87 +80,94 @@ real(dp) function linear(params, fcall, quit, validvector)
 end function linear
 
 
-real(dp) function gauss1(params, fcall, quit, validvector)
-
+!valid for any number of dimensions
+real(dp) function gauss(params, fcall, quit, validvector)
   real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
   integer, intent(inout) :: fcall
   logical, intent(out) :: quit
   logical, intent(in) :: validvector
-  
+  integer :: i
+
   fcall = fcall + 1
   quit = .false.
-  gauss1 = params(1)*params(1) + params(2)*params(2)
-  if (.not. validvector) gauss1=huge(1.0_dp)
-  params(size(lowerbounds)+1:) = [2.*params(1),params(1)+params(2)]
-  
-end function gauss1
 
-
-real(dp) function gauss2(params, fcall, quit, validvector)
-
-  real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
-  integer, intent(inout) :: fcall
-  logical, intent(out) :: quit
-  logical, intent(in) :: validvector
-  
-  fcall = fcall + 1
-  !if (fcall .lt. 30000) then 
-    quit = .false.
-  !else
-  !  quit = .true.
-  !endif
-  gauss2 = (1.-params(1))*(1.-params(1)) + (5.-params(2))*(5.-params(2)) - 8.14897_dp
-  params(size(lowerbounds)+1:) = [2.0_dp*params(1),params(1)+params(2)]
-  if (.not. validvector) gauss2=huge(1.0_dp)
-  
-end function gauss2
-
-real(dp) function gauss8(params, fcall, quit, validvector)
-
-  real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
-  integer, intent(inout) :: fcall
-  logical, intent(out) :: quit
-  logical, intent(in) :: validvector
-  integer :: i  
-
-  fcall = fcall + 1
-  !if (fcall .lt. 30000) then 
-    quit = .false.
-  !else
-  !  quit = .true.
-  !endif
-  gauss8=0.0_dp
-  do i = 1,8
-    gauss8 = gauss8+params(i)*params(i)
+  gauss = 0.0_dp
+  do i = 1, size(lowerbounds)
+    gauss = gauss + params(i)*params(i)
   enddo
-  params(size(lowerbounds)+1:) = [2.0_dp*params(1),params(1)+params(2)]
-  if (.not. validvector) gauss8=huge(1.0_dp)
-  
-end function gauss8
 
-real(dp) function gauss4(params, fcall, quit, validvector)
+  if (.not. validvector) gauss = huge(1.0_dp)
 
+  !derived quantities
+  !params(size(lowerbounds)+1:) = [2.0_dp*params(1),params(1)+params(2)]
+
+end function gauss
+
+
+!2-dimensional
+real(dp) function rosenbrock(params, fcall, quit, validvector)
   real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
   integer, intent(inout) :: fcall
   logical, intent(out) :: quit
   logical, intent(in) :: validvector
-  integer :: i  
 
   fcall = fcall + 1
-  !if (fcall .lt. 30000) then 
-    quit = .false.
-  !else
-  !  quit = .true.
-  !endif
-  gauss4=0.0_dp
-  do i = 1,4
-    gauss4 = gauss4+params(i)*params(i)
-  enddo
-  params(size(lowerbounds)+1:) = [2.0_dp*params(1),params(1)+params(2)]
-
-  if (.not. validvector) gauss4=huge(1.0_dp)
+  quit = .false.
   
-end function gauss4
+  rosenbrock = (1 - params(1))**2 + 100*(params(2) - params(1)**2)**2
+  if (.not. validvector) rosenbrock = huge(1.0_dp)
+
+  !derived quantities
+  !params(size(lowerbounds)+1:) = [2.0_dp*params(1),params(1)+params(2)]
+
+end function rosenbrock
+
+
+!valid for any number of dimensions
+real(dp) function rastrigin(params, fcall, quit, validvector)
+  real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
+  integer, intent(inout) :: fcall
+  logical, intent(out) :: quit
+  logical, intent(in) :: validvector
+  integer :: i
+  real(dp), parameter :: pi = 4.0_dp*atan(1.0_dp)
+
+  fcall = fcall + 1
+  quit = .false.
+
+  rastrigin = size(lowerbounds)*10 
+
+  do i=1, size(lowerbounds)
+     rastrigin = rastrigin + params(i)**2 - 10*cos(2*pi*params(i))
+  end do
+
+  if (.not. validvector) rastrigin = huge(1.0_dp)
+
+  !derived quantities
+  !params(size(lowerbounds)+1:) = [2.0_dp*params(1),params(1)+params(2)]
+
+end function rastrigin
+
+
+real(dp) function eggcarton(params, fcall, quit, validvector)
+  real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
+  integer, intent(inout) :: fcall
+  logical, intent(out) :: quit
+  logical, intent(in) :: validvector
+  integer :: D = size(lowerbounds)
+
+  fcall = fcall + 1
+  quit = .false.
+
+  !slight dip at center. Needs smaller Ztolerance, tolerance in convergence (long run) or gets stuck in local minima
+  !eggcarton =  0.001*(params(1)**2 + params(2)**2) - cos(params(1))*cos(params(2)) + 1
+
+  !flat. Set bndry=3 (reflective) to better explore edges
+  eggcarton = cos(params(1))*cos(params(2))
+
+end function eggcarton
+
+
 
 !Example prior distributions
 
@@ -173,14 +182,14 @@ end function flatprior
 end module examples
 
 
-
-program dedriver !Tester for general differential evolution
+!Tester for general differential evolution
+program dedriver 
 
   use examples
 
   implicit none
 
-  call run_de(gauss4, flatprior, lowerbounds, upperbounds, path, nDerived=nDerived, doBayesian=.true., &
-  resume=.false., Ztolerance=0.1_dp, lambda=0.8_dp, bndry=1)
+  call run_de(eggcarton, flatprior, lowerbounds, upperbounds, path, doBayesian=.false., &
+       resume=.false., Ztolerance=0.1_dp, jDE=.true., bndry=3, maxciv=1)
 
 end program dedriver

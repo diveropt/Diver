@@ -1,6 +1,8 @@
 module selection
 
   use detypes
+  use mutation, only: init_FjDE
+  use crossover, only: init_CrjDE
 
   implicit none
 
@@ -15,16 +17,14 @@ module selection
 
 contains 
 
-  subroutine selector(X, Xnew, U, trialF, trialCr, m, n, lowerbounds, upperbounds, &
-                       run_params, fcall, func, quit, accept)
+  subroutine selector(X, Xnew, U, trialF, trialCr, m, n, run_params, fcall, func, quit, accept)
 
     type(population), intent(in) :: X
     type(population), intent(inout) :: Xnew
     integer, intent(inout) :: fcall, accept
     real(dp), dimension(:), intent(in) :: U
     real(dp), intent(in) :: trialF, trialCr
-    integer, intent(in) :: m, n              !current index for population chunk (m) and full population (n)
-    real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds 
+    integer, intent(in) :: m, n              !current index for population chunk (m) and full population (n) 
     type(codeparams), intent(in) :: run_params
     logical, intent(inout) :: quit
     real(dp), external :: func
@@ -37,7 +37,7 @@ contains
 
     trialderived = 0.
 
-    if (any(U(:) .gt. upperbounds) .or. any(U(:) .lt. lowerbounds)) then 
+    if (any(U(:) .gt. run_params%upperbounds) .or. any(U(:) .lt. run_params%lowerbounds)) then 
                                              !trial vector exceeds parameter space bounds: apply boundary constraints
        select case (run_params%DE%bconstrain)
           case (1)                           !'brick wall'
@@ -45,12 +45,12 @@ contains
              validvector = .false.
           case (2)                           !randomly re-initialize
              call random_number(trialvector(:))
-             trialvector(:) = trialvector(:)*(upperbounds - lowerbounds) + lowerbounds
+             trialvector(:) = trialvector(:)*(run_params%upperbounds - run_params%lowerbounds) + run_params%lowerbounds
              validvector = .true.
           case (3)                           !reflection
              trialvector = U
-             where (U .gt. upperbounds) trialvector = upperbounds - (U - upperbounds)
-             where (U .lt. lowerbounds) trialvector = lowerbounds + (lowerbounds - U)
+             where (U .gt. run_params%upperbounds) trialvector = run_params%upperbounds - (U - run_params%upperbounds)
+             where (U .lt. run_params%lowerbounds) trialvector = run_params%lowerbounds + (run_params%lowerbounds - U)
              validvector = .true.
           case default                       !boundary constraints not enforced
              trialvector = U  
@@ -114,17 +114,18 @@ contains
 
 
   !replaces old generation (X) with the new generation (Xnew) calculated during population loop
-  subroutine replace_generation(X, Xnew, run_params, accept, init)
+  subroutine replace_generation(X, Xnew, run_params, func, fcall, quit, accept, init)
     type(population), intent(inout) :: X              !old population, will be replaced
     type(population), intent(inout) :: Xnew           !recently calculated population chunk
     type(codeparams), intent(in) :: run_params
-    integer, intent(inout) :: accept
+    real(dp), external :: func
+    integer, intent(inout) :: fcall, accept
+    logical, intent(inout) :: quit
     logical, intent(in) :: init
     real(dp), dimension(run_params%DE%NP, run_params%D) :: allvecs   !new vector population. For checking for duplicates
     real(dp), dimension(run_params%D, run_params%DE%NP) :: trallvecs !transposed allvecs, to make MPI_Allgather happy
     real(dp), dimension(run_params%DE%NP) :: allvals                 !new values corresponding to allvecs. For checking for duplicates
     real(dp), dimension(run_params%D+run_params%D_derived, run_params%DE%NP) :: trderived !transposed derived
-    integer :: k, kmatch                                             !indices for vector compared, possible matching vector
     integer :: ierror, mpi_dp  
     
     !with MPI enabled, Xnew will only contain some elements of the new population. Create allvecs, allvals for duplicate-hunting
@@ -143,51 +144,11 @@ contains
     allvals = Xnew%values
 #endif
 
-    !weed out any duplicate vectors to maintain population diversity. One duplicate will be kept and the other will revert to 
-    !its value in the previous generation (NB for discrete dimensions, we are comparing the underlying non-discrete vectors)
-    if (run_params%DE%removeDuplicates .and. .not. init) then
-       checkpop: do k=1, run_params%DE%NP-1                                        !look for matches in 1st dim of higher-indexed Xnew%vectors  
-          if ( any(allvecs(k,1) .eq. allvecs(k+1:run_params%DE%NP,1)) ) then       !there is at least one possible match
-
-             findmatch: do kmatch=k+1, run_params%DE%NP                            !loop over subpopulation to find the matching vector(s)
-                if ( all(allvecs(k,:) .eq. allvecs(kmatch,:)) ) then               !we've found a duplicate vector
-                   if (verbose) write (*,*) '  Duplicate vectors:', k, kmatch
-
-                   !Now, compare their counterparts in the previous generation to decide which vector will be kept, which will be reverted
-                   picksurvivor: if (all(allvecs(k,:) .eq. X%vectors(k,:)) ) then  !vector at k was inherited, so keep it & revert kmatch
-                      if (verbose) write (*,*) '  Reverting vector ', kmatch
-                      allvecs(kmatch,:) = X%vectors(kmatch,:)
-                      allvals(kmatch) = X%values(kmatch)                     
-                      call replace_vector(Xnew, X, run_params, kmatch, accept)
-
-                   else if (all(allvecs(kmatch,:) .eq. X%vectors(kmatch,:))) then  !vector at kmatch was inherited. Keep it
-                      if (verbose) write (*,*) '  Reverting vector ', k
-                      allvecs(k,:) = X%vectors(k,:)
-                      allvals(k) = X%values(k)
-                      call replace_vector(Xnew, X, run_params, k, accept) 
-
-                   else if (X%values(k) .lt. X%values(kmatch)) then                !kmatch improved more, so keep it
-                      if (verbose) write (*,*) '  Reverting vector ', k
-                      allvecs(k,:) = X%vectors(k,:)
-                      allvals(k) = X%values(k)
-                      call replace_vector(Xnew, X, run_params, k, accept) 
-
-                   else                                                            !k improved more (or the same), so keep it
-                      if (verbose) write (*,*) '  Reverting vector ', kmatch
-                      allvecs(kmatch,:) = X%vectors(kmatch,:)
-                      allvals(kmatch) = X%values(kmatch)
-                      call replace_vector(Xnew, X, run_params, kmatch, accept) 
-
-                   end if picksurvivor
-                end if
-
-             end do findmatch
-
-          end if
-       end do checkpop
+    !weed out duplicate vectors if desired
+    if (run_params%DE%removeDuplicates) then  
+       call remove_duplicate_vectors(X, Xnew, run_params, allvecs, allvals, func, fcall, quit, accept, init)
     end if
-
-
+    
     !replace old population members with those calculated in Xnew
 #ifdef USEMPI
     if (debug_replace_gen) then !this just compares the replaced Xnew%vectors & Xnew%values with allvecs and allvals
@@ -231,14 +192,97 @@ contains
   end subroutine replace_generation
 
 
+ !weed out any duplicate vectors to maintain population diversity. One duplicate will be kept and the other will revert to  
+ !its value in the previous generation (NB for discrete dimensions, we are comparing the underlying non-discrete vectors)
+  subroutine remove_duplicate_vectors(X, Xnew, run_params, allvecs, allvals, func, fcall, quit, accept, init)
+
+    type(population), intent(inout) :: X              !old population, will be replaced
+    type(population), intent(inout) :: Xnew           !recently calculated population chunk
+    type(codeparams), intent(in) :: run_params
+    real(dp), external :: func
+    integer, intent(inout) :: fcall, accept
+    logical, intent(inout) :: quit
+    logical, intent(in) :: init
+    real(dp), intent(inout), dimension(run_params%DE%NP, run_params%D) :: allvecs
+    real(dp), intent(inout), dimension(run_params%DE%NP) :: allvals
+
+    logical :: validvector
+    integer :: k, kmatch                              !indices for vector compared, possible matching vector
+
+    checkpop: do k=1, run_params%DE%NP-1                                        !look for matches in 1st dim of higher-indexed Xnew%vectors  
+       if ( any(allvecs(k,1) .eq. allvecs(k+1:run_params%DE%NP,1)) ) then       !there is at least one possible match
+          
+          findmatch: do kmatch=k+1, run_params%DE%NP                            !loop over subpopulation to find the matching vector(s)
+             if ( all(allvecs(k,:) .eq. allvecs(kmatch,:)) ) then               !we've found a duplicate vector
+                if (verbose) write (*,*) '  Duplicate vectors:', k, kmatch
+                
+                !Now, compare their counterparts in the previous generation to decide which vector will be kept, which will be reverted
+                picksurvivor: if (init) then
+                   write (*,*) 'WARNING: Duplicate vectors in initial generation'              !FIXME: this sometimes happens with MPI (prob w/random_number?)
+                   if (verbose) write (*,*) '  Generating new vector ', kmatch                 !replacing second vector with a random new one
+                   call random_number(allvecs(kmatch,:))
+                   allvecs(kmatch,:) = allvecs(kmatch,:)*(run_params%upperbounds &
+                                         - run_params%lowerbounds) + run_params%lowerbounds
+                   allvals(kmatch) = func(roundvector(allvecs(kmatch,:), run_params), fcall, quit, validvector)
+                   if (.not. validvector) allvals(kmatch) = huge(1.0_dp)
+                   call replace_vector(Xnew, X, run_params, kmatch, accept, init)              !FIXME: make sure no weird errors with accept in initial gen
+                   
+                else if (all(allvecs(k,:) .eq. X%vectors(k,:)) .and. &                         !both vectors were inherited, so keep k & randomly re-pick kmatch
+                           all(allvecs(kmatch,:) .eq. X%vectors(kmatch,:))) then
+                   write (*,*) 'WARNING: Duplicate vectors inherited from previous generation' !This should never happen.
+                   if (verbose) write (*,*) '  Generating new vector ', kmatch                 !replacing second vector with a random new one
+                   call random_number(allvecs(kmatch,:))
+                   allvecs(kmatch,:) = allvecs(kmatch,:)*(run_params%upperbounds & 
+                                         - run_params%lowerbounds) + run_params%lowerbounds
+                   allvals(kmatch) = func(roundvector(allvecs(kmatch,:), run_params), fcall, quit, validvector)
+                   if (.not. validvector) allvals(kmatch) = huge(1.0_dp)
+                   call replace_vector(Xnew, X, run_params, kmatch, accept, init)
+                   
+                else if (all(allvecs(k,:) .eq. X%vectors(k,:)) ) then                          !vector at k was inherited, so keep it & revert kmatch
+                   if (verbose) write (*,*) '  Vector ', k, ' inherited, reverting vector ', kmatch
+                   allvecs(kmatch,:) = X%vectors(kmatch,:)
+                   allvals(kmatch) = X%values(kmatch)                     
+                   call replace_vector(Xnew, X, run_params, kmatch, accept, init)
+                   
+                else if (all(allvecs(kmatch,:) .eq. X%vectors(kmatch,:))) then                 !vector at kmatch was inherited. Keep it
+                   if (verbose) write (*,*) '  Vector ', kmatch, ' inherited, reverting vector ', k
+                   allvecs(k,:) = X%vectors(k,:)
+                   allvals(k) = X%values(k)
+                   call replace_vector(Xnew, X, run_params, k, accept, init) 
+                   
+                else if (X%values(k) .lt. X%values(kmatch)) then                               !kmatch improved more (or the same), so keep it
+                   if (verbose) write (*,*) '  Vector ', kmatch, ' improved more, reverting vector', k
+                   allvecs(k,:) = X%vectors(k,:)
+                   allvals(k) = X%values(k)
+                   call replace_vector(Xnew, X, run_params, k, accept, init) 
+                   
+                else                                                                           !k improved more, so keep it
+                   if (verbose) write (*,*) '  Vector ', k, ' improved more, reverting vector', kmatch
+                   allvecs(kmatch,:) = X%vectors(kmatch,:)
+                   allvals(kmatch) = X%values(kmatch)
+                   call replace_vector(Xnew, X, run_params, kmatch, accept, init) 
+                   
+                end if picksurvivor
+             end if
+             
+          end do findmatch
+          
+       end if
+    end do checkpop
+
+  end subroutine remove_duplicate_vectors
+
+
 !replace a vector in Xnew by its counterpart in the previous generation (X)
-  subroutine replace_vector(Xnew, X, run_params, n, accept)
+  subroutine replace_vector(Xnew, X, run_params, n, accept, init)
     type(population), intent(inout) :: Xnew
     type(population), intent(in) :: X
     type(codeparams), intent(in) :: run_params
     integer, intent(in) :: n                                     !index of vector X to replace
     integer, intent(inout) :: accept
+    logical, intent(in) :: init
     integer :: m                                                 !index of vector in Xnew (equal to n if no MPI)
+    real(dp), dimension(1) :: Fnew, Crnew
     
     m = n - run_params%mpipopchunk*run_params%mpirank
 
@@ -252,8 +296,15 @@ contains
        Xnew%vectors_and_derived(m,:) = X%vectors_and_derived(n,:)
 
        if (run_params%DE%jDE) then
-          Xnew%FjDE(m) = X%FjDE(n)
-          Xnew%CrjDE(m) = X%CrjDE(n)
+          if (init) then
+             Fnew = init_FjDE(run_params,1)
+             Crnew = init_CrjDE(run_params,1)
+             Xnew%FjDE(m) = Fnew(1)
+             Xnew%CrjDE(m) = Crnew(1)
+          else
+             Xnew%FjDE(m) = X%FjDE(n)
+             Xnew%CrjDE(m) = X%CrjDE(n)
+          end if
        end if
 
        if (verbose) write (*,*) n, roundvector(Xnew%vectors(m, :), run_params), '->', Xnew%values(m)

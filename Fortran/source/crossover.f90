@@ -111,10 +111,11 @@ contains
   end function newCr
 
 
-  function init_CrjDE(run_params)
+  function init_CrjDE(run_params, size)
     type(codeparams), intent(in) :: run_params
-    real(dp), dimension(run_params%mpipopchunk) :: init_CrjDE
-    real(dp), dimension(run_params%mpipopchunk) :: rand
+    integer, intent(in) :: size
+    real(dp), dimension(size) :: init_CrjDE
+    real(dp), dimension(size) :: rand
 
     call random_number(rand)
     init_CrjDE = rand
