@@ -81,14 +81,14 @@ contains
     call MPI_Init(ierror)
 #endif
 
-    !seed the random number generator from the system clock
-    call init_random_seed()
-
     !Assign specified or default values to run_params and print out information to the screen
     call param_assign(run_params, lowerbounds, upperbounds, nDerived=nDerived, discrete=discrete, maxciv=maxciv, maxgen=maxgen, &
                       NP=NP, F=F, Cr=Cr, lambda=lambda, current=current, expon=expon, bndry=bndry, jDE=jDE, & 
                       removeDuplicates=removeDuplicates, doBayesian=doBayesian, maxNodePop=maxNodePop, Ztolerance=Ztolerance, &
                       savecount=savecount)
+
+    !seed the random number generator(s) from the system clock
+    call init_all_random_seeds(run_params%DE%NP/run_params%mpipopchunk, run_params%mpirank)
 
     !Allocate vector population: X is the full population, Xnew is the size of the population each process handles
     allocate(X%vectors(run_params%DE%NP, run_params%D))
@@ -181,7 +181,8 @@ contains
 
              end do poploop
 
-             call replace_generation(X, Xnew, run_params, func, fcall, quit, accept, init=.false.)   !replace old generation with newly calculated one
+             !replace old generation with newly calculated one
+             call replace_generation(X, Xnew, run_params, func, fcall, quit, accept, init=.false.)
 
 #ifdef USEMPI
              call MPI_Allreduce(accept, totaccept, 1, MPI_integer, MPI_sum, MPI_COMM_WORLD, ierror)

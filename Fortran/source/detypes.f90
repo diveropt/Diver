@@ -3,10 +3,10 @@ module detypes
 
 implicit none
 
-logical, parameter :: verbose = .true.                  !print verbose output
+logical, parameter :: verbose = .false.                  !print verbose output
 
 integer, parameter, public :: dp = kind(1.0d0)          !definition of 'double precision' used throughout
-
+!integer, parameter, public :: dp = kind(1.0)
 type deparams                 				!differential evolution parameters 
                                                         ! (remember to expand io::save_state and io::resume if you expand this type)
    integer NP                 				!population size

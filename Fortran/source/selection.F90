@@ -13,8 +13,6 @@ module selection
   private
   public selector, replace_generation, roundvector
 
-  logical, parameter :: debug_replace_gen=.false.
-
 contains 
 
   subroutine selector(X, Xnew, U, trialF, trialCr, m, n, run_params, fcall, func, quit, accept)
@@ -111,6 +109,7 @@ contains
     roundvector(run_params%discrete) = anint(roundvector(run_params%discrete))
 
   end function roundvector
+  
 
 
   !replaces old generation (X) with the new generation (Xnew) calculated during population loop
@@ -124,7 +123,6 @@ contains
     logical, intent(in) :: init
     real(dp), dimension(run_params%DE%NP, run_params%D) :: allvecs   !new vector population. For checking for duplicates
     real(dp), dimension(run_params%D, run_params%DE%NP) :: trallvecs !transposed allvecs, to make MPI_Allgather happy
-    real(dp), dimension(run_params%DE%NP) :: allvals                 !new values corresponding to allvecs. For checking for duplicates
     real(dp), dimension(run_params%D+run_params%D_derived, run_params%DE%NP) :: trderived !transposed derived
     integer :: ierror, mpi_dp  
     
@@ -135,36 +133,19 @@ contains
 
     call MPI_Allgather(transpose(Xnew%vectors), run_params%mpipopchunk*run_params%D, mpi_dp, trallvecs, &
                        run_params%mpipopchunk*run_params%D, mpi_dp, MPI_COMM_WORLD, ierror)
-    allvecs = transpose(trallvecs)
-
-    call MPI_Allgather(Xnew%values, run_params%mpipopchunk, mpi_dp, allvals, & 
-                       run_params%mpipopchunk, mpi_dp, MPI_COMM_WORLD, ierror)  
-#else
-    allvecs = Xnew%vectors
-    allvals = Xnew%values
-#endif
+    allvecs = transpose(trallvecs) 
 
     !weed out duplicate vectors if desired
     if (run_params%DE%removeDuplicates) then  
-       call remove_duplicate_vectors(X, Xnew, run_params, allvecs, allvals, func, fcall, quit, accept, init)
+       call remove_duplicate_vectors(X, Xnew, run_params, allvecs, func, fcall, quit, accept, init)
     end if
-    
-    !replace old population members with those calculated in Xnew
-#ifdef USEMPI
-    if (debug_replace_gen) then !this just compares the replaced Xnew%vectors & Xnew%values with allvecs and allvals
-       call MPI_Allgather(transpose(Xnew%vectors), run_params%mpipopchunk*run_params%D, mpi_dp, trallvecs, &
-                          run_params%mpipopchunk*run_params%D, mpi_dp, MPI_COMM_WORLD, ierror)
-       X%vectors = transpose(trallvecs)
-       if (any(X%vectors .ne. allvecs)) write (*,*) 'ERROR: vectors not transferred properly'
-       
-       call MPI_Allgather(Xnew%values, run_params%mpipopchunk, mpi_dp, X%values, & 
-                          run_params%mpipopchunk, mpi_dp, MPI_COMM_WORLD, ierror)
-       if (any(X%values .ne. allvals)) write (*,*) 'ERROR: values not transferred properly'
 
-    else                        !vectors and values have already been gathered
-       X%vectors = allvecs
-       X%values = allvals
-    end if
+
+    !replace old population members with those calculated in Xnew
+    X%vectors = allvecs
+
+    call MPI_Allgather(Xnew%values, run_params%mpipopchunk, mpi_dp, X%values, & 
+                       run_params%mpipopchunk, mpi_dp, MPI_COMM_WORLD, ierror)
     	
     call MPI_Allgather(transpose(Xnew%vectors_and_derived), run_params%mpipopchunk*&
                        (run_params%D+run_params%D_derived), mpi_dp, trderived, &
@@ -179,9 +160,16 @@ contains
                           run_params%mpipopchunk, mpi_dp, MPI_COMM_WORLD, ierror)
     end if
 #else
+    allvecs = Xnew%vectors
+
+    !weed out duplicate vectors if desired
+    if (run_params%DE%removeDuplicates) then  
+       call remove_duplicate_vectors(X, Xnew, run_params, allvecs, func, fcall, quit, accept, init)
+    end if
+
     !Xnew and X are the same size, so just equate population members
     X%vectors = allvecs
-    X%values = allvals
+    X%values = Xnew%values
     X%vectors_and_derived = Xnew%vectors_and_derived
     if (run_params%DE%jDE) then
        X%FjDE = Xnew%FjDE
@@ -194,7 +182,7 @@ contains
 
  !weed out any duplicate vectors to maintain population diversity. One duplicate will be kept and the other will revert to  
  !its value in the previous generation (NB for discrete dimensions, we are comparing the underlying non-discrete vectors)
-  subroutine remove_duplicate_vectors(X, Xnew, run_params, allvecs, allvals, func, fcall, quit, accept, init)
+  subroutine remove_duplicate_vectors(X, Xnew, run_params, allvecs, func, fcall, quit, accept, init)
 
     type(population), intent(inout) :: X              !old population, will be replaced
     type(population), intent(inout) :: Xnew           !recently calculated population chunk
@@ -204,63 +192,59 @@ contains
     logical, intent(inout) :: quit
     logical, intent(in) :: init
     real(dp), intent(inout), dimension(run_params%DE%NP, run_params%D) :: allvecs
-    real(dp), intent(inout), dimension(run_params%DE%NP) :: allvals
 
-    logical :: validvector
     integer :: k, kmatch                              !indices for vector compared, possible matching vector
 
     checkpop: do k=1, run_params%DE%NP-1                                        !look for matches in 1st dim of higher-indexed Xnew%vectors  
        if ( any(allvecs(k,1) .eq. allvecs(k+1:run_params%DE%NP,1)) ) then       !there is at least one possible match
+          !if  (run_params%mpirank .eq. 0) write (*,*) 'WARNING: Possible match for', k
           
           findmatch: do kmatch=k+1, run_params%DE%NP                            !loop over subpopulation to find the matching vector(s)
-             if ( all(allvecs(k,:) .eq. allvecs(kmatch,:)) ) then               !we've found a duplicate vector
-                if (verbose) write (*,*) '  Duplicate vectors:', k, kmatch
+             if ( all(allvecs(k,:) .eq. allvecs(kmatch,:)) ) then               !we've found a duplicate vector 
+                !FIXME:switch all() to any() above to avoid duplicates in single dimensions? 
+                !Would also need to check all dimensions (not just first)
+                if (verbose .and. (run_params%mpirank .eq. 0)) write (*,*) '  Duplicate vectors:', k, kmatch
                 
                 !Now, compare their counterparts in the previous generation to decide which vector will be kept, which will be reverted
                 picksurvivor: if (init) then
-                   write (*,*) 'WARNING: Duplicate vectors in initial generation'              !FIXME: this sometimes happens with MPI (prob w/random_number?)
-                   if (verbose) write (*,*) '  Generating new vector ', kmatch                 !replacing second vector with a random new one
-                   call random_number(allvecs(kmatch,:))
-                   allvecs(kmatch,:) = allvecs(kmatch,:)*(run_params%upperbounds &
-                                         - run_params%lowerbounds) + run_params%lowerbounds
-                   allvals(kmatch) = func(roundvector(allvecs(kmatch,:), run_params), fcall, quit, validvector)
-                   if (.not. validvector) allvals(kmatch) = huge(1.0_dp)
-                   call replace_vector(Xnew, X, run_params, kmatch, accept, init)              !FIXME: make sure no weird errors with accept in initial gen
-                   
+                   if (run_params%mpirank .eq. 0) write (*,*) 'WARNING: Duplicate vectors in initial generation'  !This should never happen.
+                   if (verbose .and. (run_params%mpirank .eq. 0)) write (*,*) '  Generating new vector ', kmatch             
+                   !replacing second vector with a random new one
+                   call replace_vector(Xnew, allvecs, X, run_params, func, kmatch, fcall, accept, quit, revert=.false.)
+
                 else if (all(allvecs(k,:) .eq. X%vectors(k,:)) .and. &                         !both vectors were inherited, so keep k & randomly re-pick kmatch
                            all(allvecs(kmatch,:) .eq. X%vectors(kmatch,:))) then
-                   write (*,*) 'WARNING: Duplicate vectors inherited from previous generation' !This should never happen.
-                   if (verbose) write (*,*) '  Generating new vector ', kmatch                 !replacing second vector with a random new one
-                   call random_number(allvecs(kmatch,:))
-                   allvecs(kmatch,:) = allvecs(kmatch,:)*(run_params%upperbounds & 
-                                         - run_params%lowerbounds) + run_params%lowerbounds
-                   allvals(kmatch) = func(roundvector(allvecs(kmatch,:), run_params), fcall, quit, validvector)
-                   if (.not. validvector) allvals(kmatch) = huge(1.0_dp)
-                   call replace_vector(Xnew, X, run_params, kmatch, accept, init)
+                   if (run_params%mpirank .eq. 0) then
+                      write (*,*) 'WARNING: Duplicate vectors inherited from previous generation' !Shouldn't happen, but...
+                               !can occur if one vector inherited, other reverted in previous generation to a vector which matches the first
+                               !This can be a sign that single-dimension duplicates are polluting the population, or that you're just unlucky
+                      if (verbose) write (*,*) '  Generating new vector ', kmatch              !replacing second vector with a random new one
+                   end if
+                   call replace_vector(Xnew, allvecs, X, run_params, func, kmatch, fcall, accept, quit, revert=.false.)
                    
                 else if (all(allvecs(k,:) .eq. X%vectors(k,:)) ) then                          !vector at k was inherited, so keep it & revert kmatch
-                   if (verbose) write (*,*) '  Vector ', k, ' inherited, reverting vector ', kmatch
-                   allvecs(kmatch,:) = X%vectors(kmatch,:)
-                   allvals(kmatch) = X%values(kmatch)                     
-                   call replace_vector(Xnew, X, run_params, kmatch, accept, init)
+                   if (verbose .and. (run_params%mpirank .eq. 0)) then
+                      write (*,*) '    Vector ', k, ' inherited, reverting vector ', kmatch
+                   end if
+                   call replace_vector(Xnew, allvecs, X, run_params, func, kmatch, fcall, accept, quit, revert=.true.)
                    
                 else if (all(allvecs(kmatch,:) .eq. X%vectors(kmatch,:))) then                 !vector at kmatch was inherited. Keep it
-                   if (verbose) write (*,*) '  Vector ', kmatch, ' inherited, reverting vector ', k
-                   allvecs(k,:) = X%vectors(k,:)
-                   allvals(k) = X%values(k)
-                   call replace_vector(Xnew, X, run_params, k, accept, init) 
+                   if (verbose .and. (run_params%mpirank .eq. 0)) then
+                      write (*,*) '    Vector ', kmatch, ' inherited, reverting vector ', k
+                   end if
+                   call replace_vector(Xnew, allvecs, X, run_params, func, k, fcall, accept, quit, revert=.true.) 
                    
                 else if (X%values(k) .lt. X%values(kmatch)) then                               !kmatch improved more (or the same), so keep it
-                   if (verbose) write (*,*) '  Vector ', kmatch, ' improved more, reverting vector', k
-                   allvecs(k,:) = X%vectors(k,:)
-                   allvals(k) = X%values(k)
-                   call replace_vector(Xnew, X, run_params, k, accept, init) 
+                   if (verbose .and. (run_params%mpirank .eq. 0)) then
+                      write (*,*) '    Vector ', kmatch, ' improved more, reverting vector', k
+                   end if
+                   call replace_vector(Xnew, allvecs, X, run_params, func, k, fcall, accept, quit, revert=.true.) 
                    
                 else                                                                           !k improved more, so keep it
-                   if (verbose) write (*,*) '  Vector ', k, ' improved more, reverting vector', kmatch
-                   allvecs(kmatch,:) = X%vectors(kmatch,:)
-                   allvals(kmatch) = X%values(kmatch)
-                   call replace_vector(Xnew, X, run_params, kmatch, accept, init) 
+                   if (verbose .and. (run_params%mpirank .eq. 0)) then
+                      write (*,*) '    Vector ', k, ' improved more, reverting vector', kmatch
+                   endif
+                   call replace_vector(Xnew, allvecs, X, run_params, func, kmatch, fcall, accept, quit, revert=.true.) 
                    
                 end if picksurvivor
              end if
@@ -273,44 +257,75 @@ contains
   end subroutine remove_duplicate_vectors
 
 
-!replace a vector in Xnew by its counterpart in the previous generation (X)
-  subroutine replace_vector(Xnew, X, run_params, n, accept, init)
+!replace a duplicate vector in Xnew and allvecs by:
+!its counterpart in the previous generation (X) (if revert=.true.) or a new randomly generated vector
+  subroutine replace_vector(Xnew, allvecs, X, run_params, func, n, fcall, accept, quit, revert)
     type(population), intent(inout) :: Xnew
-    type(population), intent(in) :: X
     type(codeparams), intent(in) :: run_params
+    real(dp), intent(inout), dimension(run_params%DE%NP, run_params%D) :: allvecs
+    type(population), intent(in) :: X
     integer, intent(in) :: n                                     !index of vector X to replace
-    integer, intent(inout) :: accept
-    logical, intent(in) :: init
-    integer :: m                                                 !index of vector in Xnew (equal to n if no MPI)
+    real(dp), external :: func
+    integer, intent(inout) :: fcall, accept
+    logical, intent(in) :: revert
+    logical, intent(inout) :: quit
+    integer :: m, root
+    real(dp), dimension(run_params%D) :: newvector               !alias for Xnew(m,:) for sharing between processes 
     real(dp), dimension(1) :: Fnew, Crnew
-    
-    m = n - run_params%mpipopchunk*run_params%mpirank
+    logical :: validvector
+    integer :: ierror, mpi_dp
 
-    if ( (m .gt. 0) .and. (m .le. run_params%mpipopchunk) ) then !vector belongs to population chunk in this process
+
+    m = n - run_params%mpipopchunk*run_params%mpirank            !index of vector in Xnew (equal to n if no MPI)
+
+    root = (n-1)/run_params%mpipopchunk                          !process which 'owns' the vector being replaced
+
+    !vector belongs to population chunk in this process, so change vector and all associated quantities
+    if (run_params%mpirank .eq. root) then
        
-       if (debug_replace_gen) then  !checking that this transfer works correctly
+       if (revert) then                                          !replace with previous values
           Xnew%vectors(m,:) = X%vectors(n,:)
-          Xnew%values(m) = X%values(n)      
-       end if
+          Xnew%values(m) = X%values(n)
+          Xnew%vectors_and_derived(m,:) = X%vectors_and_derived(n,:)
 
-       Xnew%vectors_and_derived(m,:) = X%vectors_and_derived(n,:)
+          if (run_params%DE%jDE) then
+             Xnew%FjDE(m) = X%FjDE(n)
+             Xnew%CrjDE(m) = X%CrjDE(n)
+          end if
 
-       if (run_params%DE%jDE) then
-          if (init) then
+       else                                                      !randomly generate a new vector
+          call random_number(Xnew%vectors(m,:))
+          Xnew%vectors(m,:) = Xnew%vectors(m,:)*(run_params%upperbounds - run_params%lowerbounds) + run_params%lowerbounds
+          Xnew%values(m) = func(roundvector(Xnew%vectors(m,:), run_params), fcall, quit,.true.)
+          if (run_params%DE%jDE) then
              Fnew = init_FjDE(run_params,1)
              Crnew = init_CrjDE(run_params,1)
              Xnew%FjDE(m) = Fnew(1)
              Xnew%CrjDE(m) = Crnew(1)
-          else
-             Xnew%FjDE(m) = X%FjDE(n)
-             Xnew%CrjDE(m) = X%CrjDE(n)
           end if
+          newvector = Xnew%vectors(m,:)
        end if
 
-       if (verbose) write (*,*) n, roundvector(Xnew%vectors(m, :), run_params), '->', Xnew%values(m)
+       if (verbose) write (*,*) '    Replacement vector:', n, roundvector(Xnew%vectors(m, :), run_params), '->', Xnew%values(m)
 
-       accept = accept - 1                                       !vector has been 'de-accepted'
     end if
+
+    !All processes: fix values in allvecs corresponding to Xnew%vectors(m,:)
+    if (revert) then
+       allvecs(n,:) = X%vectors(n,:)                          !all processes switch back to previous value
+       accept = accept - 1                                    !vector is 'de-accepted' since reverting to the value in the previous generation
+    else
+#ifdef USEMPI
+       !root process shares newly-created vector with other processes
+       call MPI_Type_create_f90_real(precision(1.0_dp), range(1.0_dp), mpi_dp, ierror)
+       call MPI_Bcast(newvector, run_params%D, mpi_dp, root, MPI_COMM_WORLD, ierror)
+       allvecs(n,:) = newvector
+#else
+       !only one process, so just replace value in allvecs with newly-created vector
+       allvecs(n,:) = Xnew%vectors(m,:)
+#endif
+    end if
+
     
   end subroutine replace_vector
 

@@ -12,7 +12,7 @@ implicit none
 #endif
 
 private
-public param_assign, initialize, init_random_seed, quit_de, int_to_string
+public param_assign, initialize, quit_de, int_to_string, init_all_random_seeds
 
 contains 
 
@@ -386,6 +386,50 @@ contains
   end subroutine initialize
 
 
+  !based on init_random_seed below. Calls init_random_seed for master process,
+  !then (if using MPI) generates new seeds for secondary processes and distributes them
+  subroutine init_all_random_seeds(nprocs, mpirank)
+    integer, intent(in) :: nprocs         !number of processes that need seeds
+    integer, intent(in) :: mpirank 
+    integer :: i, j, n, clock, ierror
+    real, dimension(:), allocatable :: rand
+    integer, dimension(:,:), allocatable :: allseeds
+    integer, dimension(:), allocatable :: seed
+
+    !initialize master seed
+    if (mpirank .eq. 0) call init_random_seed()
+
+    !initialize random seeds for secondary processes
+#ifdef USEMPI
+    call random_seed(size = n)
+    allocate(allseeds(n, nprocs))
+    allocate(seed(n))
+
+    if (mpirank .eq. 0) then                     !master process
+       allocate(rand(nprocs))
+       call random_number(rand)
+       call system_clock(count=clock)
+       rand = clock*(1 + rand)
+
+       allseeds = spread(37*(/ (i - 1, i = 1, n) /), dim=2, ncopies=nprocs)
+       !equivalent to seed = 37 * (/ (i - 1, i = 1, n) /), but with nprocs copies (n x nprocs)
+
+       allseeds = allseeds + spread(int(rand), dim=1, ncopies=n)
+       !equivalent to seed = seed + rand, but rand is stretched to n x nprocs
+
+       deallocate(rand)
+    end if
+
+    call MPI_SCATTER(allseeds, n, MPI_INTEGER, seed, n, MPI_INTEGER, 0, MPI_COMM_WORLD, ierror)
+
+    if (mpirank .ne. 0) call random_seed(put = seed)
+
+    deallocate(seed, allseeds)
+#endif
+
+  end subroutine init_all_random_seeds
+
+
   !Yanked from the gfortran documentation
   SUBROUTINE init_random_seed()
     INTEGER :: i, n, clock
@@ -395,12 +439,14 @@ contains
     ALLOCATE(seed(n))
           
     CALL SYSTEM_CLOCK(COUNT=clock)
-          
     seed = clock + 37 * (/ (i - 1, i = 1, n) /)
+
     CALL RANDOM_SEED(PUT = seed)
           
     DEALLOCATE(seed)
   END SUBROUTINE
+
+
 
   function int_to_string(int)
     integer, intent(in) :: int
