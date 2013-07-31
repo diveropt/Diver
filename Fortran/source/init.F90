@@ -29,7 +29,7 @@ contains
     integer, intent(in), optional :: maxgen 			!maximum number of generations per civilisation
     integer, intent(in), optional :: NP 			!population size (individuals per generation)
     real(dp), dimension(:), intent(in), optional :: F		!scale factor(s).  Note that this must be entered as an array.
-    real(dp), intent(in), optional :: Cr 				!crossover factor
+    real(dp), intent(in), optional :: Cr 			!crossover factor
     real(dp), intent(in), optional :: lambda 			!mixing factor between best and rand/current
     logical, intent(in), optional :: current 			!use current vector for mutation
     logical, intent(in), optional :: expon 			!use exponential crossover
@@ -37,8 +37,8 @@ contains
     logical, intent(in), optional :: jDE                        !use self-adaptive DE 
     logical, intent(in), optional :: removeDuplicates           !weed out duplicate vectors within a single generation
     logical, intent(in), optional  :: doBayesian                !calculate log evidence and posterior weightings
-    real(dp), intent(in), optional  :: maxNodePop                   !population at which node is partitioned in binary space partitioning for posterior
-    real(dp), intent(in), optional :: Ztolerance			!input tolerance in log-evidence
+    real(dp), intent(in), optional  :: maxNodePop               !population at which node is partitioned in binary space partitioning for posterior
+    real(dp), intent(in), optional :: Ztolerance		!input tolerance in log-evidence
     integer, intent(in), optional :: savecount			!save progress every savecount generations
 
     integer :: mpiprocs, mpirank, ierror                        !number of processes running, rank of current process, error code
@@ -255,7 +255,7 @@ contains
        end if
 
        !for printing the parameter choice, DE mutation/crossover strategy, and boundary constraints to screen
-       if (run_params%DE%lambda .eq. 0.0_dp) then  			!mutation strategy
+       if (run_params%DE%lambda .eq. 0.0_dp) then  		!mutation strategy
           if (run_params%DE%current) then
              DEstrategy = 'current/'
           else
@@ -362,8 +362,8 @@ contains
        Xnew%CrjDE = init_CrjDE(run_params, run_params%mpipopchunk)
     end if
 
-       !$OMP PARALLEL DO
-       do m=1,run_params%mpipopchunk !loop over the vectors belonging to each population chunk
+    !loop over the vectors belonging to each population chunk
+       do m=1,run_params%mpipopchunk
 
           n = run_params%mpipopchunk*run_params%mpirank + m !true population index (equal to m if no mpi)
 
@@ -373,13 +373,14 @@ contains
           Xnew%vectors_and_derived(m,:run_params%D) = roundvector(Xnew%vectors(m,:), run_params)
           Xnew%values(m) = func(Xnew%vectors_and_derived(m,:), fcall, quit, .true.)
 
-          if (verbose .and. run_params%DE%jDE) write (*,*) n, roundvector(Xnew%vectors(m,:), run_params), &
-           '->', Xnew%values(m), '|', Xnew%FjDE(m), Xnew%CrjDE(m)
-          if (verbose .and. .not. run_params%DE%jDE) write (*,*) n, roundvector(Xnew%vectors(m,:), run_params), &
-           '->', Xnew%values(m)
-
+          if (verbose) then
+             if (run_params%DE%jDE) then
+                write (*,*) n, Xnew%vectors_and_derived(m,:), '->', Xnew%values(m), '|', Xnew%FjDE(m), Xnew%CrjDE(m)
+             else
+                write (*,*) n, Xnew%vectors_and_derived(m,:), '->', Xnew%values(m)
+             end if
+          end if
        end do
-       !$END OMP PARALLEL DO
 
        call replace_generation(X, Xnew, run_params, func, fcall, quit, accept, init=.true.)
     

@@ -57,20 +57,23 @@ contains
     integer :: filestatus, reclen_raw, reclen_sam, civ, gen, i
     character(len=*), intent(in) :: path
     character(len=31) :: formatstring_raw 
-    character(len=24) :: formatstring_sam 
+    !character(len=24) :: formatstring_sam 
+    character(len=31) :: formatstring_sam
     character(len=1)  :: LF
     logical, intent(in) :: update
     logical :: dosam
 
     !determine whether to bother with .sam file
-    dosam = (run_params%D_derived .ne. 0)
+    dosam = ((run_params%D_derived .ne. 0) .or. (size(run_params%discrete) .ne. 0))
 
     !organise the read/write formats
     write(formatstring_raw,'(A18,I4,A9)') '(2E20.9,2x,2I6,2x,', run_params%D, 'E20.9,A1)'  
     reclen_raw = 57 + 20*run_params%D
     if (dosam) then
-      write(formatstring_sam,'(A11,I4,A9)') '(2E20.9,2x,', run_params%D+run_params%D_derived, 'E20.9,A1)'  
-      reclen_sam = reclen_raw - 14 + 20*run_params%D_derived
+      !write(formatstring_sam,'(A11,I4,A9)') '(2E20.9,2x,', run_params%D+run_params%D_derived, 'E20.9,A1)'  
+       write(formatstring_sam,'(A18,I4,A9)') '(2E20.9,2x,2I6,2x,', run_params%D+run_params%D_derived, 'E20.9,A1)'
+    !  reclen_sam = reclen_raw - 14 + 20*run_params%D_derived
+       reclen_sam = reclen_raw + 20*run_params%D_derived
     endif
 
     !open the chain files
@@ -88,7 +91,7 @@ contains
     Zmsq = 0.
     do i = 1, Nsamples
       !read in each point 
-      if (dosam) read(samlun,formatstring_sam,rec=i) multiplicity, lnlike, vectors_and_derived, LF
+      if (dosam) read(samlun,formatstring_sam,rec=i) multiplicity, lnlike, civ, gen, vectors_and_derived, LF
       read(rawlun,formatstring_raw,rec=i) multiplicity, lnlike, civ, gen, vector, LF
       !Could implement a skip out if this is the first generation (burn in), but this gen should not be in the raw/sam file anyway
       !if (gen .eq. 1) cycle
@@ -97,7 +100,7 @@ contains
       !save the new multiplicity of the point to disk
       if (update) then
         write(rawlun,formatstring_raw,rec=i) multiplicity, lnlike, civ, gen, vector, LF
-        if (dosam) write(samlun,formatstring_sam,rec=i) multiplicity, lnlike, vectors_and_derived, LF
+        if (dosam) write(samlun,formatstring_sam,rec=i) multiplicity, lnlike, civ, gen, vectors_and_derived, LF
       endif
       !add the contribution of the point with the new multiplicity to the evidence   
       Z = Z + multiplicity

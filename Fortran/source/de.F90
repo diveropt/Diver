@@ -172,10 +172,9 @@ contains
                
                 if (verbose) then
                    if (run_params%DE%jDE) then 
-                      write (*,*) n, roundvector(Xnew%vectors(m, :), run_params), '->', Xnew%values(m), '|', &
-                                  Xnew%FjDE(m), Xnew%CrjDE(m)
+                      write (*,*) n, Xnew%vectors_and_derived(m, :), '->', Xnew%values(m), '|', Xnew%FjDE(m), Xnew%CrjDE(m)
                    else
-                      write (*,*) n, roundvector(Xnew%vectors(m, :), run_params), '->', Xnew%values(m)
+                      write (*,*) n, Xnew%vectors_and_derived(m, :), '->', Xnew%values(m)
                    end if
                 end if
 

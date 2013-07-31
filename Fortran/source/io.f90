@@ -25,7 +25,7 @@ subroutine io_begin(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fca
   type(population), intent(inout) :: X, BF
   real(dp), optional, external :: prior
 
-  if (present(restart) .and. restart) then !FIXME: make MPI-friendly
+  if (present(restart) .and. restart) then !FIXME: make quitting MPI-friendly
     if (present(prior)) then
       call resume(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params, X, BF, prior=prior)
     else
@@ -37,7 +37,9 @@ subroutine io_begin(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fca
     open(unit=rawlun, file=trim(path)//'.raw', iostat=filestatus, action='WRITE', status='REPLACE')
     open(unit=devolun, file=trim(path)//'.devo', iostat=filestatus, action='WRITE', status='REPLACE')
     open(unit=rparamlun, file=trim(path)//'.rparam', iostat=filestatus, action='WRITE', status='REPLACE')
-    if (run_params%D_derived .ne. 0) open(unit=samlun, file=trim(path)//'.sam', iostat=filestatus, action='WRITE', status='REPLACE')
+    if ( (run_params%D_derived .ne. 0) .or. (size(run_params%discrete) .ne. 0) ) then
+       open(unit=samlun, file=trim(path)//'.sam', iostat=filestatus, action='WRITE', status='REPLACE')
+    end if
     if (filestatus .ne. 0) stop ' Error creating output files. Quitting...'
     close(rawlun)
     close(devolun)
@@ -75,7 +77,8 @@ subroutine save_samples(X, path, civ, gen, run_params)
   type(codeparams), intent(in) :: run_params
   integer :: filestatus, i
   character(len=28) :: formatstring_raw 
-  character(len=21) :: formatstring_sam 
+!  character(len=21) :: formatstring_sam
+  character(len=28) :: formatstring_sam 
 
   open(unit=rawlun, file=trim(path)//'.raw', iostat=filestatus, action='WRITE', status='OLD', POSITION='APPEND')
   if (filestatus .ne. 0) stop ' Error opening raw file.  Quitting...'
@@ -85,12 +88,13 @@ subroutine save_samples(X, path, civ, gen, run_params)
   enddo
   close(rawlun)
 
-  if (run_params%D_derived .ne. 0) then
+  if ( (run_params%D_derived .ne. 0) .or. (size(run_params%discrete) .ne. 0) ) then
     open(unit=samlun, file=trim(path)//'.sam', iostat=filestatus, action='WRITE', status='OLD', POSITION='APPEND')
     if (filestatus .ne. 0) stop ' Error opening sam file.  Quitting...'
-    write(formatstring_sam,'(A11,I4,A6)') '(2E20.9,2x,', run_params%D+run_params%D_derived, 'E20.9)'
+    !write(formatstring_sam,'(A11,I4,A6)') '(2E20.9,2x,', run_params%D+run_params%D_derived, 'E20.9)'
+    write(formatstring_sam,'(A18,I4,A6)') '(2E20.9,2x,2I6,2x,', run_params%D+run_params%D_derived, 'E20.9)'
     do i = 1, size(X%weights)
-      write(samlun,formatstring_sam) X%multiplicities(i), X%values(i), X%vectors_and_derived(i,:)
+      write(samlun,formatstring_sam) X%multiplicities(i), X%values(i), civ, gen, X%vectors_and_derived(i,:)
     enddo
     close(samlun)
   endif

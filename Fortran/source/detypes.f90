@@ -3,7 +3,7 @@ module detypes
 
 implicit none
 
-logical, parameter :: verbose = .false.                  !print verbose output
+logical, parameter :: verbose = .true.                  !print verbose output
 
 integer, parameter, public :: dp = kind(1.0d0)          !definition of 'double precision' used throughout
 !integer, parameter, public :: dp = kind(1.0)

@@ -5,7 +5,7 @@ use detypes
 
 implicit none
 
- integer, parameter :: param_dim = 4 !dimensions of parameter space
+ integer, parameter :: param_dim = 2 !dimensions of parameter space
 
  integer, parameter :: NP=10, numgen=15, numciv=1, nDerived=2
  character (len=300) :: path='example_output/example'
@@ -216,7 +216,7 @@ program dedriver
 
   implicit none
 
-  call run_de(rastrigin, flatprior, lowerbounds, upperbounds, path, doBayesian=.true., &
-       resume=.false., Ztolerance=0.1_dp, removeDuplicates=.true., jDE=.true.)
+  call run_de(gauss, flatprior, lowerbounds, upperbounds, path, doBayesian=.false., discrete=(/1/), &
+       resume=.false., Ztolerance=0.1_dp, removeDuplicates=.true., lambda=1.0_dp, maxciv=1)
 
 end program dedriver

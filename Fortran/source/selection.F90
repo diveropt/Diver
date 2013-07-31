@@ -296,7 +296,8 @@ contains
        else                                                      !randomly generate a new vector
           call random_number(Xnew%vectors(m,:))
           Xnew%vectors(m,:) = Xnew%vectors(m,:)*(run_params%upperbounds - run_params%lowerbounds) + run_params%lowerbounds
-          Xnew%values(m) = func(roundvector(Xnew%vectors(m,:), run_params), fcall, quit,.true.)
+          Xnew%vectors_and_derived(m,:run_params%D) = roundvector(Xnew%vectors(m,:), run_params)
+          Xnew%values(m) = func(Xnew%vectors_and_derived(m,:), fcall, quit, .true.)
           if (run_params%DE%jDE) then
              Fnew = init_FjDE(run_params,1)
              Crnew = init_CrjDE(run_params,1)
@@ -306,7 +307,7 @@ contains
           newvector = Xnew%vectors(m,:)
        end if
 
-       if (verbose) write (*,*) '    Replacement vector:', n, roundvector(Xnew%vectors(m, :), run_params), '->', Xnew%values(m)
+       if (verbose) write (*,*) '    Replacement vector:', n, Xnew%vectors_and_derived(m,:), '->', Xnew%values(m)
 
     end if
 
