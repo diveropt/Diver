@@ -14,7 +14,7 @@ implicit none
  real(dp), parameter, dimension(param_dim) :: lowerbounds=-50.	!boundaries of parameter space
  real(dp), parameter, dimension(param_dim) :: upperbounds=50.
  real(dp), parameter, dimension(param_dim) :: ranges = upperbounds - lowerbounds
- real(dp), parameter :: dPrior = product(ranges)
+ real(dp), parameter :: dPrior = ranges(1)*ranges(2) !Cannot use 'product' in init statement unless compiler is fully F2003 compliant
 
 contains
 
