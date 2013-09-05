@@ -1,24 +1,62 @@
 module mutation 
 
 use detypes
+use deutils
 
 implicit none
 
 private
-public mutate, init_FjDE
+public getSubpopulation, mutate, init_FjDE
 
 real(dp), parameter :: tau=0.1, Fl=0.1, Fu=0.9 !jDE control parameters as in Brest et al 2006
 
 contains
 
-  subroutine mutate(X, V, n, run_params, trialF) 
-    type(population), intent(in) :: X                      !current generation of target vectors
+
+  !Determine the subpopulation of points that have the same partitioned discrete parameters
+  subroutine getSubpopulation(X, Xsub, n, nsub, run_params)
+    type(population), intent(in) :: X
+    type(population), intent(inout) :: Xsub                      
     type(codeparams), intent(in) :: run_params
-    real(dp), dimension(run_params%D), intent(out) :: V        !donor vector
-    integer, intent(in) :: n                               !index of current vector
+    integer, intent(in) :: n
+    integer, intent(inout) :: nsub
+    integer :: discrete_vals(run_params%D_discrete), subpopulationIndex, i, j
+    logical :: same_subpop
+
+    subpopulationIndex = 0
+    forall(j=1:run_params%D_discrete) discrete_vals(j) = nint(X%vectors(n,run_params%discrete(j)))
+
+    do i = 1, run_params%DE%NP
+       same_subpop = .true.
+       do j = 1, run_params%D_discrete
+          same_subpop = same_subpop .and. ( nint(X%vectors(i,run_params%discrete(j))) .eq. discrete_vals(j) )
+       enddo
+       if (same_subpop) then
+          subpopulationIndex = subpopulationIndex + 1
+          if (i == n) nsub = subpopulationIndex
+          Xsub%vectors(subpopulationIndex,:) = X%vectors(i,:)
+          Xsub%values(subpopulationIndex) = X%values(i)
+          if (run_params%DE%jDE) Xsub%FjDE(subpopulationIndex) = X%FjDE(i)
+       endif
+    enddo    
+
+    if (subpopulationIndex .ne. run_params%subpopNP) then
+       write(*,*) 'Apparent subpopulation size: ',subpopulationIndex
+       write(*,*) 'Expected subpopulation size: ',run_params%subpopNP
+       call quit_de('ERROR: subpopulation size does not match run_params%subpopNP!')
+    endif
+
+  end subroutine getSubpopulation
+
+
+  subroutine mutate(X, V, n, run_params, trialF) 
+    type(population), intent(in) :: X                      !valid set of target vectors
+    type(codeparams), intent(in) :: run_params
+    real(dp), dimension(run_params%D), intent(out) :: V    !donor vector
+    integer, intent(in) :: n                               !index of current vector in X
     real(dp), intent(out) :: trialF
 
-    if(run_params%DE%jDE) then
+    if (run_params%DE%jDE) then
        trialF = newF(X, n)
        V = jDEmutation(X, n, run_params, trialF)
     else
@@ -53,7 +91,7 @@ contains
        ri = n                                !use current target vector for mutation (for lambda=1, don't need unique ri)
     else                                     !for rand/ or rand-to-best/
        do                                    !choose random ri not equal to n or rbest (if lambda>0)
-          call random_int(ri, 1, run_params%DE%NP)
+          call random_int(ri, 1, run_params%subpopNP)
           if ( any( (/n, rbest(1)/) .eq. ri) ) then 
              cycle                           !ri not unique, keep trying
           else
@@ -65,7 +103,7 @@ contains
     !assign unique r(q)'s from population
     do q=1, 2*run_params%DE%Fsize
        do
-          call random_int(r(q), 1, run_params%DE%NP)
+          call random_int(r(q), 1, run_params%subpopNP)
           if ( any( (/r(1:q-1), n, ri, rbest(1)/) .eq. r(q)) ) then
              cycle                           !continue picking new r(q)'s until unique
           else   
@@ -97,15 +135,15 @@ contains
 
     !set each D-dimensional donor vector in V by picking 3 separate random vectors from X
     do
-       call random_int(r1, 1, run_params%DE%NP)     !pick 1st vector from population; must not equal n
+       call random_int(r1, 1, run_params%subpopNP)     !pick 1st vector from population; must not equal n
        if (r1 .ne. n) exit
     end do
     do                                              !pick 2nd vector; ensure vectors are distinct
-       call random_int(r2, 1, run_params%DE%NP) 
+       call random_int(r2, 1, run_params%subpopNP) 
        if ( all(r2 .ne. [n, r1]) ) exit
     end do
     do                                              !pick 3rd vector; ensure vectors are distinct
-       call random_int(r3, 1, run_params%DE%NP) 
+       call random_int(r3, 1, run_params%subpopNP) 
        if ( all(r3 .ne. [n, r1, r2]) ) exit
     end do
     !V = Xr1 + F*(Xr2 - Xr3)
@@ -130,6 +168,7 @@ contains
 
   end function newF
 
+
   function init_FjDE(run_params,  size)
     type(codeparams), intent(in) ::run_params
     integer, intent(in) :: size
@@ -142,8 +181,6 @@ contains
     init_FjDE =  Fl + rand*Fu
 
   end function init_FjDE
-
-
 
 
   subroutine random_int(harvest, min, max) !choose a random integer between min and max, inclusive

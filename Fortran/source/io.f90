@@ -131,7 +131,8 @@ subroutine save_run_params(path, run_params)
   if (run_params%D_discrete .ne. 0) then
     write(formatstring,'(A1,I4,A3)') '(',run_params%D_discrete,'I6)'
     write(rparamlun,formatstring) run_params%discrete			 	!discrete dimensions
-  endif 
+    write(rparamlun,'(L1)') 	run_params%partitionDiscrete                    !split the population evenly amongst discrete parameters and evolve separately
+  endif
   write(rparamlun,'(2I6)') 	run_params%numciv, run_params%numgen		!maximum number of civilizations, generations
   write(rparamlun,'(E20.9)') 	run_params%tol					!tolerance in log-evidence
   write(rparamlun,'(E20.9)') 	run_params%maxNodePop				!maximum population to allow in a cell before partitioning it
@@ -219,6 +220,7 @@ subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, f
      allocate(run_params%discrete(run_params%D_discrete))
      write(formatstring,'(A1,I4,A6)') '(',run_params%D_discrete,'I6)'
      read(rparamlun,formatstring) run_params%discrete		 		!discrete dimensions in parameter sapce
+     read(rparamlun,'(L1)') 	run_params%partitionDiscrete                    !split the population evenly amongst discrete parameters and evolve separately
   else
      allocate(run_params%discrete(0))
   endif

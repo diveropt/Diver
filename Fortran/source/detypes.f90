@@ -3,12 +3,12 @@ module detypes
 
 implicit none
 
-logical, parameter :: verbose = .true.                  !print verbose output
+logical :: verbose = .false.		                !print verbose output
 
 integer, parameter, public :: dp = kind(1.0d0)          !definition of 'double precision' used throughout
 !integer, parameter, public :: dp = kind(1.0)
 type deparams                 				!differential evolution parameters 
-                                                        ! (remember to expand io::save_state and io::resume if you expand this type)
+                                                        ! (remember to expand io::save_run_params and io::read_state if you expand this type)
    integer NP                 				!population size
    real(dp), allocatable, dimension(:) ::  F 		!mutation scale factors
    integer Fsize                                        !number of entries in F
@@ -21,12 +21,15 @@ type deparams                 				!differential evolution parameters
    logical removeDuplicates                             !when true, weeds out duplicate vectors within a generation
 end type deparams
 
-type codeparams                 			!code parameters (remember to expand io::save_state and io::resume if you expand this type)
+type codeparams                 			!code parameters (remember to expand io::save_run_params and io::read_state if you expand this type)
    type (deparams) DE					!differential evolution parameters
    real(dp), allocatable, dimension(:) :: lowerbounds	!lower bounds on parameter space
    real(dp), allocatable, dimension(:) :: upperbounds	!upper bounds on parameter space
    integer :: D, D_derived, D_discrete			!dimension of parameter space; dimension of derived space, dimension of discrete parameter space
    integer, allocatable, dimension(:) :: discrete       !lists the discrete dimensions of parameter space (size D_discrete)
+   logical :: partitionDiscrete                         !split the population evenly amongst discrete parameters and evolve separately
+   integer, allocatable, dimension(:) :: repeat_scales  !population scale on which partitioned parameters repeat when partitionDiscrete = true 
+   integer :: subpopNP					!subpopulation in each partition of the population when partitionDiscrete = true
    integer :: numciv, numgen				!maximum number of civilizations, generations
    real(dp) :: tol					!tolerance in log-evidence
    real(dp) :: maxNodePop                               !maximum population to allow in a cell before partitioning it

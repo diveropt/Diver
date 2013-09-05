@@ -272,8 +272,8 @@ contains
     integer :: m, root
     real(dp), dimension(run_params%D) :: newvector               !alias for Xnew(m,:) for sharing between processes 
     real(dp), dimension(1) :: Fnew, Crnew
-    logical :: validvector
-    integer :: ierror, mpi_dp
+    real(dp) :: rand
+    integer :: ierror, mpi_dp, i
 
 
     m = n - run_params%mpipopchunk*run_params%mpirank            !index of vector in Xnew (equal to n if no MPI)
@@ -294,8 +294,12 @@ contains
           end if
 
        else                                                      !randomly generate a new vector
-          call random_number(Xnew%vectors(m,:))
-          Xnew%vectors(m,:) = Xnew%vectors(m,:)*(run_params%upperbounds - run_params%lowerbounds) + run_params%lowerbounds
+          do i = 1, run_params%D
+             !Keep the old values for partitioned discrete parameters
+             if (run_params%partitionDiscrete .and. any(run_params%discrete .eq. i)) exit
+             call random_number(rand)
+             Xnew%vectors(m,i) = rand*(run_params%upperbounds(i) - run_params%lowerbounds(i)) + run_params%lowerbounds(i)
+          enddo
           Xnew%vectors_and_derived(m,:run_params%D) = roundvector(Xnew%vectors(m,:), run_params)
           Xnew%values(m) = func(Xnew%vectors_and_derived(m,:), fcall, quit, .true.)
           if (run_params%DE%jDE) then

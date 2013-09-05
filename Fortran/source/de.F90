@@ -1,6 +1,7 @@
 module de
 
 use detypes
+use deutils
 use init
 use io
 use converge
@@ -23,14 +24,15 @@ contains
 
 
   !Main differential evolution routine.  
-  subroutine run_de(func, prior, lowerbounds, upperbounds, path, nDerived, discrete, maxciv, maxgen, NP, F, Cr, lambda, current, &
-                    expon, bndry, jDE, removeDuplicates, doBayesian, maxNodePop, Ztolerance, savecount, resume)
+  subroutine run_de(func, prior, lowerbounds, upperbounds, path, nDerived, discrete, partitionDiscrete, maxciv, maxgen, NP, F, Cr, &
+                    lambda, current, expon, bndry, jDE, removeDuplicates, doBayesian, maxNodePop, Ztolerance, savecount, resume)
 
     real(dp), external :: func, prior 				!function to be minimized (assumed -ln[likelihood]), prior function
     real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds !boundaries of parameter space
     character(len=*), intent(in)   :: path			!path to save samples, resume files, etc  
     integer, intent(in), optional  :: nDerived	 		!input number of derived quantities to output
     integer, dimension(:), intent(in), optional :: discrete     !a vector listing all discrete dimensions of parameter space
+    logical, intent(in), optional  :: partitionDiscrete         !split the population evenly amongst discrete parameters and evolve separately
     integer, intent(in), optional  :: maxciv 			!maximum number of civilisations
     integer, intent(in), optional  :: maxgen 			!maximum number of generations per civilisation
     integer, intent(in), optional  :: NP 			!population size (individuals per generation)
@@ -51,14 +53,14 @@ contains
     type(codeparams) :: run_params                              !carries the code parameters 
 
     type(population), target :: X, BF                           !population of target vectors, best-fit vector
-    type(population) :: Xnew                                    !population for the next generation
+    type(population) :: Xnew, Xsub                              !population for the next generation, partitioned subpopulation
     real(dp), dimension(size(lowerbounds)) :: V, U              !donor, trial vectors
     real(dp) :: trialF, trialCr                                 !adaptive F and Cr for jDE
 
     integer :: fcall=0, accept=0                                !fcall counts function calls, accept counts acceptance rate
     integer :: totfcall = 0, totaccept = 0                      !for function calls & acceptance rates for all processes
     integer :: civ, gen, m                                      !civ, gen, n for iterating civilisation, generation, population loops
-    integer :: n                                                !current member of population being evolved (same as m unless using MPI)
+    integer :: n, nsub                                          !current member of population being evolved (same as m unless using MPI), subpop version
     integer :: civstart=1, genstart=1                           !starting values of civ, gen
 
     real(dp), dimension(size(lowerbounds)) :: bestvector        !for calculating final best fit
@@ -82,18 +84,20 @@ contains
 #endif
 
     !Assign specified or default values to run_params and print out information to the screen
-    call param_assign(run_params, lowerbounds, upperbounds, nDerived=nDerived, discrete=discrete, maxciv=maxciv, maxgen=maxgen, &
-                      NP=NP, F=F, Cr=Cr, lambda=lambda, current=current, expon=expon, bndry=bndry, jDE=jDE, & 
-                      removeDuplicates=removeDuplicates, doBayesian=doBayesian, maxNodePop=maxNodePop, Ztolerance=Ztolerance, &
+    call param_assign(run_params, lowerbounds, upperbounds, nDerived=nDerived, discrete=discrete, partitionDiscrete=partitionDiscrete, &
+                      maxciv=maxciv, maxgen=maxgen, NP=NP, F=F, Cr=Cr, lambda=lambda, current=current, expon=expon, bndry=bndry, & 
+                      jDE=jDE, removeDuplicates=removeDuplicates, doBayesian=doBayesian, maxNodePop=maxNodePop, Ztolerance=Ztolerance, &
                       savecount=savecount)
 
     !seed the random number generator(s) from the system clock
     call init_all_random_seeds(run_params%DE%NP/run_params%mpipopchunk, run_params%mpirank)
 
     !Allocate vector population: X is the full population, Xnew is the size of the population each process handles
+    !Xsub is a subset of the population that has the same values of discrete parameters when partitionDiscrete is used.
     allocate(X%vectors(run_params%DE%NP, run_params%D))
     allocate(X%vectors_and_derived(run_params%DE%NP, run_params%D+run_params%D_derived))
     allocate(X%values(run_params%DE%NP), X%weights(run_params%DE%NP), X%multiplicities(run_params%DE%NP))
+    allocate(Xsub%vectors(run_params%subpopNP, run_params%D), Xsub%values(run_params%subpopNP))
     allocate(Xnew%vectors(run_params%mpipopchunk, run_params%D))
     allocate(Xnew%vectors_and_derived(run_params%mpipopchunk, run_params%D+run_params%D_derived))
     allocate(Xnew%values(run_params%mpipopchunk))
@@ -102,6 +106,7 @@ contains
     if (run_params%DE%jDE) then
        allocate(X%FjDE(run_params%DE%NP))
        allocate(X%CrjDE(run_params%DE%NP))
+       allocate(Xsub%FjDE(run_params%subpopNP))
        allocate(Xnew%FjDE(run_params%mpipopchunk))
        allocate(Xnew%CrjDE(run_params%mpipopchunk))
     endif
@@ -164,12 +169,16 @@ contains
 
                 n = run_params%mpipopchunk*run_params%mpirank + m          !current member of the population (same as m if no MPI)
 
-                call mutate(X, V, n, run_params, trialF)                   !create new donor vector V
-                call gencrossover(X, V, U, n, run_params, trialCr)         !trial vectors
-                
-                !choose next generation of target vectors
-                call selector(X, Xnew, U, trialF, trialCr, m, n, run_params, fcall, func, quit, accept)
+                if (run_params%partitionDiscrete) then
+                   call getSubpopulation(X, Xsub, n, nsub, run_params)     !restrict donor pool to this member's subpopulation
+                   call mutate(Xsub, V, nsub, run_params, trialF)          !create new donor vector V
+                else
+                   call mutate(X, V, n, run_params, trialF)                !create new donor vector V
+                endif
                
+                call gencrossover(X, V, U, n, run_params, trialCr)         !trial vectors               
+                call selector(X, Xnew, U, trialF, trialCr, m, n, run_params, fcall, func, quit, accept) !choose next generation
+
                 if (verbose) then
                    if (run_params%DE%jDE) then 
                       write (*,*) n, Xnew%vectors_and_derived(m, :), '->', Xnew%values(m), '|', Xnew%FjDE(m), Xnew%CrjDE(m)
@@ -278,13 +287,16 @@ contains
     end if
 
     deallocate(X%vectors, X%values, X%weights, X%vectors_and_derived, X%multiplicities)
+    deallocate(Xsub%vectors, Xsub%values)
     deallocate(Xnew%vectors, Xnew%values)
     if (allocated(X%FjDE)) deallocate(X%FjDE)
     if (allocated(X%CrjDE)) deallocate(X%CrjDE)
+    if (allocated(Xsub%FjDE)) deallocate(Xsub%FjDE)
     if (allocated(Xnew%FjDE)) deallocate(Xnew%FjDE)
     if (allocated(Xnew%CrjDE)) deallocate(Xnew%CrjDE)
     if (allocated(run_params%DE%F)) deallocate(run_params%DE%F)
     if (allocated(run_params%discrete)) deallocate(run_params%discrete)
+    if (allocated(run_params%repeat_scales)) deallocate(run_params%repeat_scales)
     deallocate(BF%vectors, BF%values, BF%vectors_and_derived)
     if (run_params%calcZ) call clearTree
 

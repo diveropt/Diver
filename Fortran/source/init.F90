@@ -1,6 +1,7 @@
 module init
 
 use detypes
+use deutils
 use mutation, only: init_FjDE    !initializes scale factors for jDE
 use crossover, only: init_CrjDE  !initializes crossovers for jDE
 use selection, only: roundvector, replace_generation
@@ -12,37 +13,41 @@ implicit none
 #endif
 
 private
-public param_assign, initialize, quit_de, int_to_string, init_all_random_seeds
+public param_assign, initialize, init_all_random_seeds
 
 contains 
 
   !Assign parameter values (defaults if not specified) to run_params and print DE parameter values to screen
 
-  subroutine param_assign(run_params, lowerbounds, upperbounds, nDerived, discrete, maxciv, maxgen, NP, F, Cr, lambda, &
+  subroutine param_assign(run_params, lowerbounds, upperbounds, nDerived, discrete, partitionDiscrete, maxciv, maxgen, NP, F, Cr, lambda, &
                           current, expon, bndry, jDE, removeDuplicates, doBayesian, maxNodePop, Ztolerance, savecount)
 
     type(codeparams), intent(out) :: run_params 
     real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space 
-    integer, intent(in), optional :: nDerived	 		!input number of derived quantities to output
+    integer, intent(in), optional  :: nDerived	 		!input number of derived quantities to output
     integer, dimension(:), intent(in), optional :: discrete     !lists all discrete dimensions of parameter space
-    integer, intent(in), optional :: maxciv 			!maximum number of civilisations
-    integer, intent(in), optional :: maxgen 			!maximum number of generations per civilisation
-    integer, intent(in), optional :: NP 			!population size (individuals per generation)
+    logical, intent(in), optional  :: partitionDiscrete         !split the population evenly amongst discrete parameters and evolve separately
+    integer, intent(in), optional  :: maxciv 			!maximum number of civilisations
+    integer, intent(in), optional  :: maxgen 			!maximum number of generations per civilisation
+    integer, intent(in), optional  :: NP 			!population size (individuals per generation)
     real(dp), dimension(:), intent(in), optional :: F		!scale factor(s).  Note that this must be entered as an array.
     real(dp), intent(in), optional :: Cr 			!crossover factor
     real(dp), intent(in), optional :: lambda 			!mixing factor between best and rand/current
-    logical, intent(in), optional :: current 			!use current vector for mutation
-    logical, intent(in), optional :: expon 			!use exponential crossover
-    integer, intent(in), optional :: bndry                      !boundary constraint: 1 -> brick wall, 2 -> random re-initialization, 3 -> reflection
-    logical, intent(in), optional :: jDE                        !use self-adaptive DE 
-    logical, intent(in), optional :: removeDuplicates           !weed out duplicate vectors within a single generation
+    logical, intent(in), optional  :: current 			!use current vector for mutation
+    logical, intent(in), optional  :: expon 			!use exponential crossover
+    integer, intent(in), optional  :: bndry                     !boundary constraint: 1 -> brick wall, 2 -> random re-initialization, 3 -> reflection
+    logical, intent(in), optional  :: jDE                       !use self-adaptive DE 
+    logical, intent(in), optional  :: removeDuplicates          !weed out duplicate vectors within a single generation
     logical, intent(in), optional  :: doBayesian                !calculate log evidence and posterior weightings
-    real(dp), intent(in), optional  :: maxNodePop               !population at which node is partitioned in binary space partitioning for posterior
+    real(dp), intent(in), optional :: maxNodePop                !population at which node is partitioned in binary space partitioning for posterior
     real(dp), intent(in), optional :: Ztolerance		!input tolerance in log-evidence
-    integer, intent(in), optional :: savecount			!save progress every savecount generations
+    integer, intent(in), optional  :: savecount			!save progress every savecount generations
 
     integer :: mpiprocs, mpirank, ierror                        !number of processes running, rank of current process, error code
     character (len=30) :: DEstrategy                    	!for printing mutation/crossover DE strategy
+
+    integer, allocatable :: num_discrete_vals(:)
+    integer :: i, discrete_index
 
 #ifdef USEMPI
     call MPI_Comm_size(MPI_COMM_WORLD, mpiprocs, ierror)  !gives the total num of processes. If no MPI, set to 1.
@@ -75,19 +80,6 @@ contains
       call setIfPositive_int(nDerived, run_params%D_derived, 'nDerived') !FIXME: this prevents setting nDerived=0
     else
        run_params%D_derived = 0					!default is no derived quantities
-    end if
-
-    if (present(discrete)) then
-       if (any(discrete .gt. run_params%D) .or. any(discrete .lt. 1)) then     
-          call quit_de('ERROR: Discrete dimensions specified must not be < 1 or > '//trim(int_to_string(run_params%D)))
-       end if
-       !also check that discrete dimensions are not doubly-specified? Doesn't seem to crash...
-       run_params%D_discrete = size(discrete)
-       allocate(run_params%discrete(run_params%D_discrete))
-       run_params%discrete = discrete
-    else
-       run_params%D_discrete = 0
-       allocate(run_params%discrete(0))
     end if
 
     if (present(maxciv)) then
@@ -280,6 +272,57 @@ contains
        end if
     endif jDEset
 
+    if (present(discrete)) then
+       if (any(discrete .gt. run_params%D) .or. any(discrete .lt. 1)) then     
+          call quit_de('ERROR: Discrete dimensions specified must not be < 1 or > '//trim(int_to_string(run_params%D)))
+       end if     
+       run_params%D_discrete = size(discrete)
+       !Also check that discrete dimensions are not doubly-specified (will crash the partioned case if so, just sloppy otherwise.)
+       do i = 1, run_params%D_discrete
+          if (count(discrete .eq. discrete(i)) .ne. 1) then
+             call quit_de('ERROR: Discrete dimension '//trim(int_to_string(discrete(i)))//'listed multiple times in call to run_de.')
+          endif
+       enddo
+       allocate(run_params%discrete(run_params%D_discrete))
+       run_params%discrete = discrete
+    else
+       run_params%D_discrete = 0
+       allocate(run_params%discrete(0))
+    end if
+
+    if (present(partitionDiscrete)) then
+       run_params%partitionDiscrete = partitionDiscrete
+       if (partitionDiscrete) then
+          if (run_params%D_discrete .eq. 0) then
+             write(*,*) 'WARNING: keyword partitionDiscrete ignored because no discrete parameters were indicated.'
+             run_params%partitionDiscrete = .false.
+          else
+             !Determine on a scale of how many individuals each discrete parameter should repeat
+             allocate(run_params%repeat_scales(run_params%D_discrete), num_discrete_vals(run_params%D_discrete))
+             do i = 1, run_params%D_discrete
+                num_discrete_vals(i) = nint(run_params%upperbounds(run_params%discrete(i)) - &
+                                            run_params%lowerbounds(run_params%discrete(i)) + 1 )
+                run_params%repeat_scales(i) = run_params%DE%NP
+                discrete_index = i
+                do while (discrete_index .ne. 1)
+                   discrete_index = discrete_index - 1
+                   run_params%repeat_scales(i) = nint( dble(run_params%repeat_scales(i)) / dble(num_discrete_vals(discrete_index)) )
+                enddo
+             enddo
+             if ( mod(run_params%DE%NP, product(num_discrete_vals)) .ne. 0) then
+                call quit_de('ERROR: partitionDiscrete = true requires that NP must divide up evenly into    the implied number of sub-populations.')
+             else
+                !Work out how many individuals should be in each discrete partition of the population (ie each subpopulation)
+                run_params%subpopNP = run_params%DE%NP / product(num_discrete_vals)
+             endif
+             deallocate(num_discrete_vals)
+          endif
+       endif
+    else
+      run_params%partitionDiscrete = .false.
+      run_params%subpopNP = run_params%DE%NP
+    endif
+
     !split up work over multiple processes for MPI (if no mpi, single process does all the work)
     run_params%mpipopchunk = run_params%DE%NP/mpiprocs
 
@@ -353,7 +396,7 @@ contains
     integer, intent(inout) :: fcall
     logical, intent(inout) :: quit
     real(dp), external :: func
-    integer :: n, m, accept=0
+    integer :: n, m, i, discrete_index, accept=0
 
     X%multiplicities = 1.0_dp !Initialise to 1 in case posteriors are not calculated
 
@@ -365,11 +408,36 @@ contains
     !loop over the vectors belonging to each population chunk
        do m=1,run_params%mpipopchunk
 
-          n = run_params%mpipopchunk*run_params%mpirank + m !true population index (equal to m if no mpi)
+          if (verbose .or. run_params%partitionDiscrete) then 
+             n = run_params%mpipopchunk*run_params%mpirank + m !true population index (equal to m if no mpi)
+          endif
 
           call random_number(Xnew%vectors(m,:))
 
-          Xnew%vectors(m,:) = Xnew%vectors(m,:)*(run_params%upperbounds - run_params%lowerbounds) + run_params%lowerbounds
+          do i = 1, run_params%D
+
+             if (run_params%partitionDiscrete .and. any(run_params%discrete .eq. i)) then
+                !This is a discrete parameter that needs to be partitioned, and therefore set rather than chosen randomly
+
+                !Determine the index of the discrete parameter (first discrete param, second, etc)
+                do discrete_index = 1, run_params%D_discrete
+                   if (run_params%discrete(discrete_index) .eq. i) exit
+                enddo
+
+                !Set the value of this index for this individual
+                Xnew%vectors(m,i) = anint( dble(mod(n-1,run_params%repeat_scales(discrete_index))) / &
+                                           dble(run_params%repeat_scales(discrete_index)) * &
+                                           (run_params%upperbounds(i) - run_params%lowerbounds(i) + 1) &
+                                           + run_params%lowerbounds(i) - 0.5_dp + 100._dp*epsilon(0.5_dp) ) 
+
+             else
+                !This is a normal parameter that needs to be chosen randomly
+                Xnew%vectors(m,i) = Xnew%vectors(m,i)*(run_params%upperbounds(i) - run_params%lowerbounds(i)) + run_params%lowerbounds(i)
+
+             endif
+
+          enddo
+
           Xnew%vectors_and_derived(m,:run_params%D) = roundvector(Xnew%vectors(m,:), run_params)
           Xnew%values(m) = func(Xnew%vectors_and_derived(m,:), fcall, quit, .true.)
 
@@ -380,6 +448,7 @@ contains
                 write (*,*) n, Xnew%vectors_and_derived(m,:), '->', Xnew%values(m)
              end if
           end if
+
        end do
 
        call replace_generation(X, Xnew, run_params, func, fcall, quit, accept, init=.true.)
@@ -392,7 +461,7 @@ contains
   subroutine init_all_random_seeds(nprocs, mpirank)
     integer, intent(in) :: nprocs         !number of processes that need seeds
     integer, intent(in) :: mpirank 
-    integer :: i, j, n, clock, ierror
+    integer :: i, n, clock, ierror
     real, dimension(:), allocatable :: rand
     integer, dimension(:,:), allocatable :: allseeds
     integer, dimension(:), allocatable :: seed
@@ -446,33 +515,6 @@ contains
           
     DEALLOCATE(seed)
   END SUBROUTINE
-
-
-
-  function int_to_string(int)
-    integer, intent(in) :: int
-    character (len=30) :: string, int_to_string
-
-    write (string, *) int
-    string = adjustl(string)
-    string = trim(string)
-
-    int_to_string = string
-
-  end function int_to_string
-
-
-  subroutine quit_de(error_message)
-    character(LEN=*), intent(in), optional :: error_message
-    integer ierror
-
-    if (present(error_message)) write (*,*) error_message
-#ifdef USEMPI
-    call MPI_Finalize(ierror)
-#endif
-    stop
-
-  end subroutine quit_de
 
 
 end module init

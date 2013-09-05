@@ -5,16 +5,15 @@ use detypes
 
 implicit none
 
- integer, parameter :: param_dim = 2 !dimensions of parameter space
+ integer, parameter :: param_dim = 5 !dimensions of parameter space
 
  integer, parameter :: NP=10, numgen=15, numciv=1, nDerived=2
  character (len=300) :: path='example_output/example'
  real(dp), parameter ::  Cr=0.9, tol = 1e-3, lambda=0.8		!0<=Cr<=1, 0<=lambda<=1
  real(dp), parameter, dimension(1) :: F=0.6			!recommend 0<F<1
- real(dp), parameter, dimension(param_dim) :: lowerbounds=-50.	!boundaries of parameter space
- real(dp), parameter, dimension(param_dim) :: upperbounds=50.
+ real(dp), parameter, dimension(param_dim) :: lowerbounds=(/-5.,-50.,1.,-50.,-1./)	!boundaries of parameter space
+ real(dp), parameter, dimension(param_dim) :: upperbounds=(/-1.,50.,5.,50.,2./)
  real(dp), parameter, dimension(param_dim) :: ranges = upperbounds - lowerbounds
- real(dp), parameter :: dPrior = ranges(1)*ranges(2) !Cannot use 'product' in init statement unless compiler is fully F2003 compliant
 
 contains
 
@@ -103,6 +102,30 @@ real(dp) function gauss(params, fcall, quit, validvector)
 
 end function gauss
 
+
+!valid for any number of dimensions, but with some (hard-coded) number discrete indices
+real(dp) function manygauss(params, fcall, quit, validvector)
+  real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
+  integer, intent(inout) :: fcall
+  logical, intent(out) :: quit
+  logical, intent(in) :: validvector
+  integer, parameter, dimension(3) :: discrete = (/1,3,5/)
+  integer :: i
+
+  fcall = fcall + 1
+  quit = .false.
+
+  manygauss = 0.0_dp
+  do i = 1, size(lowerbounds)
+    if (.not. any(discrete .eq. i)) manygauss = manygauss + params(i)*params(i)
+  enddo
+
+  if (.not. validvector) manygauss = huge(1.0_dp)
+
+  !derived quantities
+  !params(size(lowerbounds)+1:) = [2.0_dp*params(1),params(1)+params(2)]
+
+end function manygauss
 
 
 real(dp) function spikygauss(params, fcall, quit, validvector)
@@ -202,7 +225,7 @@ end function eggcarton
 real(dp) function flatprior(X)
 
   real(dp), dimension(size(lowerbounds)), intent(in) :: X
-  flatprior = 1.0_dp / dPrior
+  flatprior = 1.0_dp / product(ranges)
 
 end function flatprior
 
@@ -216,7 +239,7 @@ program dedriver
 
   implicit none
 
-  call run_de(gauss, flatprior, lowerbounds, upperbounds, path, doBayesian=.false., discrete=(/1/), &
-       resume=.false., Ztolerance=0.1_dp, removeDuplicates=.true., lambda=1.0_dp, maxciv=1)
+  call run_de(manygauss, flatprior, lowerbounds, upperbounds, path, doBayesian=.false., discrete=(/1,3,5/), &
+       partitionDiscrete=.true., resume=.false., Ztolerance=0.1_dp, removeDuplicates=.true., lambda=1.0_dp, maxciv=1, NP=1000)
 
 end program dedriver
