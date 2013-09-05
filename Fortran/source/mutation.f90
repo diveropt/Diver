@@ -72,7 +72,7 @@ contains
     type(population), intent(in) :: X                !current generation of target vectors
     integer, intent(in) :: n                         !index of current vector
     type(codeparams), intent(in) :: run_params
-    real(dp), dimension(run_params%D) :: genmutation     !donor vector
+    real(dp), dimension(run_params%D) :: genmutation !donor vector
     integer, dimension(2*run_params%DE%Fsize) :: r   !index of random vectors X_J, X_K
     integer ri                                       !index of (random or current) vector X_I
     integer,  dimension(1) :: rbest                  !index of best vector (array to make minloc() happy)
@@ -135,16 +135,16 @@ contains
 
     !set each D-dimensional donor vector in V by picking 3 separate random vectors from X
     do
-       call random_int(r1, 1, run_params%subpopNP)     !pick 1st vector from population; must not equal n
+       call random_int(r1, 1, run_params%subpopNP)  !pick 1st vector from population; must not equal n
        if (r1 .ne. n) exit
     end do
     do                                              !pick 2nd vector; ensure vectors are distinct
        call random_int(r2, 1, run_params%subpopNP) 
-       if ( all(r2 .ne. [n, r1]) ) exit
+       if ( all(r2 .ne. (/n, r1/)) ) exit
     end do
     do                                              !pick 3rd vector; ensure vectors are distinct
        call random_int(r3, 1, run_params%subpopNP) 
-       if ( all(r3 .ne. [n, r1, r2]) ) exit
+       if ( all(r3 .ne. (/n, r1, r2/)) ) exit
     end do
     !V = Xr1 + F*(Xr2 - Xr3)
     jDEmutation = X%vectors(r1, :) + trialF*(X%vectors(r2,:) - X%vectors(r3,:))
@@ -174,8 +174,6 @@ contains
     integer, intent(in) :: size
     real(dp), dimension(size) :: init_FjDE
     real(dp), dimension(size) :: rand
-!    real(dp), dimension(run_params%mpipopchunk) :: init_FjDE
-!    real(dp), dimension(run_params%mpipopchunk) :: rand
     
     call random_number(rand)
     init_FjDE =  Fl + rand*Fu

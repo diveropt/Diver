@@ -210,10 +210,13 @@ real(dp) function eggcarton(params, fcall, quit, validvector)
   quit = .false.
 
   !slight dip at center. Needs smaller Ztolerance, tolerance in convergence (long run) or gets stuck in local minima
-  eggcarton =  0.001*(params(1)**2 + params(2)**2) - cos(params(1))*cos(params(2)) + 1
+  !eggcarton =  0.001*(params(1)**2 + params(2)**2) - cos(params(1))*cos(params(2)) + 1
+
+  !as used in MultiNest (-ln of formula given in paper). Parameter space should range from 0 to 10 pi
+  eggcarton = -(2 + cos(0.5*params(1))*cos(0.5*params(2)))**5
 
   !flat. Set bndry=3 (reflective) to better explore edges
-!  eggcarton = cos(params(1))*cos(params(2))
+  !eggcarton = cos(params(1))*cos(params(2))
 
 end function eggcarton
 

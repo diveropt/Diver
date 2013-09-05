@@ -1,9 +1,11 @@
 module deutils
 
+use detypes
+
 implicit none
 
 private
-public int_to_string, quit_de
+public int_to_string, quit_de, roundvector
 
 contains
 
@@ -31,6 +33,19 @@ contains
     stop
 
   end subroutine quit_de
+
+
+  !rounds vectors to nearest discrete values for all dimensions listed in run_params%discrete
+  !all other dimensions are kept the same
+  function roundvector(trialvector, run_params)
+    real(dp), dimension(:), intent(in) :: trialvector
+    type(codeparams), intent(in) :: run_params
+    real(dp), dimension(run_params%D) :: roundvector
+
+    roundvector = trialvector
+    roundvector(run_params%discrete) = anint(roundvector(run_params%discrete))
+
+  end function roundvector
 
 
 end module deutils
