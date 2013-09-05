@@ -129,9 +129,13 @@ subroutine save_run_params(path, run_params)
   write(rparamlun,'(2I6)') 	run_params%D, run_params%D_derived		!dim of parameter space (known from the bounds given); dim of derived space
   write(rparamlun,'(I6)')	run_params%D_discrete                           !dimenension of discrete parameter space
   if (run_params%D_discrete .ne. 0) then
-    write(formatstring,'(A1,I4,A3)') '(',run_params%D_discrete,'I6)'
-    write(rparamlun,formatstring) run_params%discrete			 	!discrete dimensions
-    write(rparamlun,'(L1)') 	run_params%partitionDiscrete                    !split the population evenly amongst discrete parameters and evolve separately
+     write(formatstring,'(A1,I4,A3)') '(',run_params%D_discrete,'I6)'
+     write(rparamlun,formatstring) run_params%discrete			 	!discrete dimensions
+     write(rparamlun,'(L1)') 	run_params%partitionDiscrete                    !split the population amongst discrete parameters and evolve separately
+     if (run_params%partitionDiscrete) then
+        write(rparamlun,formatstring) run_params%repeat_scales                    !scales on which partitioned parameters repeat 
+        write(rparamlun,'(I6)')	run_params%subpopNP                             !subpopulation NP for partitioned parameters
+     endif
   endif
   write(rparamlun,'(2I6)') 	run_params%numciv, run_params%numgen		!maximum number of civilizations, generations
   write(rparamlun,'(E20.9)') 	run_params%tol					!tolerance in log-evidence
@@ -220,7 +224,11 @@ subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, f
      allocate(run_params%discrete(run_params%D_discrete))
      write(formatstring,'(A1,I4,A6)') '(',run_params%D_discrete,'I6)'
      read(rparamlun,formatstring) run_params%discrete		 		!discrete dimensions in parameter sapce
-     read(rparamlun,'(L1)') 	run_params%partitionDiscrete                    !split the population evenly amongst discrete parameters and evolve separately
+     read(rparamlun,'(L1)') 	run_params%partitionDiscrete                    !split the population amongst discrete parameters and evolve separately
+     if (run_params%partitionDiscrete) then
+        read(rparamlun,formatstring) run_params%repeat_scales                   !scales on which partitioned parameters repeat 
+        read(rparamlun,'(I6)')	run_params%subpopNP                             !subpopulation NP for partitioned parameters
+    endif
   else
      allocate(run_params%discrete(0))
   endif
