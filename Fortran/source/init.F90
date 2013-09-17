@@ -317,10 +317,13 @@ contains
              endif
              deallocate(num_discrete_vals)
           endif
+       else
+          run_params%subpopNP = run_params%DE%NP
        endif
+
     else
-      run_params%partitionDiscrete = .false.
-      run_params%subpopNP = run_params%DE%NP
+       run_params%partitionDiscrete = .false.
+       run_params%subpopNP = run_params%DE%NP
     endif
 
     !split up work over multiple processes for MPI (if no mpi, single process does all the work)
