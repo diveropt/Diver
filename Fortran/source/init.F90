@@ -4,7 +4,7 @@ use detypes
 use deutils
 use mutation, only: init_FjDE    !initializes scale factors for jDE
 use crossover, only: init_CrjDE  !initializes crossovers for jDE
-use selection, only: roundvector, replace_generation
+use selection, only: replace_generation
 
 implicit none
 
@@ -19,8 +19,9 @@ contains
 
   !Assign parameter values (defaults if not specified) to run_params and print DE parameter values to screen
 
-  subroutine param_assign(run_params, lowerbounds, upperbounds, nDerived, discrete, partitionDiscrete, maxciv, maxgen, NP, F, Cr, lambda, &
-                          current, expon, bndry, jDE, removeDuplicates, doBayesian, maxNodePop, Ztolerance, savecount)
+  subroutine param_assign(run_params, lowerbounds, upperbounds, nDerived, discrete, partitionDiscrete, maxciv, maxgen, &
+                          NP, F, Cr, lambda, current, expon, bndry, jDE, removeDuplicates, doBayesian, maxNodePop, &
+                          Ztolerance, savecount)
 
     type(codeparams), intent(out) :: run_params 
     real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space 
@@ -125,7 +126,18 @@ contains
     endif
 
     if (present(bndry)) then
-       run_params%DE%bconstrain = bndry
+       if ( (bndry .ge. 0) .and. (bndry .le. 3)) then
+          run_params%DE%bconstrain = bndry
+       else
+          if (run_params%mpirank .eq. 0) then
+             write (*,*) 'Legal values for bndry (enforces boundary constraints):'
+             write (*,*) ' 0: Not enforced'
+             write (*,*) ' 1: Brick wall'
+             write (*,*) ' 2: Random re-initialization'
+             write (*,*) ' 3: Reflection'      
+          end if
+          call quit_de('ERROR: Invalid value entered for bndry.')
+       end if
     else
        run_params%DE%bconstrain = 1				!default brick wall boundary constraints
     end if
@@ -150,7 +162,7 @@ contains
              run_params%DE%NP = 4
           end if
        else
-          run_params%DE%NP = maxval( [10*run_params%D, 4] )	!conservative rule-of-thumb choice 
+          run_params%DE%NP = maxval( (/10*run_params%D, 4/) )	!conservative rule-of-thumb choice 
        end if
 
        if (mod(run_params%DE%NP, mpiprocs) .ne. 0) then         !population chunks must be equally sized
@@ -167,7 +179,7 @@ contains
           run_params%DE%removeDuplicates = .false.              !with jDE mutation, duplicates are rare (CHECK THIS)
        end if
 
-       run_params%DE%Fsize = 0
+       run_params%DE%Fsize = 1                                  !note that this now refers to size(population%FjDE)/NP, not size(run_params%DE%F)
        run_params%DE%lambda = 0.
        run_params%DE%current = .false.
        run_params%DE%expon = .false.
@@ -177,8 +189,12 @@ contains
     else                                                        !not using jDE.  Initialize for normal DE
 
        if (present(F)) then
-          if (any(F .le. 0.0_dp)) write (*,*) 'WARNING: some elements of F are 0 or negative. DE may not converge properly.'
-          if (any(F .ge. 1.0_dp)) write (*,*) 'WARNING: some elements of F are 1 or greater. DE may not converge properly.'
+          if (any(F .le. 0.0_dp)) then
+             write (*,*) 'WARNING: some elements of F are 0 or negative. DE may not converge properly.'
+          end if
+          if (any(F .ge. 1.0_dp)) then
+             write (*,*) 'WARNING: some elements of F are 1 or greater. DE may not converge properly.'
+          end if
           run_params%DE%Fsize = size(F)
           allocate(run_params%DE%F(run_params%DE%Fsize))
           run_params%DE%F = F
@@ -274,13 +290,16 @@ contains
 
     if (present(discrete)) then
        if (any(discrete .gt. run_params%D) .or. any(discrete .lt. 1)) then     
-          call quit_de('ERROR: Discrete dimensions specified must not be < 1 or > '//trim(int_to_string(run_params%D)))
+          call quit_de('ERROR: Discrete dimensions specified must not be < 1 or > '// &
+                       trim(int_to_string(run_params%D)))
        end if     
        run_params%D_discrete = size(discrete)
-       !Also check that discrete dimensions are not doubly-specified (will crash the partioned case if so, just sloppy otherwise.)
+       !Also check that discrete dimensions are not doubly-specified 
+       !(will crash the partioned case if so, just sloppy otherwise.)
        do i = 1, run_params%D_discrete
           if (count(discrete .eq. discrete(i)) .ne. 1) then
-             call quit_de('ERROR: Discrete dimension '//trim(int_to_string(discrete(i)))//'listed multiple times in call to run_de.')
+             call quit_de('ERROR: Discrete dimension '//trim(int_to_string(discrete(i)))// &
+                          'listed multiple times in call to run_de.')
           endif
        enddo
        allocate(run_params%discrete(run_params%D_discrete))
@@ -306,14 +325,34 @@ contains
                 discrete_index = i
                 do while (discrete_index .ne. 1)
                    discrete_index = discrete_index - 1
-                   run_params%repeat_scales(i) = nint( dble(run_params%repeat_scales(i)) / dble(num_discrete_vals(discrete_index)) )
+                   run_params%repeat_scales(i) = nint( dble(run_params%repeat_scales(i)) / &
+                                                 dble(num_discrete_vals(discrete_index)) )
                 enddo
              enddo
              if ( mod(run_params%DE%NP, product(num_discrete_vals)) .ne. 0) then
-                call quit_de('ERROR: partitionDiscrete = true requires that NP must divide up evenly into    the implied number of sub-populations.')
+                if (run_params%mpirank .eq. 0) then
+                   write(*,*) 'Population size (NP): '//trim(int_to_string(run_params%DE%NP))
+                   write(*,*) 'Range(s) of discrete parameter(s):', num_discrete_vals
+                   write(*,*) 'Implied number of sub-populations (product of the ranges): '// &
+                              trim(int_to_string(product(num_discrete_vals)))
+                end if
+                call quit_de('ERROR: partitionDiscrete = true requires that NP must divide up'// &
+                             ' evenly into the implied number of sub-populations.')      
              else
                 !Work out how many individuals should be in each discrete partition of the population (ie each subpopulation)
                 run_params%subpopNP = run_params%DE%NP / product(num_discrete_vals)
+                if (run_params%subpopNP .lt. (2*run_params%DE%Fsize + 2) ) then
+                   if (run_params%mpirank .eq. 0) then
+                      write(*,*) 'Population size (NP): '//trim(int_to_string(run_params%DE%NP))
+                      write(*,*) 'Implied number of sub-populations: '// &
+                           trim(int_to_string(product(num_discrete_vals)))
+                      write(*,*) 'Sub-population size: '//trim(int_to_string(run_params%subpopNP))
+                      write(*,*) 'Minimum allowed sub-population size: '//trim(int_to_string(2*run_params%DE%Fsize + 2))
+                      write(*,*) 'Please increase NP to at least '// &
+                           trim(int_to_string(product(num_discrete_vals)*(2*run_params%DE%Fsize + 2)))
+                   end if
+                   call quit_de('ERROR: NP is too small to partition into the desired number of sub-populations.')
+                end if
              endif
              deallocate(num_discrete_vals)
           endif
@@ -335,10 +374,10 @@ contains
        if (size(run_params%discrete) .gt. 0) write (*,*) 'Discrete dimensions:', run_params%discrete
        write (*,*) 'Parameters:'
        write (*,*) ' NP = ', trim(int_to_string(run_params%DE%NP))
-       if ((run_params%DE%lambda .ne. 1.0_dp) .and. (run_params%DE%lambda .ne. 0.0_dp)) then
-          write (*,'(A10, F6.4)') ' lambda = ', run_params%DE%lambda
-       endif
-       if (.not. run_params%DE%jDE) then                   
+       if (.not. run_params%DE%jDE) then      
+          if ((run_params%DE%lambda .ne. 1.0_dp) .and. (run_params%DE%lambda .ne. 0.0_dp)) then
+             write (*,'(A10, F6.4)') ' lambda = ', run_params%DE%lambda
+          endif
           write (*,'(A5, F6.4)') ' F = ', run_params%DE%F
           write (*,'(A6, F6.4)') ' Cr = ', run_params%DE%Cr 
        endif
@@ -346,14 +385,14 @@ contains
        write (*,*) 'Number of processes: ', trim(int_to_string(mpiprocs))
 
        select case (run_params%DE%bconstrain)                       !boundary constraint choice
+       case (0)
+          write (*,*) 'Boundary constraints not enforced'
        case (1) 
           write (*,*) 'Brick wall boundary constraints'
        case (2)
           write (*,*) 'Random re-initialization boundary constraints'
        case (3)
           write (*,*) 'Reflective boundary constraints'
-       case default
-          write (*,*) 'WARNING: Invalid value entered for bndry. Boundary constraints not enforced.'
        end select
     end if
 
@@ -367,7 +406,7 @@ contains
     character(LEN=*) :: string
 
     if (invar .le. 0.0_dp) then
-       call quit_de('ERROR: '//string//' cannot be negative.')
+       call quit_de('ERROR: '//string//' must be positive.')
     else
       outvar = invar
     endif
@@ -435,7 +474,8 @@ contains
 
              else
                 !This is a normal parameter that needs to be chosen randomly
-                Xnew%vectors(m,i) = Xnew%vectors(m,i)*(run_params%upperbounds(i) - run_params%lowerbounds(i)) + run_params%lowerbounds(i)
+                Xnew%vectors(m,i) = Xnew%vectors(m,i)*(run_params%upperbounds(i) - &
+                                    run_params%lowerbounds(i)) + run_params%lowerbounds(i)
 
              endif
 
