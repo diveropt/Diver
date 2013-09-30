@@ -117,10 +117,11 @@ contains
     !with MPI enabled, Xnew will only contain some elements of the new population. Create allvecs, allvals for duplicate-hunting
 #ifdef USEMPI
     !create mpi double precsision real which will be compatible with dp kind specified in detypes.f90
-    call MPI_Type_create_f90_real(precision(1.0_dp), range(1.0_dp), mpi_dp, ierror) 
+!CS changed
+!    call MPI_Type_create_f90_real(precision(1.0_dp), range(1.0_dp), mpi_double_precision, ierror) 
 
-    call MPI_Allgather(transpose(Xnew%vectors), run_params%mpipopchunk*run_params%D, mpi_dp, trallvecs, &
-                       run_params%mpipopchunk*run_params%D, mpi_dp, MPI_COMM_WORLD, ierror)
+    call MPI_Allgather(transpose(Xnew%vectors), run_params%mpipopchunk*run_params%D, mpi_double_precision, trallvecs, &
+                       run_params%mpipopchunk*run_params%D, mpi_double_precision, MPI_COMM_WORLD, ierror)
     allvecs = transpose(trallvecs) 
 
     !weed out duplicate vectors if desired
@@ -132,20 +133,20 @@ contains
     !replace old population members with those calculated in Xnew
     X%vectors = allvecs
 
-    call MPI_Allgather(Xnew%values, run_params%mpipopchunk, mpi_dp, X%values, & 
-                       run_params%mpipopchunk, mpi_dp, MPI_COMM_WORLD, ierror)
+    call MPI_Allgather(Xnew%values, run_params%mpipopchunk, mpi_double_precision, X%values, & 
+                       run_params%mpipopchunk, mpi_double_precision, MPI_COMM_WORLD, ierror)
     	
     call MPI_Allgather(transpose(Xnew%vectors_and_derived), run_params%mpipopchunk*&
-                       (run_params%D+run_params%D_derived), mpi_dp, trderived, &
+                       (run_params%D+run_params%D_derived), mpi_double_precision, trderived, &
                        run_params%mpipopchunk*(run_params%D+run_params%D_derived), &
-                       mpi_dp, MPI_COMM_WORLD, ierror)
+                       mpi_double_precision, MPI_COMM_WORLD, ierror)
     X%vectors_and_derived = transpose(trderived)
 
     if (run_params%DE%jDE) then
-       call MPI_Allgather(Xnew%FjDE, run_params%mpipopchunk, mpi_dp, X%FjDE, & 
-                          run_params%mpipopchunk, mpi_dp, MPI_COMM_WORLD, ierror)
-       call MPI_Allgather(Xnew%CrjDE, run_params%mpipopchunk, mpi_dp, X%CrjDE, & 
-                          run_params%mpipopchunk, mpi_dp, MPI_COMM_WORLD, ierror)
+       call MPI_Allgather(Xnew%FjDE, run_params%mpipopchunk, mpi_double_precision, X%FjDE, & 
+                          run_params%mpipopchunk, mpi_double_precision, MPI_COMM_WORLD, ierror)
+       call MPI_Allgather(Xnew%CrjDE, run_params%mpipopchunk, mpi_double_precision, X%CrjDE, & 
+                          run_params%mpipopchunk, mpi_double_precision, MPI_COMM_WORLD, ierror)
     end if
 #else
     allvecs = Xnew%vectors
@@ -261,7 +262,7 @@ contains
     real(dp), dimension(run_params%D) :: newvector               !alias for Xnew(m,:) for sharing between processes 
     real(dp), dimension(1) :: Fnew, Crnew
     real(dp) :: rand
-    integer :: ierror, mpi_dp, i
+    integer :: ierror, mpi_double_precision, i
 
 
     m = n - run_params%mpipopchunk*run_params%mpirank            !index of vector in Xnew (equal to n if no MPI)
@@ -310,8 +311,9 @@ contains
     else
 #ifdef USEMPI
        !root process shares newly-created vector with other processes
-       call MPI_Type_create_f90_real(precision(1.0_dp), range(1.0_dp), mpi_dp, ierror)
-       call MPI_Bcast(newvector, run_params%D, mpi_dp, root, MPI_COMM_WORLD, ierror)
+!Cs change 
+!      call MPI_Type_create_f90_real(precision(1.0_dp), range(1.0_dp), mpi_double_precision, ierror)
+       call MPI_Bcast(newvector, run_params%D, mpi_double_precision, root, MPI_COMM_WORLD, ierror)
        allvecs(n,:) = newvector
 #else
        !only one process, so just replace value in allvecs with newly-created vector
