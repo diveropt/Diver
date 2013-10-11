@@ -274,7 +274,7 @@ contains
     real(dp), dimension(run_params%D) :: newvector               !alias for Xnew(m,:) for sharing between processes 
     real(dp), dimension(1) :: Fnew, Crnew
     real(dp) :: rand
-    integer :: ierror, mpi_double_precision, i
+    integer :: ierror, mpi_dp, i
 
 
     m = n - run_params%mpipopchunk*run_params%mpirank            !index of vector in Xnew (equal to n if no MPI)
