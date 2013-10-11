@@ -112,17 +112,18 @@ contains
     real(dp), dimension(run_params%DE%NP, run_params%D) :: allvecs   !new vector population. For checking for duplicates
     real(dp), dimension(run_params%D, run_params%DE%NP) :: trallvecs !transposed allvecs, to make MPI_Allgather happy
     real(dp), dimension(run_params%D+run_params%D_derived, run_params%DE%NP) :: trderived !transposed derived
-    integer :: ierror, mpi_dp  
+    integer :: ierror 
     
     !with MPI enabled, Xnew will only contain some elements of the new population. Create allvecs, allvals for duplicate-hunting
 #ifdef USEMPI
     !create mpi double precsision real which will be compatible with dp kind specified in detypes.f90
-    !call MPI_Type_create_f90_real(precision(1.0_dp), range(1.0_dp), mpi_dp, ierror) 
 
+    !CS changed
+    !call MPI_Type_create_f90_real(precision(1.0_dp), range(1.0_dp), mpi_dp, ierror)
     !call MPI_Allgather(transpose(Xnew%vectors), run_params%mpipopchunk*run_params%D, mpi_dp, trallvecs, &
     !                   run_params%mpipopchunk*run_params%D, mpi_dp, MPI_COMM_WORLD, ierror)
     call MPI_Allgather(transpose(Xnew%vectors), run_params%mpipopchunk*run_params%D, mpi_double_precision, trallvecs, &
-         run_params%mpipopchunk*run_params%D, mpi_double_precision, MPI_COMM_WORLD, ierror)
+                       run_params%mpipopchunk*run_params%D, mpi_double_precision, MPI_COMM_WORLD, ierror)
     allvecs = transpose(trallvecs) 
 
     !weed out duplicate vectors if desired
@@ -273,7 +274,7 @@ contains
     real(dp), dimension(run_params%D) :: newvector               !alias for Xnew(m,:) for sharing between processes 
     real(dp), dimension(1) :: Fnew, Crnew
     real(dp) :: rand
-    integer :: ierror, mpi_dp, i
+    integer :: ierror, mpi_double_precision, i
 
 
     m = n - run_params%mpipopchunk*run_params%mpirank            !index of vector in Xnew (equal to n if no MPI)
@@ -322,6 +323,7 @@ contains
     else
 #ifdef USEMPI
        !root process shares newly-created vector with other processes
+!Cs change 
        !call MPI_Type_create_f90_real(precision(1.0_dp), range(1.0_dp), mpi_dp, ierror)
        !call MPI_Bcast(newvector, run_params%D, mpi_dp, root, MPI_COMM_WORLD, ierror)
        call MPI_Bcast(newvector, run_params%D, mpi_double_precision, root, MPI_COMM_WORLD, ierror) 
