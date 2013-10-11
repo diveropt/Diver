@@ -132,22 +132,34 @@ contains
     real(dp), intent(in) :: trialF
     real(dp), dimension(run_params%D) :: jDEmutation
     integer :: r1, r2, r3
+    integer, dimension(1) :: rbest
+
+
+    !assign rbest if lambda is nonzero
+    if (run_params%DE%lambda .gt. 0.0_dp) then
+       rbest = minloc(X%values) 
+    else
+       rbest = (/n/)                          !don't want to restrict options for ri, r(q)
+    end if
 
     !set each D-dimensional donor vector in V by picking 3 separate random vectors from X
     do
        call random_int(r1, 1, run_params%subpopNP)  !pick 1st vector from population; must not equal n
-       if (r1 .ne. n) exit
+       !if (r1 .ne. n) exit
+       if ( all(r1 .ne. (/n, rbest/)) ) exit
     end do
     do                                              !pick 2nd vector; ensure vectors are distinct
        call random_int(r2, 1, run_params%subpopNP) 
-       if ( all(r2 .ne. (/n, r1/)) ) exit
+       if ( all(r2 .ne. (/n, r1, rbest/)) ) exit
     end do
     do                                              !pick 3rd vector; ensure vectors are distinct
        call random_int(r3, 1, run_params%subpopNP) 
-       if ( all(r3 .ne. (/n, r1, r2/)) ) exit
+       if ( all(r3 .ne. (/n, r1, r2, rbest/)) ) exit
     end do
     !V = Xr1 + F*(Xr2 - Xr3)
-    jDEmutation = X%vectors(r1, :) + trialF*(X%vectors(r2,:) - X%vectors(r3,:))
+    !jDEmutation = X%vectors(r1, :) + trialF*(X%vectors(r2,:) - X%vectors(r3,:))
+    jDEmutation = run_params%DE%lambda*X%vectors(rbest(1), :) + (1-run_params%DE%lambda)*X%vectors(r1,:) & 
+                  + trialF*(X%vectors(r2,:) - X%vectors(r3,:))
 
   end function jDEmutation
 

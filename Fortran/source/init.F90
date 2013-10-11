@@ -45,7 +45,7 @@ contains
     integer, intent(in), optional  :: savecount			!save progress every savecount generations
 
     integer :: mpiprocs, mpirank, ierror                        !number of processes running, rank of current process, error code
-    character (len=30) :: DEstrategy                    	!for printing mutation/crossover DE strategy
+    character (len=50) :: DEstrategy                    	!for printing mutation/crossover DE strategy
 
     integer, allocatable :: num_discrete_vals(:)
     integer :: i, discrete_index
@@ -147,7 +147,6 @@ contains
 
        if (present(F)) write (*,*) 'WARNING: value set for F not used during jDE run'
        if (present(Cr)) write (*,*) 'WARNING: value set for Cr not used during jDE run'
-       if (present(lambda)) write (*,*) 'WARNING: lambda not used during jDE run'
        if (present(current)) write (*,*) 'WARNING: current not used during jDE run'
        if (present(expon)) write (*,*) 'WARNING: jDE uses binary crossover'
 
@@ -179,12 +178,30 @@ contains
           run_params%DE%removeDuplicates = .false.              !with jDE mutation, duplicates are rare (CHECK THIS)
        end if
 
+       !FIXME: in io.f90, jDE is still assumed to have Fsize=0. Resolve differences.
        run_params%DE%Fsize = 1                                  !note that this now refers to size(population%FjDE)/NP, not size(run_params%DE%F)
-       run_params%DE%lambda = 0.
+       allocate(run_params%DE%F(run_params%DE%Fsize))
+       run_params%DE%F = 0.
+
+       !Optional non-varying lambda in jDE
+       if (present(lambda)) then
+          if (lambda .lt. 0.0_dp) write (*,*) 'WARNING: lambda < 0. DE may not converge properly.'
+          if (lambda .gt. 1.0_dp) write (*,*) 'WARNING: lambda > 1. DE may not converge properly.'
+          run_params%DE%lambda = lambda
+       else
+          run_params%DE%lambda = 0.0_dp     			!default rand/1/bin
+       end if
+
        run_params%DE%current = .false.
        run_params%DE%expon = .false.
        
-       DEstrategy = 'self-adaptive rand/1/bin (jDE)'            !for printing to the screen
+       if (lambda .eq. 0.0_dp) then
+          DEstrategy = 'self-adaptive rand/1/bin (jDE)'            !for printing to the screen
+       else if (lambda .eq. 1.0_dp) then
+          DEstrategy = 'jDE best/1/bin with self-adaptive F, Cr'
+       else
+          DEstrategy = 'jDE rand-to-best/1/bin with self-adaptive F, Cr'
+       end if
 
     else                                                        !not using jDE.  Initialize for normal DE
 
@@ -374,10 +391,10 @@ contains
        if (size(run_params%discrete) .gt. 0) write (*,*) 'Discrete dimensions:', run_params%discrete
        write (*,*) 'Parameters:'
        write (*,*) ' NP = ', trim(int_to_string(run_params%DE%NP))
-       if (.not. run_params%DE%jDE) then      
-          if ((run_params%DE%lambda .ne. 1.0_dp) .and. (run_params%DE%lambda .ne. 0.0_dp)) then
-             write (*,'(A10, F6.4)') ' lambda = ', run_params%DE%lambda
-          endif
+       if ((run_params%DE%lambda .ne. 1.0_dp) .and. (run_params%DE%lambda .ne. 0.0_dp)) then
+          write (*,'(A10, F6.4)') ' lambda = ', run_params%DE%lambda
+       endif
+       if (.not. run_params%DE%jDE) then
           write (*,'(A5, F6.4)') ' F = ', run_params%DE%F
           write (*,'(A6, F6.4)') ' Cr = ', run_params%DE%Cr 
        endif
@@ -470,7 +487,7 @@ contains
                 Xnew%vectors(m,i) = anint( dble(mod(n-1,run_params%repeat_scales(discrete_index))) / &
                                            dble(run_params%repeat_scales(discrete_index)) * &
                                            (run_params%upperbounds(i) - run_params%lowerbounds(i) + 1) &
-                                           + run_params%lowerbounds(i) - 0.5_dp + 100._dp*epsilon(0.5_dp) ) 
+                                           + run_params%lowerbounds(i) - 0.5_dp + 100._dp*epsilon(0.5_dp) )
 
              else
                 !This is a normal parameter that needs to be chosen randomly

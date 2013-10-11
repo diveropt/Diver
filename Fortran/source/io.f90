@@ -133,7 +133,7 @@ subroutine save_run_params(path, run_params)
      write(rparamlun,formatstring) run_params%discrete			 	!discrete dimensions
      write(rparamlun,'(L1)') 	run_params%partitionDiscrete                    !split the population amongst discrete parameters and evolve separately
      if (run_params%partitionDiscrete) then
-        write(rparamlun,formatstring) run_params%repeat_scales                    !scales on which partitioned parameters repeat 
+        write(rparamlun,formatstring) run_params%repeat_scales                  !scales on which partitioned parameters repeat 
         write(rparamlun,'(I6)')	run_params%subpopNP                             !subpopulation NP for partitioned parameters
      endif
   endif
