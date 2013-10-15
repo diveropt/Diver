@@ -242,7 +242,8 @@ program dedriver
 
   implicit none
 
-  call run_de(manygauss, flatprior, lowerbounds, upperbounds, path, doBayesian=.false., discrete=(/1,3,5/), jDE=.true., &
-       partitionDiscrete=.true., resume=.false., Ztolerance=0.1_dp, removeDuplicates=.true., lambda=1.0_dp, maxciv=1, NP=1000)
+  call run_de(manygauss, flatprior, lowerbounds, upperbounds, path, doBayesian=.false.,discrete=(/1,3,5/), &
+        lambdajDE=.true., partitionDiscrete=.true., resume=.false., Ztolerance=0.1_dp, &
+       removeDuplicates=.true., maxciv=1, NP=1000, bndry=3)
 
 end program dedriver

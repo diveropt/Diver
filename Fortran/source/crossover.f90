@@ -111,8 +111,7 @@ contains
   end function newCr
 
 
-  function init_CrjDE(run_params, size)
-    type(codeparams), intent(in) :: run_params
+  function init_CrjDE(size)
     integer, intent(in) :: size
     real(dp), dimension(size) :: init_CrjDE
     real(dp), dimension(size) :: rand

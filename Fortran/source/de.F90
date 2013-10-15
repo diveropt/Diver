@@ -24,8 +24,9 @@ contains
 
 
   !Main differential evolution routine.  
-  subroutine run_de(func, prior, lowerbounds, upperbounds, path, nDerived, discrete, partitionDiscrete, maxciv, maxgen, NP, F, Cr, &
-                    lambda, current, expon, bndry, jDE, removeDuplicates, doBayesian, maxNodePop, Ztolerance, savecount, resume)
+  subroutine run_de(func, prior, lowerbounds, upperbounds, path, nDerived, discrete, partitionDiscrete, &
+                    maxciv, maxgen, NP, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE,           &
+                    removeDuplicates, doBayesian, maxNodePop, Ztolerance, savecount, resume)
 
     real(dp), external :: func, prior 				!function to be minimized (assumed -ln[likelihood]), prior function
     real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds !boundaries of parameter space
@@ -43,6 +44,7 @@ contains
     logical, intent(in), optional  :: expon 			!use exponential crossover
     integer, intent(in), optional  :: bndry                     !boundary constraint: 1 -> brick wall, 2 -> random re-initialization, 3 -> reflection
     logical, intent(in), optional  :: jDE                       !use self-adaptive choices for rand/1/bin parameters as described in Brest et al 2006
+    logical, intent(in), optional  :: lambdajDE                 !use self-adaptive choices for rand-to-best/1/bin parameters; based on Brest et al 2006
     logical, intent(in), optional  :: removeDuplicates          !weed out duplicate vectors within a single generation
     logical, intent(in), optional  :: doBayesian                !calculate log evidence and posterior weightings
     real(dp), intent(in), optional :: maxNodePop                !population at which node is partitioned in binary space partitioning for posterior
@@ -55,7 +57,7 @@ contains
     type(population), target :: X, BF                           !population of target vectors, best-fit vector
     type(population) :: Xnew, Xsub                              !population for the next generation, partitioned subpopulation
     real(dp), dimension(size(lowerbounds)) :: V, U              !donor, trial vectors
-    real(dp) :: trialF, trialCr                                 !adaptive F and Cr for jDE
+    real(dp) :: trialF, trialCr, triallambda                    !adaptive F and Cr for jDE, lambda for lambdajDE
 
     integer :: fcall=0, accept=0                                !fcall counts function calls, accept counts acceptance rate
     integer :: totfcall = 0, totaccept = 0                      !for function calls & acceptance rates for all processes
@@ -87,8 +89,8 @@ contains
     call param_assign(run_params, lowerbounds, upperbounds, nDerived=nDerived, discrete=discrete, &
                       partitionDiscrete=partitionDiscrete, maxciv=maxciv, maxgen=maxgen, NP=NP, &
                       F=F, Cr=Cr, lambda=lambda, current=current, expon=expon, bndry=bndry, jDE=jDE, & 
-                      removeDuplicates=removeDuplicates, doBayesian=doBayesian, maxNodePop=maxNodePop, &
-                      Ztolerance=Ztolerance, savecount=savecount)
+                      lambdajDE=lambdajDE, removeDuplicates=removeDuplicates, doBayesian=doBayesian, &
+                      maxNodePop=maxNodePop, Ztolerance=Ztolerance, savecount=savecount)
 
     !seed the random number generator(s) from the system clock
     call init_all_random_seeds(run_params%DE%NP/run_params%mpipopchunk, run_params%mpirank)
@@ -110,6 +112,13 @@ contains
        allocate(Xsub%FjDE(run_params%subpopNP))
        allocate(Xnew%FjDE(run_params%mpipopchunk))
        allocate(Xnew%CrjDE(run_params%mpipopchunk))
+
+       !allocate self-adaptive lambda
+       if (run_params%DE%lambdajDE) then
+          allocate(X%lambdajDE(run_params%DE%NP))
+          allocate(Xsub%lambdajDE(run_params%subpopNP))
+          allocate(Xnew%lambdajDE(run_params%mpipopchunk))
+       end if
     endif
     
     !Allocate best-fit containers
@@ -172,16 +181,21 @@ contains
 
                 if (run_params%partitionDiscrete) then
                    call getSubpopulation(X, Xsub, n, nsub, run_params)     !restrict donor pool to this member's subpopulation
-                   call mutate(Xsub, V, nsub, run_params, trialF)          !create new donor vector V
+                   call mutate(Xsub, V, nsub, run_params, trialF, triallambda) !create new donor vector V
                 else
-                   call mutate(X, V, n, run_params, trialF)                !create new donor vector V
+                   call mutate(X, V, n, run_params, trialF, triallambda)   !create new donor vector V
                 endif
                
-                call gencrossover(X, V, U, n, run_params, trialCr)         !trial vectors               
-                call selector(X, Xnew, U, trialF, trialCr, m, n, run_params, fcall, func, quit, accept) !choose next generation
+                call gencrossover(X, V, U, n, run_params, trialCr)         !trial vectors 
+    
+                !choose next generation          
+                call selector(X, Xnew, U, trialF, triallambda, trialCr, m, n, run_params, fcall, func, quit, accept)
 
                 if (verbose) then
-                   if (run_params%DE%jDE) then 
+                   if (run_params%DE%lambdajDE) then
+                      write (*,*) n, Xnew%vectors_and_derived(m, :), '->', Xnew%values(m), '|', &
+                                  Xnew%lambdajDE(m), Xnew%FjDE(m), Xnew%CrjDE(m)
+                   else if (run_params%DE%jDE) then 
                       write (*,*) n, Xnew%vectors_and_derived(m, :), '->', Xnew%values(m), '|', Xnew%FjDE(m), Xnew%CrjDE(m)
                    else
                       write (*,*) n, Xnew%vectors_and_derived(m, :), '->', Xnew%values(m)
@@ -292,9 +306,12 @@ contains
     deallocate(Xnew%vectors, Xnew%values)
     if (allocated(X%FjDE)) deallocate(X%FjDE)
     if (allocated(X%CrjDE)) deallocate(X%CrjDE)
+    if (allocated(X%lambdajDE)) deallocate(X%lambdajDE)
     if (allocated(Xsub%FjDE)) deallocate(Xsub%FjDE)
+    if (allocated(Xsub%lambdajDE)) deallocate(Xsub%lambdajDE)
     if (allocated(Xnew%FjDE)) deallocate(Xnew%FjDE)
     if (allocated(Xnew%CrjDE)) deallocate(Xnew%CrjDE)
+    if (allocated(Xnew%lambdajDE)) deallocate(Xnew%lambdajDE)
     if (allocated(run_params%DE%F)) deallocate(run_params%DE%F)
     if (allocated(run_params%discrete)) deallocate(run_params%discrete)
     if (allocated(run_params%repeat_scales)) deallocate(run_params%repeat_scales)

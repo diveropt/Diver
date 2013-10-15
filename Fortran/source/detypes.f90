@@ -18,6 +18,7 @@ type deparams                 				!differential evolution parameters
    logical expon               				!when true, use exponential crossover (else use binomial)
    integer bconstrain                                   !boundary constraints for selection
    logical jDE                                          !when true, use self-adaptive Cr and F for DE
+   logical lambdajDE                                    !when true, use self-adaptive Cr, lambda, and F for DE
    logical removeDuplicates                             !when true, weeds out duplicate vectors within a generation
 end type deparams
 
@@ -44,7 +45,7 @@ type population
   real(dp), allocatable, dimension(:,:) :: vectors 			 !dimension(NP, D)
   real(dp), allocatable, dimension(:) :: values, weights, multiplicities !dimension(NP)
   real(dp), allocatable, dimension(:,:) :: vectors_and_derived		 !dimension(NP, D+D_derived)
-  real(dp), allocatable, dimension(:) :: FjDE, CrjDE                     !dimension(NP)
+  real(dp), allocatable, dimension(:) :: FjDE, CrjDE, lambdajDE          !dimension(NP)
 end type population
 
 end module detypes

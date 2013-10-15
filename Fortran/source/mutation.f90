@@ -6,9 +6,10 @@ use deutils
 implicit none
 
 private
-public getSubpopulation, mutate, init_FjDE
+public getSubpopulation, mutate, init_FjDE, init_lambdajDE
 
-real(dp), parameter :: tau=0.1, Fl=0.1, Fu=0.9 !jDE control parameters as in Brest et al 2006
+real(dp), parameter :: tauF=0.1_dp, Fl=0.1_dp, Fu=0.9_dp !jDE control parameters as in Brest et al 2006
+real(dp), parameter :: taulambda=0.1_dp !lambdajDE control parameter as above (but since 0<=lambda<=1, no need for Fu, Fl analogs)
 
 contains
 
@@ -36,7 +37,14 @@ contains
           if (i == n) nsub = subpopulationIndex
           Xsub%vectors(subpopulationIndex,:) = X%vectors(i,:)
           Xsub%values(subpopulationIndex) = X%values(i)
-          if (run_params%DE%jDE) Xsub%FjDE(subpopulationIndex) = X%FjDE(i)
+
+          if (run_params%DE%jDE) then
+             Xsub%FjDE(subpopulationIndex) = X%FjDE(i)
+             if (run_params%DE%lambdajDE) then
+                Xsub%lambdajDE(subpopulationIndex) = X%lambdajDE(i)
+             end if
+          end if
+
        endif
     enddo    
 
@@ -49,18 +57,24 @@ contains
   end subroutine getSubpopulation
 
 
-  subroutine mutate(X, V, n, run_params, trialF) 
+  subroutine mutate(X, V, n, run_params, trialF, triallambda) 
     type(population), intent(in) :: X                      !valid set of target vectors
     type(codeparams), intent(in) :: run_params
     real(dp), dimension(run_params%D), intent(out) :: V    !donor vector
     integer, intent(in) :: n                               !index of current vector in X
-    real(dp), intent(out) :: trialF
+    real(dp), intent(out) :: trialF, triallambda
 
-    if (run_params%DE%jDE) then
+    if (run_params%DE%lambdajDE) then
        trialF = newF(X, n)
+       triallambda = newlambda(X, n)
+       V = lambdajDEmutation(X, n, run_params, trialF, triallambda)
+    else if (run_params%DE%jDE) then
+       trialF = newF(X, n)
+       triallambda = 0.0_dp
        V = jDEmutation(X, n, run_params, trialF)
     else
        trialF = 0.0_dp
+       triallambda = 0.0_dp
        V = genmutation(X, n, run_params)
     endif
 
@@ -124,7 +138,7 @@ contains
   end function genmutation
   
 
-!rand/1 mutation using self-adaptive F parameter
+!rand/1 or rand-to-best/1 mutation using self-adaptive F parameter
   function jDEmutation(X, n, run_params, trialF)
     type(population), intent(in) :: X
     integer, intent(in) :: n 
@@ -164,14 +178,47 @@ contains
   end function jDEmutation
 
 
-  function newF(X, n)              !choose a trial value for the F parameter
+!rand-to-best/1 mutation using self-adaptive F parameter
+  function lambdajDEmutation(X, n, run_params, trialF, triallambda)
+    type(population), intent(in) :: X
+    integer, intent(in) :: n 
+    type(codeparams), intent(in) :: run_params
+    real(dp), intent(in) :: trialF, triallambda
+    real(dp), dimension(run_params%D) :: lambdajDEmutation
+    integer :: r1, r2, r3
+    integer, dimension(1) :: rbest
+
+    !best vector
+    rbest = minloc(X%values) 
+
+    !set each D-dimensional donor vector in V by picking 3 separate random vectors from X
+    do
+       call random_int(r1, 1, run_params%subpopNP)  !pick 1st vector from population; must not equal n
+       if ( all(r1 .ne. (/n, rbest/)) ) exit
+    end do
+    do                                              !pick 2nd vector; ensure vectors are distinct
+       call random_int(r2, 1, run_params%subpopNP) 
+       if ( all(r2 .ne. (/n, r1, rbest/)) ) exit
+    end do
+    do                                              !pick 3rd vector; ensure vectors are distinct
+       call random_int(r3, 1, run_params%subpopNP) 
+       if ( all(r3 .ne. (/n, r1, r2, rbest/)) ) exit
+    end do
+    !V = lambda*Xrbest + (1 - lambda)*Xr1 + F*(Xr2 - Xr3)
+    lambdajDEmutation = triallambda*X%vectors(rbest(1), :) + (1 - triallambda)*X%vectors(r1,:) & 
+                  + trialF*(X%vectors(r2,:) - X%vectors(r3,:))
+
+  end function lambdajDEmutation
+
+
+  function newF(X, n)          !choose a trial value for the F parameter
     type(population), intent(in) :: X
     integer, intent(in) :: n
     real(dp) :: newF
     real(dp) :: rand1, rand2
 
     call random_number(rand1)
-    if (rand1 .lt. tau) then     
+    if (rand1 .lt. tauF) then     
        call random_number(rand2)
        newF = Fl + rand2*Fu    !selects a new value between 0.1 and 1.0
     else
@@ -181,8 +228,24 @@ contains
   end function newF
 
 
-  function init_FjDE(run_params,  size)
-    type(codeparams), intent(in) ::run_params
+  function newlambda(X, n)         !choose a trial value for the lambda parameter
+    type(population), intent(in) :: X
+    integer, intent(in) :: n
+    real(dp) :: newlambda
+    real(dp) :: rand1, rand2
+
+    call random_number(rand1)
+    if (rand1 .lt. taulambda) then     
+       call random_number(rand2)
+       newlambda = rand2           !selects a new value between 0.0 and 1.0
+    else
+       newlambda = X%lambdajDE(n)  !inherit lambda from previous generation
+    endif
+
+  end function newlambda
+
+
+  function init_FjDE(size)
     integer, intent(in) :: size
     real(dp), dimension(size) :: init_FjDE
     real(dp), dimension(size) :: rand
@@ -192,6 +255,17 @@ contains
 
   end function init_FjDE
 
+
+  function init_lambdajDE(size)
+    integer, intent(in) :: size
+    real(dp), dimension(size) :: init_lambdajDE
+    real(dp), dimension(size) :: rand
+    
+    call random_number(rand)
+    init_lambdajDE =  rand
+    
+  end function init_lambdajDE
+  
 
   subroutine random_int(harvest, min, max) !choose a random integer between min and max, inclusive
     integer, intent(out) :: harvest

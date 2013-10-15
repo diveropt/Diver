@@ -2,7 +2,7 @@ module selection
 
   use detypes
   use deutils
-  use mutation, only: init_FjDE
+  use mutation, only: init_FjDE, init_lambdajDE
   use crossover, only: init_CrjDE
 
   implicit none
@@ -16,13 +16,13 @@ module selection
 
 contains 
 
-  subroutine selector(X, Xnew, U, trialF, trialCr, m, n, run_params, fcall, func, quit, accept)
+  subroutine selector(X, Xnew, U, trialF, triallambda, trialCr, m, n, run_params, fcall, func, quit, accept)
 
     type(population), intent(in) :: X
     type(population), intent(inout) :: Xnew
     integer, intent(inout) :: fcall, accept
     real(dp), dimension(:), intent(in) :: U
-    real(dp), intent(in) :: trialF, trialCr
+    real(dp), intent(in) :: trialF, triallambda, trialCr
     integer, intent(in) :: m, n              !current index for population chunk (m) and full population (n) 
     type(codeparams), intent(in) :: run_params
     logical, intent(inout) :: quit
@@ -45,6 +45,9 @@ contains
           case (2)                           !randomly re-initialize
              call random_number(trialvector(:))
              trialvector(:) = trialvector(:)*(run_params%upperbounds - run_params%lowerbounds) + run_params%lowerbounds
+             if (run_params%partitionDiscrete) then   !when partitioning, keep old values for discrete variables
+                trialvector(run_params%discrete) = U(run_params%discrete)
+             end if
              validvector = .true.
           case (3)                           !reflection
              trialvector = U
@@ -81,9 +84,12 @@ contains
        Xnew%vectors(m,:) = trialvector 
        Xnew%vectors_and_derived(m,:) = trialderived
        Xnew%values(m) = trialvalue
-       if (run_params%DE%jDE) then            !in jDE, also keep F and Cr
+       if (run_params%DE%jDE) then  !in jDE, also keep F and Cr (and lambda)
           Xnew%FjDE(m) = trialF
           Xnew%CrjDE(m) = trialCr
+          if (run_params%DE%lambdajDE) then
+             Xnew%lambdajDE(m) = triallambda
+          end if
        end if
        accept = accept + 1
     else
@@ -93,6 +99,9 @@ contains
        if (run_params%DE%jDE) then
           Xnew%FjDE(m) = X%FjDE(n)
           Xnew%CrjDE(m) = X%CrjDE(n)
+          if (run_params%DE%lambdajDE) then
+             Xnew%lambdajDE(m) = X%lambdajDE(n)
+          end if
        end if
     end if
 
@@ -159,6 +168,10 @@ contains
        !                   run_params%mpipopchunk, mpi_dp, MPI_COMM_WORLD, ierror)
        call MPI_Allgather(Xnew%CrjDE, run_params%mpipopchunk, mpi_double_precision, X%CrjDE, & 
                           run_params%mpipopchunk, mpi_double_precision, MPI_COMM_WORLD, ierror)
+       if (run_params%DE%lambdajDE) then
+          call MPI_Allgather(Xnew%lambdajDE, run_params%mpipopchunk, mpi_double_precision, X%lambdajDE, & 
+                          run_params%mpipopchunk, mpi_double_precision, MPI_COMM_WORLD, ierror)
+       end if
     end if
 #else
     allvecs = Xnew%vectors
@@ -175,6 +188,9 @@ contains
     if (run_params%DE%jDE) then
        X%FjDE = Xnew%FjDE
        X%CrjDE = Xnew%CrjDE
+       if (run_params%DE%lambdajDE) then
+          X%lambdajDE = Xnew%lambdajDE
+       end if
     end if
 #endif
 
@@ -272,7 +288,7 @@ contains
     logical, intent(inout) :: quit
     integer :: m, root
     real(dp), dimension(run_params%D) :: newvector               !alias for Xnew(m,:) for sharing between processes 
-    real(dp), dimension(1) :: Fnew, Crnew
+    real(dp), dimension(1) :: Fnew, lambdanew, Crnew
     real(dp) :: rand
     integer :: ierror, mpi_dp, i
 
@@ -292,6 +308,9 @@ contains
           if (run_params%DE%jDE) then
              Xnew%FjDE(m) = X%FjDE(n)
              Xnew%CrjDE(m) = X%CrjDE(n)
+             if (run_params%DE%lambdajDE) then
+                Xnew%lambdajDE(m) = X%lambdajDE(n)
+             end if
           end if
 
        else                                                      !randomly generate a new vector
@@ -304,10 +323,14 @@ contains
           Xnew%vectors_and_derived(m,:run_params%D) = roundvector(Xnew%vectors(m,:), run_params)
           Xnew%values(m) = func(Xnew%vectors_and_derived(m,:), fcall, quit, .true.)
           if (run_params%DE%jDE) then
-             Fnew = init_FjDE(run_params,1)
-             Crnew = init_CrjDE(run_params,1)
+             Fnew = init_FjDE(1)
+             Crnew = init_CrjDE(1)
              Xnew%FjDE(m) = Fnew(1)
              Xnew%CrjDE(m) = Crnew(1)
+             if (run_params%DE%lambdajDE) then
+                lambdanew = init_lambdajDE(1)
+                Xnew%lambdajDE(m) = lambdanew(1)
+             end if
           end if
           newvector = Xnew%vectors(m,:)
        end if

@@ -114,6 +114,7 @@ subroutine save_run_params(path, run_params)
 
   write(rparamlun,'(I6)') 	run_params%DE%NP               			!population size
   write(rparamlun,'(L1)') 	run_params%DE%jDE            			!true: use jDE
+  write(rparamlun,'(L1)') 	run_params%DE%lambdajDE            		!true: use jDE with self-adaptive lambda parameter
   write(rparamlun,'(I4)')       run_params%DE%Fsize                             !number of mutation scale factors
 
   if (run_params%DE%Fsize .ne. 0) then
@@ -179,9 +180,12 @@ subroutine save_state(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, f
   write(devolun,formatstring)	X%vectors					!currect population
   write(formatstring,'(A1,I6,A6)') '(',run_params%DE%NP*(run_params%D+run_params%D_derived),'E20.9)'
   write(devolun,formatstring)	X%vectors_and_derived				!current reprocessed vector and derived values
-  if (run_params%DE%jDE) then
+  if (run_params%DE%jDE) then                      				!for self-adaptive F, Cr, optional lambda
     write(devolun,formatstring)	X%FjDE						!current population F values
     write(devolun,formatstring)	X%CrjDE						!current population Cr values
+    if (run_params%DE%lambdajDE) then 
+       write(devolun, formatstring) X%lambdajDE                                 !current population lambda values
+    end if
   end if
 
   close(devolun)
@@ -205,6 +209,7 @@ subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, f
 
   read(rparamlun,'(I6)') 	run_params%DE%NP               			!population size
   read(rparamlun,'(L1)') 	run_params%DE%jDE            			!true: use jDE
+  read(rparamlun,'(L1)') 	run_params%DE%lambdajDE            		!true: use jDE with self-adaptive lambda
   read(rparamlun,'(I4)')        run_params%DE%Fsize                             !number of mutation scale factors
 
   if (run_params%DE%Fsize .ne. 0) then
@@ -265,6 +270,9 @@ subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, f
   if (run_params%DE%jDE) then
     read(devolun,formatstring)	X%FjDE						!current population F values
     read(devolun,formatstring)	X%CrjDE						!current population Cr values
+    if (run_params%DE%lambdajDE) then 
+       read(devolun, formatstring) X%lambdajDE                                  !current population lambda values
+    end if
   end if
 
   close(devolun)
@@ -308,7 +316,7 @@ subroutine resume(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall
     if (.not. run_params_restored%calcZ) stop 'Error: cannot resume in Bayesian mode from non-Bayesian run.'
     if (.not. present(prior)) stop 'Error: evidence calculation requested without specifying a prior.'
     if (run_params%MaxNodePop .ne. run_params_restored%MaxNodePop) stop 'Error: you cannot change MaxNodePopulation mid-run!'
-    if (.not. (run_params%DE%jDE .or. run_params_restored%DE%jDE)) then
+    if (.not. (run_params%DE%jDE       .or. run_params_restored%DE%jDE)) then
       if (run_params%DE%Fsize .ne. run_params_restored%DE%Fsize) then
         write(*,*) 'WARNING: changing the number of F parameters mid-run may make evidence inaccurate.'
       elseif (run_params%DE%Fsize .ne. 0) then
@@ -322,7 +330,8 @@ subroutine resume(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall
                   run_params%DE%Cr         .ne.   run_params_restored%DE%Cr,         &     
                   run_params%DE%expon      .neqv. run_params_restored%DE%expon,      & 
                   run_params%DE%bconstrain .ne.   run_params_restored%DE%bconstrain, &  
-                  run_params%DE%jDE        .neqv. run_params_restored%DE%jDE        /) ) ) then
+                  run_params%DE%jDE        .neqv. run_params_restored%DE%jDE,        &
+                  run_params%DE%lambdajDE  .neqv. run_params_restored%DE%lambdajDE   /) ) ) then
       write(*,*) 'WARNING: changing DE algorithm mid-run may make evidence inaccurate!'
     endif
   endif

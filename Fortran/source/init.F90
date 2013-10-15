@@ -2,7 +2,7 @@ module init
 
 use detypes
 use deutils
-use mutation, only: init_FjDE    !initializes scale factors for jDE
+use mutation, only: init_FjDE, init_lambdajDE    !initializes scale factors for jDE
 use crossover, only: init_CrjDE  !initializes crossovers for jDE
 use selection, only: replace_generation
 
@@ -20,8 +20,8 @@ contains
   !Assign parameter values (defaults if not specified) to run_params and print DE parameter values to screen
 
   subroutine param_assign(run_params, lowerbounds, upperbounds, nDerived, discrete, partitionDiscrete, maxciv, maxgen, &
-                          NP, F, Cr, lambda, current, expon, bndry, jDE, removeDuplicates, doBayesian, maxNodePop, &
-                          Ztolerance, savecount)
+                          NP, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, removeDuplicates, doBayesian, &
+                          maxNodePop, Ztolerance, savecount)
 
     type(codeparams), intent(out) :: run_params 
     real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space 
@@ -37,7 +37,8 @@ contains
     logical, intent(in), optional  :: current 			!use current vector for mutation
     logical, intent(in), optional  :: expon 			!use exponential crossover
     integer, intent(in), optional  :: bndry                     !boundary constraint: 1 -> brick wall, 2 -> random re-initialization, 3 -> reflection
-    logical, intent(in), optional  :: jDE                       !use self-adaptive DE 
+    logical, intent(in), optional  :: jDE                       !use self-adaptive DE
+    logical, intent(in), optional  :: lambdajDE                 !use self-adaptive DE with rand-to-best mutation strategy
     logical, intent(in), optional  :: removeDuplicates          !weed out duplicate vectors within a single generation
     logical, intent(in), optional  :: doBayesian                !calculate log evidence and posterior weightings
     real(dp), intent(in), optional :: maxNodePop                !population at which node is partitioned in binary space partitioning for posterior
@@ -45,7 +46,7 @@ contains
     integer, intent(in), optional  :: savecount			!save progress every savecount generations
 
     integer :: mpiprocs, mpirank, ierror                        !number of processes running, rank of current process, error code
-    character (len=50) :: DEstrategy                    	!for printing mutation/crossover DE strategy
+    character (len=70) :: DEstrategy                    	!for printing mutation/crossover DE strategy
 
     integer, allocatable :: num_discrete_vals(:)
     integer :: i, discrete_index
@@ -80,50 +81,62 @@ contains
     if (present(nDerived)) then 
       call setIfPositive_int(nDerived, run_params%D_derived, 'nDerived') !FIXME: this prevents setting nDerived=0
     else
-       run_params%D_derived = 0					!default is no derived quantities
+       run_params%D_derived = 0			!default is no derived quantities
     end if
 
     if (present(maxciv)) then
       call setIfPositive_int(maxciv, run_params%numciv, 'maxciv')
     else
-       run_params%numciv = 2000					!arbitrary default value for numciv
+       run_params%numciv = 2000			!arbitrary default value for numciv
     end if
 
     if (present(maxgen)) then
       call setIfPositive_int(maxgen, run_params%numgen, 'maxgen')
     else 
-       run_params%numgen = 300					!arbitrary default value for numgen
+       run_params%numgen = 300			!arbitrary default value for numgen
     end if
 
     if (present(doBayesian)) then 
        run_params%calcZ = doBayesian
     else
-       run_params%calcZ = .false.				!default is not to do Bayesian stuff
+       run_params%calcZ = .false.		!default is not to do Bayesian stuff
     end if
 
     if (present(maxNodePop)) then 
        call setIfPositive_real(maxNodePop, run_params%maxNodePop, 'maxNodePop')
     else
-       run_params%maxNodePop = 1.9_dp				!default for maxNodePop
+       run_params%maxNodePop = 1.9_dp		!default for maxNodePop
     end if
 
     if (present(Ztolerance)) then 
        call setIfPositive_real(Ztolerance, run_params%tol, 'Ztolerance')
     else
-       run_params%tol = 0.01_dp					!default for tolerance
+       run_params%tol = 0.01_dp			!default for tolerance
     end if
 
     if (present(savecount)) then 
       call setIfPositive_int(savecount, run_params%savefreq, 'savecount')
     else
-       run_params%savefreq = 1					!default for tolerance counter
+       run_params%savefreq = 1			!default for tolerance counter
     end if
+
+    if (present(lambdajDE)) then
+       run_params%DE%lambdajDE = lambdajDE
+    else
+       run_params%DE%lambdajDE = .false.   	!default is original DE or jDE
+    endif
 
     if (present(jDE)) then
        run_params%DE%jDE = jDE
+    else if (run_params%DE%lambdajDE) then
+       run_params%DE%jDE = .true.  		!don't need to specify jDE if lambdajDE=true
     else
-       run_params%DE%jDE = .false.                              !default is original DE
+       run_params%DE%jDE = .false. 		!default is original DE
     endif
+
+    if (run_params%DE%lambdajDE .and. (.not. run_params%DE%jDE)) then
+       call quit_de('ERROR: cannot have lambdajDE=true with jDE=false')
+    end if
 
     if (present(bndry)) then
        if ( (bndry .ge. 0) .and. (bndry .le. 3)) then
@@ -139,7 +152,7 @@ contains
           call quit_de('ERROR: Invalid value entered for bndry.')
        end if
     else
-       run_params%DE%bconstrain = 1				!default brick wall boundary constraints
+       run_params%DE%bconstrain = 1		!default brick wall boundary constraints
     end if
 
     !set values for F, Cr, lambda, current, expon for self-adaptive rand/1/bin DE or regular DE
@@ -154,14 +167,14 @@ contains
        !in the main subroutine of the program for the trial parameters.
  
        if (present(NP)) then
-          if (NP .ge. 4) then 					!required for picking unique vectors during mutation
+          if (NP .ge. 5) then 					!required for picking unique vectors during mutation
              run_params%DE%NP = NP
           else
              write (*,*) 'WARNING: NP specified is too small. Using smallest permitted NP.'
-             run_params%DE%NP = 4
+             run_params%DE%NP = 5
           end if
        else
-          run_params%DE%NP = maxval( (/10*run_params%D, 4/) )	!conservative rule-of-thumb choice 
+          run_params%DE%NP = maxval( (/10*run_params%D, 5/) )	!conservative rule-of-thumb choice 
        end if
 
        if (mod(run_params%DE%NP, mpiprocs) .ne. 0) then         !population chunks must be equally sized
@@ -183,8 +196,11 @@ contains
        allocate(run_params%DE%F(run_params%DE%Fsize))
        run_params%DE%F = 0.
 
-       !Optional non-varying lambda in jDE
-       if (present(lambda)) then
+       !Options for lambda:
+       if (run_params%DE%lambdajDE) then
+          run_params%DE%lambda = 0.0_dp
+          if (present(lambda)) write (*,*) 'WARNING: value set for lambda not used during lambdajDE run'
+       else if (present(lambda)) then
           if (lambda .lt. 0.0_dp) write (*,*) 'WARNING: lambda < 0. DE may not converge properly.'
           if (lambda .gt. 1.0_dp) write (*,*) 'WARNING: lambda > 1. DE may not converge properly.'
           run_params%DE%lambda = lambda
@@ -194,17 +210,20 @@ contains
 
        run_params%DE%current = .false.
        run_params%DE%expon = .false.
-       
-       if (lambda .eq. 0.0_dp) then
-          DEstrategy = 'self-adaptive rand/1/bin (jDE)'            !for printing to the screen
-       else if (lambda .eq. 1.0_dp) then
-          DEstrategy = 'jDE best/1/bin with self-adaptive F, Cr'
+
+       ! Summarize mutation strategy: for printing to screen
+       if (run_params%DE%lambdajDE) then
+          DEstrategy = 'self-adaptive rand-to-best/1/bin (lambdajDE)'
+       else if (run_params%DE%lambda .eq. 0.0_dp) then
+          DEstrategy = 'self-adaptive rand/1/bin (jDE)'
+       else if (run_params%DE%lambda .eq. 1.0_dp) then
+          DEstrategy = 'self-adaptive best/1/bin (jDE with additional fixed lambda)'
        else
-          DEstrategy = 'jDE rand-to-best/1/bin with self-adaptive F, Cr'
+          DEstrategy = 'self-adaptive rand-to-best/1/bin (jDE with additional fixed lambda)'
        end if
 
-    else                                                        !not using jDE.  Initialize for normal DE
-
+    else
+       !not using jDE.  Initialize for normal DE
        if (present(F)) then
           if (any(F .le. 0.0_dp)) then
              write (*,*) 'WARNING: some elements of F are 0 or negative. DE may not converge properly.'
@@ -222,14 +241,14 @@ contains
        end if
 
        if (present(NP)) then                                    
-          if (NP .ge. (2*run_params%DE%Fsize + 2)) then 	!required for picking unique vectors during mutation
+          if (NP .ge. (2*run_params%DE%Fsize + 3)) then 	!required for picking unique vectors during mutation
                 run_params%DE%NP = NP
           else !nb: if current=true and/or lambda=0, NP could be smaller, but it's a bad idea, so not implemented
              write (*,*) 'WARNING: NP specified is too small. Using smallest permitted NP.'
              run_params%DE%NP = 2*run_params%DE%Fsize + 3
           end if
        else
-          run_params%DE%NP = maxval( [10*run_params%D, 2*run_params%DE%Fsize + 2] )	!conservative rule-of-thumb choice 
+          run_params%DE%NP = maxval( [10*run_params%D, 2*run_params%DE%Fsize + 3] )	!conservative rule-of-thumb choice 
        end if
 
        if (mod(run_params%DE%NP, mpiprocs) .ne. 0) then
@@ -358,15 +377,15 @@ contains
              else
                 !Work out how many individuals should be in each discrete partition of the population (ie each subpopulation)
                 run_params%subpopNP = run_params%DE%NP / product(num_discrete_vals)
-                if (run_params%subpopNP .lt. (2*run_params%DE%Fsize + 2) ) then
+                if (run_params%subpopNP .lt. (2*run_params%DE%Fsize + 3) ) then
                    if (run_params%mpirank .eq. 0) then
                       write(*,*) 'Population size (NP): '//trim(int_to_string(run_params%DE%NP))
                       write(*,*) 'Implied number of sub-populations: '// &
                            trim(int_to_string(product(num_discrete_vals)))
                       write(*,*) 'Sub-population size: '//trim(int_to_string(run_params%subpopNP))
-                      write(*,*) 'Minimum allowed sub-population size: '//trim(int_to_string(2*run_params%DE%Fsize + 2))
+                      write(*,*) 'Minimum allowed sub-population size: '//trim(int_to_string(2*run_params%DE%Fsize + 3))
                       write(*,*) 'Please increase NP to at least '// &
-                           trim(int_to_string(product(num_discrete_vals)*(2*run_params%DE%Fsize + 2)))
+                           trim(int_to_string(product(num_discrete_vals)*(2*run_params%DE%Fsize + 3)))
                    end if
                    call quit_de('ERROR: NP is too small to partition into the desired number of sub-populations.')
                 end if
@@ -391,13 +410,15 @@ contains
        if (size(run_params%discrete) .gt. 0) write (*,*) 'Discrete dimensions:', run_params%discrete
        write (*,*) 'Parameters:'
        write (*,*) ' NP = ', trim(int_to_string(run_params%DE%NP))
-       if ((run_params%DE%lambda .ne. 1.0_dp) .and. (run_params%DE%lambda .ne. 0.0_dp)) then
+       if (.not. run_params%DE%lambdajDE) then
+          !print lambda to the screen when fixed, including to 0 and 1
           write (*,'(A10, F6.4)') ' lambda = ', run_params%DE%lambda
-       endif
-       if (.not. run_params%DE%jDE) then
-          write (*,'(A5, F6.4)') ' F = ', run_params%DE%F
-          write (*,'(A6, F6.4)') ' Cr = ', run_params%DE%Cr 
-       endif
+          if (.not. run_params%DE%jDE) then
+             !print F and Cr to the screen when fixed
+             write (*,'(A5, F6.4)') ' F = ', run_params%DE%F
+             write (*,'(A6, F6.4)') ' Cr = ', run_params%DE%Cr 
+          endif
+       end if
 
        write (*,*) 'Number of processes: ', trim(int_to_string(mpiprocs))
 
@@ -459,9 +480,12 @@ contains
 
     X%multiplicities = 1.0_dp !Initialise to 1 in case posteriors are not calculated
 
-    if (run_params%DE%jDE) then !initialize population of F and Cr parameters
-       Xnew%FjDE = init_FjDE(run_params, run_params%mpipopchunk)
-       Xnew%CrjDE = init_CrjDE(run_params, run_params%mpipopchunk)
+    if (run_params%DE%jDE) then                              !initialize population of F and Cr parameters
+       Xnew%FjDE = init_FjDE(run_params%mpipopchunk)
+       Xnew%CrjDE = init_CrjDE(run_params%mpipopchunk)
+       if (run_params%DE%lambdajDE) then
+          Xnew%lambdajDE = init_lambdajDE(run_params%mpipopchunk)
+       end if
     end if
 
     !loop over the vectors belonging to each population chunk
@@ -502,7 +526,10 @@ contains
           Xnew%values(m) = func(Xnew%vectors_and_derived(m,:), fcall, quit, .true.)
 
           if (verbose) then
-             if (run_params%DE%jDE) then
+             if (run_params%DE%lambdajDE) then
+                write (*,*) n, Xnew%vectors_and_derived(m,:), '->', Xnew%values(m), '|', &
+                               Xnew%lambdajDE(m), Xnew%FjDE(m), Xnew%CrjDE(m)
+             else if (run_params%DE%jDE) then
                 write (*,*) n, Xnew%vectors_and_derived(m,:), '->', Xnew%values(m), '|', Xnew%FjDE(m), Xnew%CrjDE(m)
              else
                 write (*,*) n, Xnew%vectors_and_derived(m,:), '->', Xnew%values(m)
