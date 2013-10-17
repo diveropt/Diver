@@ -28,7 +28,6 @@ contains
                     maxciv, maxgen, NP, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE,           &
                     removeDuplicates, doBayesian, maxNodePop, Ztolerance, savecount, resume)
 
-    real(dp), external :: func, prior 				!function to be minimized (assumed -ln[likelihood]), prior function
     real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds !boundaries of parameter space
     character(len=*), intent(in)   :: path			!path to save samples, resume files, etc  
     integer, intent(in), optional  :: nDerived	 		!input number of derived quantities to output
@@ -77,6 +76,27 @@ contains
 
     integer :: ierror		                                !MPI error code
     real(dp) :: t1, t2                                          !for timing
+
+    interface
+    !the likelihood function to be minimised -- assumed to be -ln(likelihood)
+       real(dp) function func(params, fcall, quit, validvector)
+          use detypes
+          implicit none
+          real(dp), dimension(:), intent(inout) :: params
+          integer, intent(inout) :: fcall 
+          logical, intent(out) :: quit
+          logical, intent(in) :: validvector
+       end function func
+    end interface
+	
+    interface
+    !the prior function
+       real(dp) function prior(X)
+          use detypes
+          implicit none
+          real(dp), dimension(:), intent(in) :: X
+       end function prior
+    end interface
 
 
     call cpu_time(t1)
