@@ -65,9 +65,11 @@ contains
 	  
        implicit none
 
-       integer(c_int)  :: fcall
-       real(c_double)  :: params(:)
-       logical(c_bool) :: quit, validvector
+       real(c_double),  intent(inout)     :: params(:)
+       integer(c_int),  intent(inout)     :: fcall 
+       logical, intent(out)               :: quit
+       logical, intent(in)                :: validvector
+       logical(c_bool)                    :: quit_c, validvector_c
 
        interface
           real(c_double) function minusloglike_proto(params, fcall, quit, validvector)
@@ -83,7 +85,9 @@ contains
           procedure(minusloglike_proto), pointer :: minusloglike_c
           call c_f_procpointer(minusloglike,minusloglike_c)
 
-          minusloglike_f = minusloglike_c(params, fcall, quit, validvector)
+          validvector_c = validvector
+          minusloglike_f = minusloglike_c(params, fcall, quit_c, validvector_c)
+          quit = quit_c
 
        end function minusloglike_f
 
@@ -93,13 +97,13 @@ contains
 	  
        implicit none
 
-       double precision :: realparams(:)
+       real(c_double), intent(in) :: realparams(:)
 
        interface
           real(c_double) function prior_proto(realparams)
              use iso_c_binding, only: c_double
              implicit none
-             real(c_double),  intent(inout) :: realparams(:)
+             real(c_double),  intent(in) :: realparams(:)
           end function prior_proto
        end interface
 

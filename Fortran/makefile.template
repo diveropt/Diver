@@ -7,34 +7,54 @@
 # Define fortran compiler and options
 # to enable mpi, add -DUSEMPI to FOPT
 FF=ifort
-FOPT=-O3 -extend_source
+FOPT=-O3 -extend_source -fPIC
+MODULE=-module
 
-export FF FOPT
+CLEAN = _clean
+AR = ar r  
+SHAR = ld -shared
+
+LIBNAME = devo
+EXAMPLENAMES = example_f #example_c example_cpp
+EXAMPLECLEAN = $(EXAMPLENAMES:%=%$(CLEAN))
+PREFIX = devo
 
 DEVO_ROOT = $(PWD)
-
-PROG = devopack_f
-SOURCEFILES = detypes deutils mutation crossover selection init converge posterior evidence io de dedriver
-LIB = #-L -l
 SOURCE = ${DEVO_ROOT}/source
 INC = ${DEVO_ROOT}/include
 BUILD = ${DEVO_ROOT}/build
+LIB = ${DEVO_ROOT}/lib
 
+export FF FOPT LIBNAME PREFIX LIB INC
+
+SOURCEFILES = detypes deutils mutation crossover selection init converge posterior evidence io de cwrapper
 OBJ = $(SOURCEFILES:%=$(BUILD)/%.o)
 
-all: devopack
+all: libdevo.a libdevo.so
 
-devopack: makefile $(OBJ)
-	$(FF) $(FOPT) -o $(PROG) $(OBJ) $(LIB)
+libdevo.a: makefile $(OBJ)
+	$(AR) $(LIB)/$@ $(OBJ)
 
+libdevo.so: makefile $(OBJ) 
+	$(SHAR) -o $(LIB)/$@ $(OBJ)  
+ 
 $(BUILD)/%.o: $(SOURCE)/%.f90
 	cd $(BUILD); \
-	$(FF) -c $(FOPT) -I$(INC) $<
+	$(FF) -c $(FOPT) -I$(INC) $(MODULE) $(INC) $<
 
 $(BUILD)/%.o: $(SOURCE)/%.F90
 	cd $(BUILD); \
-	$(FF) -c $(FOPT) -I$(INC) $<
+	$(FF) -c $(FOPT) -I$(INC) $(MODULE) $(INC) $<
+
+$(EXAMPLENAMES): libdevo.a
+	make EXAMPLENAME=$@ -C $@
 
 clean:
-	rm -f $(PROG); \
+	rm -f $(LIB)/*.a $(LIB)/*.so; \
 	cd $(BUILD); rm -f *.o *.mod
+
+$(EXAMPLECLEAN):
+	make EXAMPLENAME=$(subst $(CLEAN),,$@) \
+         -C $(subst $(CLEAN),,$@) clean
+
+cleanall: clean $(EXAMPLECLEAN) 

@@ -8,7 +8,7 @@ implicit none
  integer, parameter :: param_dim = 5 !dimensions of parameter space
 
  integer, parameter :: NP=10, numgen=15, numciv=1, nDerived=2
- character (len=300) :: path='example_output/example'
+ character (len=300) :: path='example_f/output'
  real(dp), parameter ::  Cr=0.9, tol = 1e-3, lambda=0.8		!0<=Cr<=1, 0<=lambda<=1
  real(dp), parameter, dimension(1) :: F=0.6			!recommend 0<F<1
  real(dp), parameter, dimension(param_dim) :: lowerbounds=(/-5.,-50.,1.,-50.,-1./)	!boundaries of parameter space
