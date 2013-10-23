@@ -79,7 +79,7 @@ contains
     run_params%upperbounds = upperbounds
 
     if (present(nDerived)) then 
-      call setIfPositive_int(nDerived, run_params%D_derived, 'nDerived') !FIXME: this prevents setting nDerived=0
+      call setIfNonNegative_int(nDerived, run_params%D_derived, 'nDerived')
     else
        run_params%D_derived = 0			!default is no derived quantities
     end if
@@ -102,13 +102,13 @@ contains
        run_params%calcZ = .false.		!default is not to do Bayesian stuff
     end if
 
-    if (present(maxNodePop)) then 
+    if (present(maxNodePop) .and. run_params%calcZ) then 
        call setIfPositive_real(maxNodePop, run_params%maxNodePop, 'maxNodePop')
     else
        run_params%maxNodePop = 1.9_dp		!default for maxNodePop
     end if
 
-    if (present(Ztolerance)) then 
+    if (present(Ztolerance) .and. run_params%calcZ) then 
        call setIfPositive_real(Ztolerance, run_params%tol, 'Ztolerance')
     else
        run_params%tol = 0.01_dp			!default for tolerance
@@ -452,6 +452,20 @@ contains
   end subroutine setIfPositive_real
 
 
+  !set parameter only if value is not negative (integer parameter)
+  subroutine setIfNonNegative_int(invar, outvar, string)
+
+    integer :: invar, outvar
+    character(LEN=*) :: string
+
+    if (invar .ne. 0) then
+      call setIfPositive_int(invar, outvar, string)
+    else
+      outvar = invar
+    endif
+
+  end subroutine setIfNonNegative_int
+
   !set parameter only if value is positive (integer parameter)
   subroutine setIfPositive_int(invar, outvar, string)
 
@@ -459,7 +473,7 @@ contains
     character(LEN=*) :: string
 
     if (invar .le. 0) then
-      call quit_de('ERROR: '//string//' cannot be negative.')
+      call quit_de('ERROR: '//string//' must be greater than zero.')
     else
       outvar = invar
     endif

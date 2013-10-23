@@ -24,9 +24,9 @@ contains
 
 
   !Main differential evolution routine.  
-  subroutine run_de(func, prior, lowerbounds, upperbounds, path, nDerived, discrete, partitionDiscrete, &
+  subroutine run_de(func, lowerbounds, upperbounds, path, nDerived, discrete, partitionDiscrete, &
                     maxciv, maxgen, NP, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE,           &
-                    removeDuplicates, doBayesian, maxNodePop, Ztolerance, savecount, resume)
+                    removeDuplicates, doBayesian, prior, maxNodePop, Ztolerance, savecount, resume)
 
     real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds !boundaries of parameter space
     character(len=*), intent(in)   :: path			!path to save samples, resume files, etc  
@@ -89,6 +89,7 @@ contains
        end function func
     end interface
 	
+    optional :: prior
     interface
     !the prior function
        real(dp) function prior(X)
@@ -151,13 +152,23 @@ contains
     !Initialise internal variables
     BF%values(1) = huge(BF%values(1))
 
-    !Resume from saved run or initialise save files for a new one
+    !Resume from saved run or initialise save files for a new one.
+    !FIXME The switching I've implmented here is ridiculous.  Surely there is a better way, some option forwarding or similar??
     if (present(resume)) then 
-       call io_begin(path, civstart, genstart, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params, X, BF, prior=prior, &
-        restart=resume)
+       if (present(prior)) then
+         call io_begin(path, civstart, genstart, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params, X, BF, prior=prior, &
+          restart=resume)
+       else
+         call io_begin(path, civstart, genstart, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params, X, BF, &
+          restart=resume)
+       endif
        if (resume) genstart = genstart + 1
     else 
-       call io_begin(path, civstart, genstart, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params, X, BF, prior=prior)
+       if (present(prior)) then
+         call io_begin(path, civstart, genstart, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params, X, BF, prior=prior)
+       else
+         call io_begin(path, civstart, genstart, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params, X, BF)
+       endif
     endif
 
     !Run a number of sequential DE optimisations, exiting either after a set number of

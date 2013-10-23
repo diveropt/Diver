@@ -7,7 +7,10 @@
 # Define fortran compiler and options
 # to enable mpi, add -DUSEMPI to FOPT
 FF=ifort
+CC=icc
 FOPT=-O3 -extend_source -fPIC
+COPT=-O3 -fPIC
+MIXOPT=-nofor-main -lstdc++
 MODULE=-module
 
 CLEAN = _clean
@@ -15,7 +18,7 @@ AR = ar r
 SHAR = ld -shared
 
 LIBNAME = devo
-EXAMPLENAMES = example_f #example_c example_cpp
+EXAMPLENAMES = example_f example_cpp #example_c
 EXAMPLECLEAN = $(EXAMPLENAMES:%=%$(CLEAN))
 PREFIX = devo
 
@@ -25,12 +28,12 @@ INC = ${DEVO_ROOT}/include
 BUILD = ${DEVO_ROOT}/build
 LIB = ${DEVO_ROOT}/lib
 
-export FF FOPT LIBNAME PREFIX LIB INC
+export FF FOPT CC COPT MIXOPT LIBNAME PREFIX LIB INC
 
 SOURCEFILES = detypes deutils mutation crossover selection init converge posterior evidence io de cwrapper
 OBJ = $(SOURCEFILES:%=$(BUILD)/%.o)
 
-all: libdevo.a libdevo.so
+all: libdevo.a $(EXAMPLENAMES)
 
 libdevo.a: makefile $(OBJ)
 	$(AR) $(LIB)/$@ $(OBJ)
@@ -51,7 +54,8 @@ $(EXAMPLENAMES): libdevo.a
 
 clean:
 	rm -f $(LIB)/*.a $(LIB)/*.so; \
-	cd $(BUILD); rm -f *.o *.mod
+	cd $(BUILD); rm -f *.o *.mod; \
+	cd $(INC); rm -f *.mod
 
 $(EXAMPLECLEAN):
 	make EXAMPLENAME=$(subst $(CLEAN),,$@) \
