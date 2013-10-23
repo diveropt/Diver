@@ -2,15 +2,15 @@ LIBS = -L$(LIB) -l$(LIBNAME)
 NAME = ../$(PREFIX).$(EXAMPLENAME)
 SOURCEFILES = $(EXAMPLENAME)
 OBJ = $(SOURCEFILES:%=%.o)
-HEADERFILES = $(INC)/devo.hpp
+HEADERFILES = $(INC)/devo.h
 
 all: $(EXAMPLENAME)
 
-%.o: %.cpp
-	$(CC) -c $(COPT) -I$(INC) $<
+%.o: %.c
+	$(CC) -c $(COPT) -std=c99 -I$(INC) $<
  
 $(EXAMPLENAME): $(OBJ) $(HEADERS)
-	$(FF) $(MIXOPT_CPP) $(OBJ) $(LIBS) -o $(NAME)
+	$(FF) $(MIXOPT_C) $(OBJ) $(LIBS) -o $(NAME)
 
 clean:
 	rm -f *.o *.mod $(NAME) 

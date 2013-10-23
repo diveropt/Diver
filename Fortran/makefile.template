@@ -10,7 +10,8 @@ FF=ifort
 CC=icc
 FOPT=-O3 -extend_source -fPIC
 COPT=-O3 -fPIC
-MIXOPT=-nofor-main -lstdc++
+MIXOPT_C=-nofor-main
+MIXOPT_CPP=-nofor-main -lstdc++
 MODULE=-module
 
 CLEAN = _clean
@@ -18,7 +19,7 @@ AR = ar r
 SHAR = ld -shared
 
 LIBNAME = devo
-EXAMPLENAMES = example_f example_cpp #example_c
+EXAMPLENAMES = example_f example_c example_cpp
 EXAMPLECLEAN = $(EXAMPLENAMES:%=%$(CLEAN))
 PREFIX = devo
 
@@ -28,7 +29,7 @@ INC = ${DEVO_ROOT}/include
 BUILD = ${DEVO_ROOT}/build
 LIB = ${DEVO_ROOT}/lib
 
-export FF FOPT CC COPT MIXOPT LIBNAME PREFIX LIB INC
+export FF FOPT CC COPT MIXOPT_C MIXOPT_CPP LIBNAME PREFIX LIB INC
 
 SOURCEFILES = detypes deutils mutation crossover selection init converge posterior evidence io de cwrapper
 OBJ = $(SOURCEFILES:%=$(BUILD)/%.o)

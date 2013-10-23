@@ -1,20 +1,21 @@
-#include <cstdlib>
-#include <limits>
-#include "devo.hpp"
+#include <float.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include "devo.h"
 
 const int         nPar                = 5;                            // Dimensionality of the parameter space
-const double      lowerbounds[nPar]   = {-5.,-50.,-5.,-50.,-2.};      // Lower boundaries of parameter space
-const double      upperbounds[nPar]   = { 5., 50., 5., 50., 2.};      // Upper boundaries of parameter space
-const char        path[]              = "example_cpp/output/example"; // Path to save samples, resume files, etc 
+const double      lowerbounds[]       = {-5.,-50.,-5.,-50.,-2.};      // Lower boundaries of parameter space
+const double      upperbounds[]       = { 5., 50., 5., 50., 2.};      // Upper boundaries of parameter space
+const char        path[]              = "example_c/output/example";   // Path to save samples, resume files, etc 
 const int         nDerived            = 0;                            // Number of derived quantities to output
 const int         nDiscrete           = 0;                            // Number of parameters that are to be treated as discrete
-const int         discrete[]          = {NULL};                       // Indices of discrete parameters, Fortran style, i.e. starting at 1!!
+const int         discrete[]          = {};                           // Indices of discrete parameters, Fortran style, i.e. starting at 1!!
 const bool        partitionDiscrete   = false;                        // Split the population evenly amongst discrete parameters and evolve separately
 const int         maxciv              = 1;                            // Maximum number of civilisations
 const int         maxgen              = 100;                          // Maximum number of generations per civilisation
 const int         NP                  = 1000;                         // Population size (individuals per generation)
 const int         nF                  = 1;                            // Size of the array indicating scale factors
-const double      F[nF]               = {0.6};                        // Scale factor(s).  Note that this must be entered as an array.
+const double      F[]                 = {0.6};                        // Scale factor(s).  Note that this must be entered as an array.
 const double      Cr                  = 0.9;                          // Crossover factor
 const double      lambda              = 0.8;                          // Mixing factor between best and rand/current
 const bool        current             = false;                        // Use current vector for mutation
@@ -32,13 +33,13 @@ const bool        resume              = false;                        // Restart
 
 //Function to be minimized.  Corresponds to -ln(Likelihood).
 //Plain Gaussian centred at the origin. Valid for any number of dimensions.
-double gauss(double params[], const int pSize, int &fcall, bool &quit, const bool validvector)
+double gauss(double params[], const int pSize, int *fcall, bool *quit, const bool validvector)
 {
   double result = 0.0;
   for (int i = 0; i<pSize; i++) result += params[i]*params[i];
-  if (not validvector) result = std::numeric_limits<double>::max();
-  fcall += 1;
-  quit = false;
+  if (!validvector) result = DBL_MAX;
+  *fcall += 1;
+  *quit = false;
   return result;
 }
 
@@ -47,6 +48,6 @@ int main(int argc, char** argv)
 {
   runde(gauss, nPar, lowerbounds, upperbounds, path, nDerived, nDiscrete, discrete, partitionDiscrete, 
         maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, removeDuplicates,
-        doBayesian, NULL, NULL, NULL, savecount, resume); 
+        doBayesian, NULL, maxNodePop, Ztolerance, savecount, resume); 
   //Note that prior, maxNodePop and Ztolerance are just ignored if doBayesian = false
 }
