@@ -1,10 +1,11 @@
 #include <cstdlib>
+#include <cmath>
 #include <limits>
 #include "devo.hpp"
 
-const int         nPar                = 5;                            // Dimensionality of the parameter space
-const double      lowerbounds[nPar]   = {-5.,-50.,-5.,-50.,-2.};      // Lower boundaries of parameter space
-const double      upperbounds[nPar]   = { 5., 50., 5., 50., 2.};      // Upper boundaries of parameter space
+const int         nPar                = 2;                            // Dimensionality of the parameter space
+const double      lowerbounds[nPar]   = {-6.,-6.};                    // Lower boundaries of parameter space
+const double      upperbounds[nPar]   = { 6., 6.};                    // Upper boundaries of parameter space
 const char        path[]              = "example_cpp/output/example"; // Path to save samples, resume files, etc 
 const int         nDerived            = 0;                            // Number of derived quantities to output
 const int         nDiscrete           = 0;                            // Number of parameters that are to be treated as discrete
@@ -26,27 +27,64 @@ const bool        removeDuplicates    = true;                         // Weed ou
 const bool        doBayesian          = false;                        // Calculate approximate log evidence and posterior weightings
 const double      maxNodePop          = 1.9;                          // Population at which node is partitioned in binary space partitioning for posterior
 const double      Ztolerance          = 1.e-3;                        // Input tolerance in log-evidence
-const int         savecount           = 100;                          // Save progress every savecount generations
+const int         savecount           = 1;                            // Save progress every savecount generations
 const bool        resume              = false;                        // Restart from a previous run
 
 
 //Function to be minimized.  Corresponds to -ln(Likelihood).
-//Plain Gaussian centred at the origin. Valid for any number of dimensions.
-double gauss(double params[], const int pSize, int &fcall, bool &quit, const bool validvector)
+
+//Plain Gaussian centred at the origin, good for any number of dimensions.
+double gauss(double params[], const int param_dim, int &fcall, bool &quit, const bool validvector)
 {
   double result = 0.0;
-  for (int i = 0; i<pSize; i++) result += params[i]*params[i];
+  for (int i = 0; i<param_dim; i++) result += params[i]*params[i];
   if (not validvector) result = std::numeric_limits<double>::max();
   fcall += 1;
   quit = false;
   return result;
 }
 
+//Gaussian shells, good for any number of dimensions (just remember to expand the subarrays in sc).
+double gauss_shell(double params[], const int param_dim, int &fcall, bool &quit, const bool validvector)
+{
+  double result, temp, dist, loclike;
+  int i,j;
+  double* greater, lesser; 
+  const double TwoPi=6.2831853;
+  const int nRings = 2;                                      // Number of rings
+  const double w[nRings] = {0.1,0.1};                        // Gaussian widths of the shells
+  const double r[nRings] = {2.0,2.0};                        // Widths of the rings
+  const double c[nRings][nPar] = { {-3.5,0.0}, {3.5,0.0} };  // Positions of ring centres
+
+  result = -std::numeric_limits<double>::max()*1e-5;
+  for (i = 0; i < nRings; i++)
+  {
+    temp = 0.0;
+    for (j = 0; j < nPar; j++) temp += (params[j]-c[i][j])*(params[j]-c[i][j]);
+    dist = pow(pow(temp,0.5)-r[i], 2);
+    loclike = -dist / (2.0*w[i]*w[i]) - 0.5 * log(TwoPi*w[i]*w[i]);
+    if (result > loclike) result = result + log(1.0 + exp(loclike-result)); 
+    else result = loclike + log(1.0 + exp(result-loclike));
+  }
+  if (not validvector) result = std::numeric_limits<double>::max();
+  fcall += 1;
+  quit = false;
+  return -result;
+}
+
+//Flat prior function
+double prior(const double real_params[], const int real_param_dim)
+{
+  int result = 1.0;
+  for (int i = 0; i < real_param_dim; i++) result *= upperbounds[i] - lowerbounds[i];
+  return 1.0/result;
+}
+
 
 int main(int argc, char** argv)
 {
-  runde(gauss, nPar, lowerbounds, upperbounds, path, nDerived, nDiscrete, discrete, partitionDiscrete, 
+  runde(gauss_shell, nPar, lowerbounds, upperbounds, path, nDerived, nDiscrete, discrete, partitionDiscrete, 
         maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, removeDuplicates,
-        doBayesian, NULL, NULL, NULL, savecount, resume); 
+        doBayesian, prior, maxNodePop, Ztolerance, savecount, resume); 
   //Note that prior, maxNodePop and Ztolerance are just ignored if doBayesian = false
 }

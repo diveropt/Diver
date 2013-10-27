@@ -33,10 +33,10 @@ const bool        resume              = false;                        // Restart
 
 //Function to be minimized.  Corresponds to -ln(Likelihood).
 //Plain Gaussian centred at the origin. Valid for any number of dimensions.
-double gauss(double params[], const int pSize, int *fcall, bool *quit, const bool validvector)
+double gauss(double params[], const int param_dim, int *fcall, bool *quit, const bool validvector)
 {
   double result = 0.0;
-  for (int i = 0; i<pSize; i++) result += params[i]*params[i];
+  for (int i = 0; i<param_dim; i++) result += params[i]*params[i];
   if (!validvector) result = DBL_MAX;
   *fcall += 1;
   *quit = false;

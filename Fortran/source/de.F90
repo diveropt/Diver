@@ -250,7 +250,7 @@ contains
              if (run_params%calcZ) call updateEvidence(X, Z, Zmsq, Zerr, prior, Nsamples)
 
              !Do periodic save
-             if ((mod(gen,run_params%savefreq) .eq. 0) .and. (run_params%mpirank .eq. 0)) then 
+             if ((mod(gen,run_params%savefreq) .eq. 0) .and. (run_params%mpirank .eq. 0)) then
                 call save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params)
              endif
 
@@ -321,7 +321,7 @@ contains
     end if
 
     !Polish the evidence
-    if (run_params%calcZ .and. run_params%mpirank .eq. 0) then
+    if (run_params%calcZ .and. run_params%mpirank .eq. 0 .and. Nsamples_saved .gt. 0) then
       call polishEvidence(Z, Zmsq, Zerr, prior, Nsamples_saved, path, run_params, .true.)     
       write (*,*)   'corrected ln(Evidence): ', log(Z), ' +/- ', log(Z/(Z-Zerr))
     endif
