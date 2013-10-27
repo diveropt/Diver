@@ -44,7 +44,7 @@ double gauss(double params[], const int param_dim, int &fcall, bool &quit, const
   return result;
 }
 
-//Gaussian shells, good for any number of dimensions (just remember to expand the subarrays in sc).
+//Gaussian shells, good for any number of dimensions (just remember to expand the subarrays in c).
 double gauss_shell(double params[], const int param_dim, int &fcall, bool &quit, const bool validvector)
 {
   double result, temp, dist, loclike;
