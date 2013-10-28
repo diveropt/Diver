@@ -77,7 +77,8 @@ contains
     allocate(run_params%lowerbounds(run_params%D), run_params%upperbounds(run_params%D))
     run_params%lowerbounds = lowerbounds
     run_params%upperbounds = upperbounds
-
+    run_params%priorVolume = product(upperbounds - lowerbounds)
+ 
     if (present(nDerived)) then 
       call setIfNonNegative_int(nDerived, run_params%D_derived, 'nDerived')
     else

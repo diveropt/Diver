@@ -238,6 +238,9 @@ contains
              !replace old generation with newly calculated one
              call replace_generation(X, Xnew, run_params, func, fcall, quit, accept, init=.false.)
 
+             !debugging code: choose random new population members uniformly from the allowed parameter ranges
+             !call initialize(X, Xnew, run_params, fcall, func, quit)
+
 #ifdef USEMPI
              call MPI_Allreduce(accept, totaccept, 1, MPI_integer, MPI_sum, MPI_COMM_WORLD, ierror)
 #else
@@ -247,7 +250,7 @@ contains
              if (verbose .and. run_params%mpirank .eq. 0) write (*,*) '  Acceptance rate: ', totaccept/real(run_params%DE%NP)
 
              !Update the evidence calculation
-             if (run_params%calcZ) call updateEvidence(X, Z, Zmsq, Zerr, prior, Nsamples)
+             if (run_params%calcZ) call updateEvidence(X, Z, Zmsq, Zerr, prior, run_params%priorVolume, Nsamples)
 
              !Do periodic save
              if ((mod(gen,run_params%savefreq) .eq. 0) .and. (run_params%mpirank .eq. 0)) then

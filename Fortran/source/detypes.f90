@@ -34,6 +34,7 @@ type codeparams                 			!code parameters (remember to expand io::save
    integer :: numciv, numgen				!maximum number of civilizations, generations
    real(dp) :: tol					!tolerance in log-evidence
    real(dp) :: maxNodePop                               !maximum population to allow in a cell before partitioning it
+   real(dp) :: priorVolume                              !total volume covered by the prior box employed
    logical :: calcZ      				!calculate evidence or not
    integer :: savefreq					!frequency with which to save progress
    integer :: mpirank					!rank of current process (0 if no MPI)

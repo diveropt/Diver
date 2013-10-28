@@ -9,7 +9,7 @@ private
 public io_begin, save_all, save_run_params, resume
 
 integer, parameter :: rawlun=1, samlun = 2, devolun=3, rparamlun=4
-real(dp), parameter :: Ztolscale = 100., Ftolscale = 100.
+real(dp), parameter :: Ztolscale = 100., Ftolscale = 100., Bndtolscale = 100.
 
 contains
 
@@ -128,6 +128,9 @@ subroutine save_run_params(path, run_params)
   write(rparamlun,'(L1)')  	run_params%DE%expon               		!when true, use exponential crossover (else use binomial)
   write(rparamlun,'(I6)')  	run_params%DE%bconstrain               		!boundary constraint to use
   write(rparamlun,'(2I6)') 	run_params%D, run_params%D_derived		!dim of parameter space (known from the bounds given); dim of derived space
+  write(formatstring,'(A1,I4,A6)') '(',run_params%D,'E20.9)'
+  write(rparamlun,formatstring) run_params%lowerbounds                          !lower bounds of prior box
+  write(rparamlun,formatstring) run_params%upperbounds                          !upper bounds of prior box
   write(rparamlun,'(I6)')	run_params%D_discrete                           !dimenension of discrete parameter space
   if (run_params%D_discrete .ne. 0) then
      write(formatstring,'(A1,I4,A3)') '(',run_params%D_discrete,'I6)'
@@ -224,6 +227,9 @@ subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, f
   read(rparamlun,'(L1)')  	run_params%DE%expon               		!when true, use exponential crossover (else use binomial)
   read(rparamlun,'(I6)')  	run_params%DE%bconstrain               		!boundary constraint to use
   read(rparamlun,'(2I6)') 	run_params%D, run_params%D_derived		!dim of parameter space (known from the bounds given); dim of derived space
+  write(formatstring,'(A1,I4,A6)') '(',run_params%D,'E20.9)'
+  read(rparamlun,formatstring)  run_params%lowerbounds                          !lower bounds of prior box
+  read(rparamlun,formatstring)  run_params%upperbounds                          !upper bounds of prior box
   read(rparamlun,'(I6)') 	run_params%D_discrete				!dimension of discrete parameter space
   if (run_params%D_discrete .gt. 0) then
      allocate(run_params%discrete(run_params%D_discrete))
@@ -315,6 +321,9 @@ subroutine resume(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall
   if (run_params%calcZ) then
     if (.not. run_params_restored%calcZ) stop 'Error: cannot resume in Bayesian mode from non-Bayesian run.'
     if (.not. present(prior)) stop 'Error: evidence calculation requested without specifying a prior.'
+    if (any(abs(run_params%upperbounds-run_params_restored%upperbounds)/run_params%upperbounds .ge. Bndtolscale*epsilon(run_params%upperbounds)) .or. &
+        any(abs(run_params%lowerbounds-run_params_restored%lowerbounds)/run_params%lowerbounds .ge. Bndtolscale*epsilon(run_params%lowerbounds)) )    &
+      stop 'Error: cannot resume in Bayesian mode with a modified prior box.'        
     if (run_params%MaxNodePop .ne. run_params_restored%MaxNodePop) stop 'Error: you cannot change MaxNodePopulation mid-run!'
     if (.not. (run_params%DE%jDE       .or. run_params_restored%DE%jDE)) then
       if (run_params%DE%Fsize .ne. run_params_restored%DE%Fsize) then
@@ -375,7 +384,7 @@ subroutine resume(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall
        Y%vectors(j,:), LF
     enddo
     !Update the evidence calculation
-    if (run_params%calcZ) call updateEvidence(Y, Z_new, Zmsq_new, Zerr_new, prior, Nsamples)          
+    if (run_params%calcZ) call updateEvidence(Y, Z_new, Zmsq_new, Zerr_new, prior, run_params%priorVolume, Nsamples)          
   enddo
 
   close(rawlun)
