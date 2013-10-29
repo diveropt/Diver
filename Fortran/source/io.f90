@@ -384,7 +384,7 @@ subroutine resume(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall
        Y%vectors(j,:), LF
     enddo
     !Update the evidence calculation
-    if (run_params%calcZ) call updateEvidence(Y, Z_new, Zmsq_new, Zerr_new, prior, run_params%priorVolume, Nsamples)          
+    if (run_params%calcZ) call updateEvidence(Y, Z_new, Zmsq_new, Zerr_new, prior, Nsamples)          
   enddo
 
   close(rawlun)

@@ -13,18 +13,17 @@ integer, parameter :: rawlun=1, samlun = 2, devolun=3
 contains
 
   !Get posterior weights and update evidence on the fly
-  subroutine updateEvidence(X, Z, Zmsq, Zerr, prior, priorVolume, oldsamples)
+  subroutine updateEvidence(X, Z, Zmsq, Zerr, prior, oldsamples)
   
     type(population), intent(inout) :: X		!current generation
     real(dp), intent(inout) :: Z, Zmsq, Zerr		!evidence, mean square of weights, error on evidence
-    real(dp), intent(in) :: priorVolume                 !total volume covered by the prior box employed
     real(dp), external :: prior 			!prior funtion
     real(dp) :: sampleratio, totsamples                 !ratio of old samples to total samples, total samples
     integer, intent(inout) :: oldsamples		!previous (running) number of samples
     integer :: inttotsamples				!total number of samples (integer)
     
     !Find weights for posterior pdf / evidence calculation
-    call growTree(X,prior,priorVolume)
+    call growTree(X,prior)
     
     !Find total number of samples and ratio to the old number
     inttotsamples = oldsamples + size(X%weights)
@@ -97,7 +96,7 @@ contains
       !Could implement a skip out if this is the first generation (burn in), but this gen should not be in the raw/sam file anyway
       !if (gen .eq. 1) cycle
       !use the tree to get a new weight for the point
-      multiplicity = getWeight(vector,prior,run_params%priorVolume)*exp(-lnlike)/real(Nsamples, kind=dp) 
+      multiplicity = getWeight(vector,prior)*exp(-lnlike)/real(Nsamples, kind=dp) 
       !save the new multiplicity of the point to disk
       if (update) then
         write(rawlun,formatstring_raw,rec=i) multiplicity, lnlike, civ, gen, vector, LF

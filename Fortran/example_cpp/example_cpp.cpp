@@ -55,7 +55,7 @@ double gauss_shell(double params[], const int param_dim, int &fcall, bool &quit,
   const int nRings = 2;                                      // Number of rings
   const double w[nRings] = {0.1,0.1};                        // Gaussian widths of the shells
   const double r[nRings] = {2.0,2.0};                        // Widths of the rings
-  const double c[nRings][nPar] = { {-3.5,0.0}, {3.5,0.0} };  // Positions of ring centres
+  const double c[nRings][nPar] = { {-3.5,0.0}, {-3.5,0.0} }; // Positions of ring centres
 
   result = -std::numeric_limits<double>::max()*1e-5;
   for (i = 0; i < nRings; i++)

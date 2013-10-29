@@ -89,11 +89,10 @@ contains
   end subroutine burnTree
 
 
-  real(dp) function getWeight(vector, prior, priorVolume)
+  real(dp) function getWeight(vector, prior)
   !Finds the posterior weight of a single individual, using the existing tree structure
 
     real(dp), intent (IN), target :: vector(:)    !target vector 
-    real(dp), intent (IN) :: priorVolume          !total volume covered by the prior box employed
     real(dp) :: prior				  !prior pdf function
     external prior
     type (Point), pointer :: individual                           
@@ -104,18 +103,17 @@ contains
     individual%weight => weight
     
     call climbTree(individual, root, justLooking=.true.)    
-    getWeight = individual%weight * real(totalCells, kind=dp) * prior(vector) * priorVolume
+    getWeight = individual%weight * real(totalCells, kind=dp) * prior(vector)
     
     deallocate(individual)
 
   end function getWeight
 
 
-  subroutine growTree(X,prior,priorVolume)
+  subroutine growTree(X,prior)
   !Grows the tree with points in a new generation, and calculates their posterior weights
 
     type(population), target :: X  !current generation of target vectors
-    real(dp), intent (IN) :: priorVolume          !total volume covered by the prior box employed
     real(dp) prior			          !prior pdf function
     external prior
     type(Point), pointer :: individual	 	  !pointer to a holder for an individual point in parameter space
@@ -167,7 +165,7 @@ contains
 
     !$OMP PARALLEL DO
     do i = 1, NP
-      X%weights(i) = X%weights(i) * real(totalCells, kind=dp) * prior(X%vectors(i,:)) * priorVolume
+      X%weights(i) = X%weights(i) * real(totalCells, kind=dp) * prior(X%vectors(i,:))
     enddo
     !$END OMP PARALLEL DO
 
