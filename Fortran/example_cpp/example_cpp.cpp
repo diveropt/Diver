@@ -26,7 +26,7 @@ const bool        lambdajDE           = true;                         // Use sel
 const bool        removeDuplicates    = true;                         // Weed out duplicate vectors within a single generation
 const bool        doBayesian          = true;                         // Calculate approximate log evidence and posterior weightings
 const double      maxNodePop          = 1.9;                          // Population at which node is partitioned in binary space partitioning for posterior
-const double      Ztolerance          = 1.e-2;                        // Input tolerance in log-evidence
+const double      Ztolerance          = 0.1;                          // Input tolerance in log-evidence
 const int         savecount           = 1;                            // Save progress every savecount generations
 const bool        resume              = false;                        // Restart from a previous run
 

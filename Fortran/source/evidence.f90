@@ -57,7 +57,6 @@ contains
     integer :: filestatus, reclen_raw, reclen_sam, civ, gen, i
     character(len=*), intent(in) :: path
     character(len=31) :: formatstring_raw 
-    !character(len=24) :: formatstring_sam 
     character(len=31) :: formatstring_sam
     character(len=1)  :: LF
     logical, intent(in) :: update
@@ -70,9 +69,7 @@ contains
     write(formatstring_raw,'(A18,I4,A9)') '(2E20.9,2x,2I6,2x,', run_params%D, 'E20.9,A1)'  
     reclen_raw = 57 + 20*run_params%D
     if (dosam) then
-      !write(formatstring_sam,'(A11,I4,A9)') '(2E20.9,2x,', run_params%D+run_params%D_derived, 'E20.9,A1)'  
        write(formatstring_sam,'(A18,I4,A9)') '(2E20.9,2x,2I6,2x,', run_params%D+run_params%D_derived, 'E20.9,A1)'
-    !  reclen_sam = reclen_raw - 14 + 20*run_params%D_derived
        reclen_sam = reclen_raw + 20*run_params%D_derived
     endif
 

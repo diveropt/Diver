@@ -14,11 +14,11 @@ real(dp), parameter :: Ztolscale = 100., Ftolscale = 100., Bndtolscale = 100.
 contains
 
 
-subroutine io_begin(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params, X, BF, prior, restart)
+subroutine io_begin(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF, prior, restart)
 
   character(len=*), intent(in) :: path
   integer, intent(inout) :: civ, gen, Nsamples, Nsamples_saved, fcall
-  real(dp), intent(inout) :: Z, Zmsq, Zerr
+  real(dp), intent(inout) :: Z, Zmsq, Zerr, Zold
   type(codeparams), intent(inout) :: run_params
   logical, intent(in), optional :: restart
   integer :: filestatus  
@@ -27,9 +27,9 @@ subroutine io_begin(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fca
 
   if (present(restart) .and. restart) then !FIXME: make quitting MPI-friendly
     if (present(prior)) then
-      call resume(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params, X, BF, prior=prior)
+      call resume(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF, prior=prior)
     else
-      call resume(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params, X, BF)
+      call resume(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF)
     endif
   else if (run_params%mpirank .eq. 0) then
     !Create .raw, .sam, .rparam and .devo files
@@ -50,13 +50,13 @@ subroutine io_begin(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fca
 end subroutine io_begin
 
 
-subroutine save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params, final)
+subroutine save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, final)
 
   type(population), intent(in) :: X, BF
   character(len=*), intent(in) :: path
   integer, intent(inout) :: Nsamples_saved
   integer, intent(in) :: civ, gen, Nsamples, fcall
-  real(dp), intent(in) :: Z, Zmsq, Zerr
+  real(dp), intent(in) :: Z, Zmsq, Zerr, Zold
   type(codeparams), intent(in) :: run_params
   logical, intent(in), optional :: final
 
@@ -64,7 +64,7 @@ subroutine save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_sav
     Nsamples_saved = Nsamples_saved + run_params%DE%NP 
     call save_samples(X, path, civ, gen, run_params)  
   endif
-  call save_state(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params, X, BF)
+  call save_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF)
 
 end subroutine save_all
 
@@ -153,11 +153,11 @@ subroutine save_run_params(path, run_params)
 end subroutine save_run_params
 
 
-subroutine save_state(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params, X, BF)
+subroutine save_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF)
 
   character(len=*), intent(in) :: path
   integer, intent(in) :: civ, gen, Nsamples, Nsamples_saved, fcall
-  real(dp), intent(in) :: Z, Zmsq, Zerr
+  real(dp), intent(in) :: Z, Zmsq, Zerr, Zold
   type(codeparams), intent(in) :: run_params
   integer :: filestatus
   character(len=14) :: formatstring
@@ -168,8 +168,8 @@ subroutine save_state(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, f
   if (filestatus .ne. 0) stop ' Error opening devo file.  Quitting...'
 
   write(devolun,'(2I10)') 	civ, gen					!current civilisation, generation
-  write(devolun,'(3E20.9)') 	Z, Zmsq, Zerr					!current evidence, mean square and uncertainty
-  write(devolun,'(3I10)') 	Nsamples, Nsamples_saved, fcall			!total number of independent samples so far, number saved, number of function calls
+  write(devolun,'(3E20.9)') 	Z, Zmsq, Zerr, Zold				!current evidence, mean square, stat. uncertainty, approx Z if Z=corrected
+  write(devolun,'(3I10)') 	Nsamples, Nsamples_saved, fcall			!total number of independent samples so far, num saved, num function calls
 
   write(devolun,'(E20.9)') 	BF%values(1) 					!current best-fit
   write(formatstring,'(A1,I4,A6)') '(',run_params%D,'E20.9)'			
@@ -196,9 +196,9 @@ subroutine save_state(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, f
 end subroutine save_state
 
 
-subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params, X, BF)
+subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF)
 
-  real(dp), intent(out) :: Z, Zmsq, Zerr
+  real(dp), intent(out) :: Z, Zmsq, Zerr, Zold
   integer, intent(out) :: civ, gen, Nsamples, Nsamples_saved, fcall
   integer :: filestatus
   character(len=*), intent(in) :: path
@@ -257,8 +257,8 @@ subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, f
   if (filestatus .ne. 0) stop ' Error opening devo file.  Quitting...'
 
   read(devolun,'(2I10)') 	civ, gen					!current civilisation, generation
-  read(devolun,'(3E20.9)') 	Z, Zmsq, Zerr					!current evidence, mean square and uncertainty
-  read(devolun,'(3I10)') 	Nsamples, Nsamples_saved, fcall			!total number of independent samples so far, number saved, number of function calls
+  read(devolun,'(3E20.9)') 	Z, Zmsq, Zerr, Zold				!current evidence, mean square, stat. uncertainty, approx Z if Z=corrected
+  read(devolun,'(3I10)') 	Nsamples, Nsamples_saved, fcall			!total number of independent samples so far, num saved, num function calls
 
   read(devolun,'(E20.9)') 	BF%values(1) 					!current best-fit 
   write(formatstring,'(A1,I4,A6)') '(',run_params%D,'E20.9)'			
@@ -287,12 +287,12 @@ end subroutine read_state
 
 
 !Resumes from a previous run
-subroutine resume(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params, X, BF, prior)
+subroutine resume(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF, prior)
 
   character(len=*), intent(in) :: path
   integer, intent(inout) :: civ, gen, Nsamples, Nsamples_saved, fcall
   integer :: reclen, filestatus, i, j
-  real(dp), intent(inout) :: Z, Zmsq, Zerr
+  real(dp), intent(inout) :: Z, Zmsq, Zerr, Zold
   real(dp), optional, external :: prior				  
   real(dp) :: Z_new, Zmsq_new, Zerr_new, Z_3, Zmsq_3, Zerr_3
   character(len=31) :: formatstring
@@ -306,7 +306,7 @@ subroutine resume(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall
   write(*,*) 'Restoring from previous run...'  
 
   !Read the run state
-  call read_state(path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params_restored, X, BF)
+  call read_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params_restored, X, BF)
 
   !Do some error-checking on overrides/disagreements between run_params
   if (run_params%D .ne. run_params_restored%D) stop &

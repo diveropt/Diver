@@ -69,7 +69,7 @@ contains
     real(dp), allocatable :: bestvecderived(:)
     integer :: bestloc(1)
 
-    real(dp) :: Z=0., Zmsq=0., Zerr = 0.                        !evidence
+    real(dp) :: Z=0., Zmsq=0., Zerr=0., Zold=0.                 !evidence
     integer :: Nsamples = 0                                     !number of statistically independent samples from posterior
     integer :: Nsamples_saved = 0                               !number of samples saved to .sam file so far
     logical :: quit						!flag passed from user function to indicate need to stop 
@@ -153,21 +153,21 @@ contains
     BF%values(1) = huge(BF%values(1))
 
     !Resume from saved run or initialise save files for a new one.
-    !FIXME The switching I've implmented here is ridiculous.  Surely there is a better way, some option forwarding or similar??
+    !FIXME The switching I've implemented here is ridiculous.  Surely there is a better way, some option forwarding or similar??
     if (present(resume)) then 
        if (present(prior)) then
-         call io_begin(path, civstart, genstart, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params, X, BF, prior=prior, &
+         call io_begin(path, civstart, genstart, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF, prior=prior, &
           restart=resume)
        else
-         call io_begin(path, civstart, genstart, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params, X, BF, &
+         call io_begin(path, civstart, genstart, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF, &
           restart=resume)
        endif
        if (resume) genstart = genstart + 1
     else 
        if (present(prior)) then
-         call io_begin(path, civstart, genstart, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params, X, BF, prior=prior)
+         call io_begin(path, civstart, genstart, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF, prior=prior)
        else
-         call io_begin(path, civstart, genstart, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params, X, BF)
+         call io_begin(path, civstart, genstart, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF)
        endif
     endif
 
@@ -239,7 +239,7 @@ contains
              call replace_generation(X, Xnew, run_params, func, fcall, quit, accept, init=.false.)
 
              !debugging code: choose random new population members uniformly from the allowed parameter ranges
-             call initialize(X, Xnew, run_params, fcall, func, quit)
+             !call initialize(X, Xnew, run_params, fcall, func, quit)
 
 #ifdef USEMPI
              call MPI_Allreduce(accept, totaccept, 1, MPI_integer, MPI_sum, MPI_COMM_WORLD, ierror)
@@ -254,7 +254,7 @@ contains
 
              !Do periodic save
              if ((mod(gen,run_params%savefreq) .eq. 0) .and. (run_params%mpirank .eq. 0)) then
-                call save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params)
+                call save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, huge(Z), Nsamples, Nsamples_saved, fcall, run_params)
              endif
 
           endif
@@ -262,7 +262,7 @@ contains
           if (quit) then
              write(*,*) 'Quit requested by objective function - saving and exiting.'
              if (run_params%mpirank .eq. 0) then 
-                call save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params, &
+                call save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, huge(Z), Nsamples, Nsamples_saved, fcall, run_params, &
                              final=(mod(gen,run_params%savefreq) .eq. 0) )
              end if
              call quit_de()
@@ -319,19 +319,22 @@ contains
        write (*,'(A25,I4)') 'Number of civilisations: ', min(civ,run_params%numciv)
        write (*,*) 'Best final vector: ', roundvector(BF%vectors(1,:), run_params)
        write (*,*) 'Value at best final vector: ', BF%values(1)
-       if (run_params%calcZ) write (*,*)   'ln(Evidence): ', log(Z), ' +/- ', log(Z/(Z-Zerr))
+       if (run_params%calcZ) write (*,'(A23,E13.6,A5,E13.6,A7)') ' approx. ln(Evidence): ', log(Z), ' +/- ', log(Z/(Z-Zerr)), ' (stat)'
        write (*,*) 'Total Function calls: ', totfcall
     end if
 
     !Polish the evidence
     if (run_params%calcZ .and. run_params%mpirank .eq. 0 .and. Nsamples_saved .gt. 0) then
+      Zold = Z
       call polishEvidence(Z, Zmsq, Zerr, prior, Nsamples_saved, path, run_params, .true.)     
-      write (*,*)   'corrected ln(Evidence): ', log(Z), ' +/- ', log(Z/(Z-Zerr))
+      write (*,'(A25,E13.6)') ' corrected ln(Evidence): ', log(Z)
+      write (*,'(A25,E13.6,A6)') '                     +/- ', abs(log(Z/Zold)), ' (sys)'
+      write (*,'(A25,E13.6,A7)') '                     +/- ', log(Z/(Z-Zerr)), ' (stat)'
     endif
 
     !Do final save operation
     if (run_params%mpirank .eq. 0 ) then
-       call save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, Nsamples, Nsamples_saved, fcall, run_params, &
+       call save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, &
                      final = ( (mod(gen,run_params%savefreq) .eq. 0) .or. (civ .eq. civstart) ) )
     end if
 
