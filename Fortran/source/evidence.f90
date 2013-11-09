@@ -15,13 +15,15 @@ contains
   !Get posterior weights and update evidence on the fly
   subroutine updateEvidence(X, Z, Zmsq, Zerr, prior, context, oldsamples)
   
+    use iso_c_binding, only: c_ptr
+
     type(population), intent(inout) :: X		!current generation
     real(dp), intent(inout) :: Z, Zmsq, Zerr		!evidence, mean square of weights, error on evidence
     real(dp), external :: prior 			!prior funtion
     real(dp) :: sampleratio, totsamples                 !ratio of old samples to total samples, total samples
     integer, intent(inout) :: oldsamples		!previous (running) number of samples
     integer :: inttotsamples				!total number of samples (integer)
-    integer, intent(inout) :: context			!context pointer
+    type(c_ptr), intent(inout) :: context		!context pointer
     
     !Find weights for posterior pdf / evidence calculation
     call growTree(X,prior,context)
@@ -50,12 +52,14 @@ contains
   !Recalculate evidence and all posterior weights at the end of a run
   subroutine polishEvidence(Z, Zmsq, Zerr, prior, context, Nsamples, path, run_params, update)
 
+    use iso_c_binding, only: c_ptr
+
     type(codeparams), intent(in) :: run_params
     real(dp), intent(inout) :: Z, Zmsq, Zerr
     real(dp), external :: prior 				
     real(dp) :: lnlike, multiplicity, vector(run_params%D), vectors_and_derived(run_params%D+run_params%D_derived)
     integer, intent(in) :: Nsamples
-    integer, intent(inout) :: context
+    type(c_ptr), intent(inout) :: context
     integer :: filestatus, reclen_raw, reclen_sam, civ, gen, i
     character(len=*), intent(in) :: path
     character(len=31) :: formatstring_raw 

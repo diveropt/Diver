@@ -1,5 +1,6 @@
 module detypes
 
+use iso_c_binding, only: c_ptr
 
 implicit none
 
@@ -38,7 +39,7 @@ type codeparams                 			!code parameters (remember to expand io::save
    integer :: savefreq					!frequency with which to save progress
    integer :: mpirank					!rank of current process (0 if no MPI)
    integer :: mpipopchunk				!number of vectors for each process to work on (NP if no MPI)
-   integer :: context					!context pointer/integer
+   type(c_ptr) :: context				!context pointer
 end type codeparams
 
 type population

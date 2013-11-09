@@ -31,7 +31,7 @@ contains
     use de, only: run_de
 
     type(c_funptr),  intent(in), value :: minusloglike, prior
-    type(c_ptr),     intent(in)        :: context
+    type(c_ptr),     intent(inout)     :: context
     integer(c_int),  intent(in), value :: nPar, nDerived, nDiscrete, maxciv, maxgen, NP, nF, bndry, savecount
     integer(c_int),  intent(in), target:: discrete(nDiscrete)
     logical(c_bool), intent(in), value :: partitionDiscrete, current, expon, jDE, lambdajDE, removeDuplicates, doBayesian, resume
@@ -39,17 +39,18 @@ contains
     real(c_double),  intent(in)        :: lowerbounds(nPar), upperbounds(nPar), F(nF)
     character(kind=c_char,len=1), dimension(1), intent(in) :: path
 
-    integer :: i, context_f
+    integer :: i
     integer, target :: discrete_empty(0)
     integer, pointer :: discrete_f(:)
     integer, parameter :: maxpathlen = 300
     character(len=maxpathlen) :: path_f
     interface
       real(dp) function prior_f_proto(X, context)
+        use iso_c_binding, only: c_ptr
         use detypes, only: dp
         implicit none
-        integer, intent(inout) :: context
         real(dp), dimension(:), intent(in) :: X
+        type(c_ptr), intent(inout) :: context
       end function prior_f_proto
     end interface
     procedure(prior_f_proto), pointer :: priorPtr
@@ -78,16 +79,13 @@ contains
       priorPtr => NULL()
     endif
  
-    ! Cast the context pointer to a simple Fortran integer
-    context_f = transfer(context, context_f)
-
     ! Call the actual fortran differential evolution function
     call run_de(minusloglike_f, lowerbounds, upperbounds, path_f, nDerived=nDerived, discrete=discrete_f,       &
                 partitionDiscrete=logical(partitionDiscrete), maxciv=maxciv, maxgen=maxgen, NP=NP, F=F, Cr=Cr,  &
                 lambda=lambda, current=logical(current), expon=logical(expon), bndry=bndry, jDE=logical(jDE),   &
                 lambdajDE=logical(lambdajDE), removeDuplicates=logical(removeDuplicates),                       &
                 doBayesian=logical(doBayesian), prior = priorPtr, maxNodePop=maxNodePop, Ztolerance=Ztolerance, &
-                savecount=savecount, resume=logical(resume), context=context_f)
+                savecount=savecount, resume=logical(resume), context=context)
     
     contains
 
@@ -96,12 +94,12 @@ contains
        use iso_c_binding, only: c_f_procpointer, c_ptr
        use detypes, only: dp
   
-       real(dp), intent(inout) :: params(nPar+nDerived)
-       integer,  intent(inout) :: fcall, context
-       logical,  intent(out)   :: quit
-       logical,  intent(in)    :: validvector
-       logical(c_bool)         :: quit_c, validvector_c
-       type(c_ptr)             :: context_c
+       real(dp),    intent(inout) :: params(nPar+nDerived)
+       integer,     intent(inout) :: fcall
+       logical,     intent(out)   :: quit
+       logical,     intent(in)    :: validvector
+       type(c_ptr), intent(inout) :: context
+       logical(c_bool)            :: quit_c, validvector_c
 
        interface
           real(c_double) function minusloglike_proto(params, param_dim, fcall, quit, validvector, context) bind(c)
@@ -121,13 +119,9 @@ contains
           ! Cast c_funptr minusloglike to a pointer with signature minusloglike_proto, and assign the result to minusloglike_c
           call c_f_procpointer(minusloglike,minusloglike_c)
 
-          ! Cast the context integer to a C pointer
-          context_c = transfer(context, context_c)
-
           validvector_c = validvector  ! Do boolen type conversion default logical --> c_bool 
-          minusloglike_f = minusloglike_c(params, size(params), fcall, quit_c, validvector_c, context_c)
+          minusloglike_f = minusloglike_c(params, size(params), fcall, quit_c, validvector_c, context)
           quit = quit_c                ! Do boolen type conversion c_bool --> default logical
-          !context = transfer(context_c, context)  ! Cast the C pointer context back to an integer
 
        end function minusloglike_f
 
@@ -137,10 +131,9 @@ contains
        use iso_c_binding, only: c_f_procpointer
        use detypes, only: dp
 
-       real(dp), intent(in)    :: true_params(nPar)
-       integer,  intent(inout) :: context
-       type(c_ptr)             :: context_c
-
+       real(dp),    intent(in)    :: true_params(nPar)
+       type(c_ptr), intent(inout) :: context
+       
        interface
           real(c_double) function prior_proto(true_params, true_param_dim, context) bind(c)
              use iso_c_binding, only: c_double, c_int, c_ptr
@@ -156,11 +149,7 @@ contains
           ! Cast c_funptr prior to a pointer with signature prior_proto, and assign the result to prior_c
           call c_f_procpointer(prior,prior_c)
 
-          ! Cast the context integer to a C pointer
-          context_c = transfer(context, context_c)
-
-          prior_f = prior_c(true_params, size(true_params), context_c)
-          !context = transfer(context_c, context)  ! Cast the C pointer context back to an integer
+          prior_f = prior_c(true_params, size(true_params), context)
 
        end function prior_f
 

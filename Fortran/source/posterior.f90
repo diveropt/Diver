@@ -92,7 +92,9 @@ contains
   real(dp) function getWeight(vector, prior, context)
   !Finds the posterior weight of a single individual, using the existing tree structure
 
-    integer, intent(inout) :: context             !context pointer 
+    use iso_c_binding, only: c_ptr
+
+    type(c_ptr), intent(inout) :: context         !context pointer 
     real(dp), intent (in), target :: vector(:)    !target vector 
     real(dp) :: prior				  !prior pdf function
     external prior
@@ -114,8 +116,10 @@ contains
   subroutine growTree(X,prior,context)
   !Grows the tree with points in a new generation, and calculates their posterior weights
 
+    use iso_c_binding, only: c_ptr
+
     type(population), target :: X                 !current generation of target vectors
-    integer, intent(inout) :: context             !context pointer 
+    type(c_ptr), intent(inout) :: context         !context pointer 
     real(dp) prior			          !prior pdf function
     external prior
     type(Point), pointer :: individual	 	  !pointer to a holder for an individual point in parameter space

@@ -2,6 +2,7 @@ module examples
 
 use de
 use detypes
+use iso_c_binding, only: c_ptr
 
 implicit none
 
@@ -22,7 +23,8 @@ contains
 real(dp) function constant(params, fcall, quit, validvector, context)
 
   real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
-  integer, intent(inout) :: fcall, context
+  integer, intent(inout) :: fcall
+  type(c_ptr), intent(inout) :: context
   logical, intent(out) :: quit
   logical, intent(in) :: validvector
 
@@ -40,7 +42,8 @@ end function constant
 real(dp) function step(params, fcall, quit, validvector, context)
 
   real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
-  integer, intent(inout) :: fcall, context
+  integer, intent(inout) :: fcall
+  type(c_ptr), intent(inout) :: context
   logical, intent(out) :: quit
   logical, intent(in) :: validvector
   
@@ -61,7 +64,8 @@ end function step
 real(dp) function linear(params, fcall, quit, validvector, context)
 
   real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
-  integer, intent(inout) :: fcall, context
+  integer, intent(inout) :: fcall
+  type(c_ptr), intent(inout) :: context
   logical, intent(out) :: quit
   logical, intent(in) :: validvector
   
@@ -82,7 +86,8 @@ end function linear
 !valid for any number of dimensions
 real(dp) function gauss(params, fcall, quit, validvector, context)
   real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
-  integer, intent(inout) :: fcall, context
+  integer, intent(inout) :: fcall
+  type(c_ptr), intent(inout) :: context
   logical, intent(out) :: quit
   logical, intent(in) :: validvector
   integer :: i
@@ -106,7 +111,8 @@ end function gauss
 !valid for any number of dimensions, but with some (hard-coded) number discrete indices
 real(dp) function manygauss(params, fcall, quit, validvector, context)
   real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
-  integer, intent(inout) :: fcall, context
+  integer, intent(inout) :: fcall
+  type(c_ptr), intent(inout) :: context
   logical, intent(out) :: quit
   logical, intent(in) :: validvector
   integer, parameter, dimension(3) :: discrete = (/1,3,5/)
@@ -130,7 +136,8 @@ end function manygauss
 
 real(dp) function spikygauss(params, fcall, quit, validvector, context)
   real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
-  integer, intent(inout) :: fcall, context
+  integer, intent(inout) :: fcall
+  type(c_ptr), intent(inout) :: context
   logical, intent(out) :: quit
   logical, intent(in) :: validvector
   integer :: i
@@ -157,7 +164,8 @@ end function spikygauss
 !2-dimensional
 real(dp) function rosenbrock(params, fcall, quit, validvector, context)
   real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
-  integer, intent(inout) :: fcall, context
+  integer, intent(inout) :: fcall
+  type(c_ptr), intent(inout) :: context
   logical, intent(out) :: quit
   logical, intent(in) :: validvector
 
@@ -176,7 +184,8 @@ end function rosenbrock
 !valid for any number of dimensions
 real(dp) function rastrigin(params, fcall, quit, validvector, context)
   real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
-  integer, intent(inout) :: fcall, context
+  integer, intent(inout) :: fcall
+  type(c_ptr), intent(inout) :: context
   logical, intent(out) :: quit
   logical, intent(in) :: validvector
   integer :: i
@@ -201,7 +210,8 @@ end function rastrigin
 
 real(dp) function eggcarton(params, fcall, quit, validvector, context)
   real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
-  integer, intent(inout) :: fcall, context
+  integer, intent(inout) :: fcall
+  type(c_ptr), intent(inout) :: context
   logical, intent(out) :: quit
   logical, intent(in) :: validvector
   integer :: D = size(lowerbounds)
@@ -227,7 +237,7 @@ end function eggcarton
 !Flat prior distribution for all parameters
 real(dp) function flatprior(X, context)
 
-  integer, intent(inout) :: context
+  type(c_ptr), intent(inout) :: context
   real(dp), dimension(size(lowerbounds)), intent(in) :: X
   flatprior = 1.0_dp / product(ranges)
 

@@ -28,6 +28,8 @@ contains
                     maxciv, maxgen, NP, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE,               &
                     removeDuplicates, doBayesian, prior, maxNodePop, Ztolerance, savecount, resume, context)
 
+    use iso_c_binding, only: c_ptr
+
     real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds !boundaries of parameter space
     character(len=*), intent(in)     :: path			!path to save samples, resume files, etc  
     integer, intent(in), optional    :: nDerived	 	!input number of derived quantities to output
@@ -50,7 +52,7 @@ contains
     real(dp), intent(in), optional   :: Ztolerance		!input tolerance in log-evidence
     integer, intent(in), optional    :: savecount		!save progress every savecount generations
     logical, intent(in), optional    :: resume			!restart from a previous run
-    integer, intent(inout), optional :: context                 !context pointer/integer, used for passing info from the caller to likelihood/prior 
+    type(c_ptr), intent(inout), optional :: context		!context pointer, used for passing info from the caller to likelihood/prior 
      
     type(codeparams) :: run_params                              !carries the code parameters 
 
@@ -81,13 +83,14 @@ contains
     interface
     !the likelihood function to be minimised -- assumed to be -ln(likelihood)
        real(dp) function func(params, fcall, quit, validvector, context)
+          use iso_c_binding, only: c_ptr
           use detypes
           implicit none
           real(dp), dimension(:), intent(inout) :: params
           integer, intent(inout) :: fcall 
           logical, intent(out) :: quit
           logical, intent(in) :: validvector
-          integer, intent(inout) :: context
+          type(c_ptr), intent(inout) :: context
        end function func
     end interface
 	
@@ -95,10 +98,11 @@ contains
     interface
     !the prior function
        real(dp) function prior(X, context)
+          use iso_c_binding, only: c_ptr
           use detypes
           implicit none
           real(dp), dimension(:), intent(in) :: X
-          integer, intent(inout) :: context
+          type(c_ptr), intent(inout) :: context
        end function prior
     end interface
 

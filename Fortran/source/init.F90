@@ -23,6 +23,8 @@ contains
                           NP, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, removeDuplicates, doBayesian, &
                           maxNodePop, Ztolerance, savecount, context)
 
+    use iso_c_binding, only: C_NULL_PTR
+
     type(codeparams), intent(out) :: run_params 
     real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space 
     integer, intent(in), optional  :: nDerived	 		!input number of derived quantities to output
@@ -44,7 +46,7 @@ contains
     real(dp), intent(in), optional :: maxNodePop                !population at which node is partitioned in binary space partitioning for posterior
     real(dp), intent(in), optional :: Ztolerance		!input tolerance in log-evidence
     integer, intent(in), optional  :: savecount			!save progress every savecount generations
-    integer, intent(inout), optional  :: context		!context pointer/integer, used for passing info from the caller to likelihood/prior 
+    type(c_ptr), intent(inout), optional  :: context		!context pointer/integer, used for passing info from the caller to likelihood/prior 
 
     integer :: mpiprocs, mpirank, ierror                        !number of processes running, rank of current process, error code
     character (len=70) :: DEstrategy                    	!for printing mutation/crossover DE strategy
@@ -439,7 +441,7 @@ contains
     if (present(context)) then
       run_params%context = context
     else
-      run_params%context = 0
+      run_params%context = C_NULL_PTR
     endif
 
   end subroutine param_assign
