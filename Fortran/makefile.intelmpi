@@ -6,10 +6,10 @@
 
 # Define fortran compiler and options
 # to enable mpi, add -DUSEMPI to FOPT
-FF=ifort
-CC=icc
-FOPT=-O3 -extend_source -fPIC
-COPT=-O3 -fPIC
+FF=mpif90
+CC=mpicc
+FOPT=-O3 -extend_source -fPIC -warn all -DUSEMPI -check all -check noarg-temp_created -fpp
+COPT=-O3 -fPIC -DUSEMPI
 CPPOPT=-lstdc++
 MIXOPT_C=-nofor-main
 MIXOPT_CPP=-nofor-main -lstdc++

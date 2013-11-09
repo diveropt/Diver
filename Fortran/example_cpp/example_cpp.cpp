@@ -1,4 +1,6 @@
 #include <cstdlib>
+#include <cstring>
+#include <cstdio>
 #include <cmath>
 #include <limits>
 #include "devo.hpp"
@@ -31,10 +33,9 @@ const int         savecount           = 1;                            // Save pr
 const bool        resume              = false;                        // Restart from a previous run
 
 const double Pi = 3.14159265359;
+typedef double (*likelihood)(double[], const int, int&, bool&, const bool);
 
-//Function to be minimized.  Corresponds to -ln(Likelihood).
-
-//Plain Gaussian centred at the origin, good for any number of dimensions.
+//Plain Gaussian likelihood centred at the origin, good for any number of dimensions.
 double gauss(double params[], const int param_dim, int &fcall, bool &quit, const bool validvector)
 {
   double result = 0.0;
@@ -46,7 +47,7 @@ double gauss(double params[], const int param_dim, int &fcall, bool &quit, const
   return result;
 }
 
-//Gaussian shells, good for any number of dimensions (just remember to expand the subarrays in c).
+//Gaussian shell likelihood, good for any number of dimensions (just remember to expand the subarrays in c).
 double gauss_shell(double params[], const int param_dim, int &fcall, bool &quit, const bool validvector)
 {
   double result, temp, dist, loclike;
@@ -73,17 +74,26 @@ double gauss_shell(double params[], const int param_dim, int &fcall, bool &quit,
   return -result;
 }
 
+//Function to be minimized.  Corresponds to -ln(Likelihood).  Redirects to the target of context pointer.
+double objective(double params[], const int param_dim, int &fcall, bool &quit, const bool validvector, void*& context)
+{
+  likelihood* like_ptr = static_cast<likelihood*>(context);
+  //printf ("%s \n", "in objective 2.1");
+  likelihood minus_lnlike = *like_ptr;
+  //printf ("%s \n", "in objective 2.2");
+  return minus_lnlike(params, param_dim, fcall, quit, validvector);
+}
+
 //Flat prior function
-double flatprior(const double real_params[], const int real_param_dim)
+double flatprior(const double real_params[], const int real_param_dim, void*& context)
 {
   int result = 1.0;
   for (int i = 0; i < real_param_dim; i++) result *= upperbounds[i] - lowerbounds[i];
   return 1.0/result;
 }
 
-
 //Log prior function
-double logprior(const double real_params[], const int real_param_dim)
+double logprior(const double real_params[], const int real_param_dim, void*& context)
 {
   int result = 1.0;
   for (int i = 0; i < real_param_dim; i++) result /= real_params[i] * log(upperbounds[i]/lowerbounds[i]);
@@ -93,8 +103,13 @@ double logprior(const double real_params[], const int real_param_dim)
 
 int main(int argc, char** argv)
 {
-  runde(gauss, nPar, lowerbounds, upperbounds, path, nDerived, nDiscrete, discrete, partitionDiscrete, 
+  //Use the shell likelihood if 'shell' is given as the first command-line argument, gauss if not (shows use of the context pointer).
+  likelihood minus_lnlike = gauss;
+  if (argc > 1 and strcmp(argv[1], "shell") == 0) minus_lnlike = gauss_shell;
+  void* context = &minus_lnlike;
+
+  runde(objective, nPar, lowerbounds, upperbounds, path, nDerived, nDiscrete, discrete, partitionDiscrete, 
         maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, removeDuplicates,
-        doBayesian, flatprior, maxNodePop, Ztolerance, savecount, resume); 
-  //Note that prior, maxNodePop and Ztolerance are just ignored if doBayesian = false
+        doBayesian, flatprior, maxNodePop, Ztolerance, savecount, resume, context); 
+        //Note that prior, maxNodePop and Ztolerance are just ignored if doBayesian = false
 }

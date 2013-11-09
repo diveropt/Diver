@@ -16,7 +16,7 @@ module selection
 
 contains 
 
-  subroutine selector(X, Xnew, U, trialF, triallambda, trialCr, m, n, run_params, fcall, func, quit, accept)
+  subroutine selector(X, Xnew, U, trialF, triallambda, trialCr, m, n, run_params, func, fcall, quit, accept)
 
     type(population), intent(in) :: X
     type(population), intent(inout) :: Xnew
@@ -67,12 +67,12 @@ contains
 
 #ifdef USEMPI 
     !call func even if not a valid vector so that all processes can respond to MPI calls inside likelihood function 
-    trialvalue = func(trialderived, fcall, quit, validvector)
+    trialvalue = func(trialderived, fcall, quit, validvector, run_params%context)
     if (.not. validvector) trialvalue = huge(1.0_dp)
 #else   
     !save time by only evaluating likelihood when necessary
     if (validvector) then 
-       trialvalue = func(trialderived, fcall, quit, validvector)
+       trialvalue = func(trialderived, fcall, quit, validvector, run_params%context)
     else
        trialvalue = huge(1.0_dp)
     end if
@@ -227,7 +227,7 @@ contains
                    if (run_params%mpirank .eq. 0) write (*,*) 'WARNING: Duplicate vectors in initial generation'  !This should never happen.
                    if (verbose .and. (run_params%mpirank .eq. 0)) write (*,*) '  Generating new vector ', kmatch             
                    !replacing second vector with a random new one
-                   call replace_vector(Xnew, allvecs, X, run_params, func, kmatch, fcall, accept, quit, revert=.false.)
+                   call replace_vector(Xnew, allvecs, X, run_params, func, kmatch, fcall, quit, accept, revert=.false.)
 
                 else if (all(allvecs(k,:) .eq. X%vectors(k,:)) .and. &                         !both vectors were inherited, so keep k & randomly re-pick kmatch
                            all(allvecs(kmatch,:) .eq. X%vectors(kmatch,:))) then
@@ -237,31 +237,31 @@ contains
                                !This can be a sign that single-dimension duplicates are polluting the population, or that you're just unlucky
                       if (verbose) write (*,*) '  Generating new vector ', kmatch              !replacing second vector with a random new one
                    end if
-                   call replace_vector(Xnew, allvecs, X, run_params, func, kmatch, fcall, accept, quit, revert=.false.)
+                   call replace_vector(Xnew, allvecs, X, run_params, func, kmatch, fcall, quit, accept, revert=.false.)
                    
                 else if (all(allvecs(k,:) .eq. X%vectors(k,:)) ) then                          !vector at k was inherited, so keep it & revert kmatch
                    if (verbose .and. (run_params%mpirank .eq. 0)) then
                       write (*,*) '    Vector ', k, ' inherited, reverting vector ', kmatch
                    end if
-                   call replace_vector(Xnew, allvecs, X, run_params, func, kmatch, fcall, accept, quit, revert=.true.)
+                   call replace_vector(Xnew, allvecs, X, run_params, func, kmatch, fcall, quit, accept, revert=.true.)
                    
                 else if (all(allvecs(kmatch,:) .eq. X%vectors(kmatch,:))) then                 !vector at kmatch was inherited. Keep it
                    if (verbose .and. (run_params%mpirank .eq. 0)) then
                       write (*,*) '    Vector ', kmatch, ' inherited, reverting vector ', k
                    end if
-                   call replace_vector(Xnew, allvecs, X, run_params, func, k, fcall, accept, quit, revert=.true.) 
+                   call replace_vector(Xnew, allvecs, X, run_params, func, k, fcall, quit, accept, revert=.true.) 
                    
                 else if (X%values(k) .lt. X%values(kmatch)) then                               !kmatch improved more (or the same), so keep it
                    if (verbose .and. (run_params%mpirank .eq. 0)) then
                       write (*,*) '    Vector ', kmatch, ' improved more, reverting vector', k
                    end if
-                   call replace_vector(Xnew, allvecs, X, run_params, func, k, fcall, accept, quit, revert=.true.) 
+                   call replace_vector(Xnew, allvecs, X, run_params, func, k, fcall, quit, accept, revert=.true.) 
                    
                 else                                                                           !k improved more, so keep it
                    if (verbose .and. (run_params%mpirank .eq. 0)) then
                       write (*,*) '    Vector ', k, ' improved more, reverting vector', kmatch
                    endif
-                   call replace_vector(Xnew, allvecs, X, run_params, func, kmatch, fcall, accept, quit, revert=.true.) 
+                   call replace_vector(Xnew, allvecs, X, run_params, func, kmatch, fcall, quit, accept, revert=.true.) 
                    
                 end if picksurvivor
              end if
@@ -276,7 +276,7 @@ contains
 
 !replace a duplicate vector in Xnew and allvecs by:
 !its counterpart in the previous generation (X) (if revert=.true.) or a new randomly generated vector
-  subroutine replace_vector(Xnew, allvecs, X, run_params, func, n, fcall, accept, quit, revert)
+  subroutine replace_vector(Xnew, allvecs, X, run_params, func, n, fcall, quit, accept, revert)
     type(population), intent(inout) :: Xnew
     type(codeparams), intent(in) :: run_params
     real(dp), intent(inout), dimension(run_params%DE%NP, run_params%D) :: allvecs
@@ -321,7 +321,7 @@ contains
              Xnew%vectors(m,i) = rand*(run_params%upperbounds(i) - run_params%lowerbounds(i)) + run_params%lowerbounds(i)
           enddo
           Xnew%vectors_and_derived(m,:run_params%D) = roundvector(Xnew%vectors(m,:), run_params)
-          Xnew%values(m) = func(Xnew%vectors_and_derived(m,:), fcall, quit, .true.)
+          Xnew%values(m) = func(Xnew%vectors_and_derived(m,:), fcall, quit, .true., run_params%context)
           if (run_params%DE%jDE) then
              Fnew = init_FjDE(1)
              Crnew = init_CrjDE(1)

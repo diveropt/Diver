@@ -384,7 +384,7 @@ subroutine resume(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved,
        Y%vectors(j,:), LF
     enddo
     !Update the evidence calculation
-    if (run_params%calcZ) call updateEvidence(Y, Z_new, Zmsq_new, Zerr_new, prior, Nsamples)          
+    if (run_params%calcZ) call updateEvidence(Y, Z_new, Zmsq_new, Zerr_new, prior, run_params%context, Nsamples)          
   enddo
 
   close(rawlun)
@@ -396,7 +396,7 @@ subroutine resume(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved,
   !Check agreement of the evidence things with what was read in from devo file
   if (run_params%calcZ .and. require_Z_match) then
     if (any(abs((/(Z_new-Z)/Z, (Zmsq_new-Zmsq)/Zmsq, (Zerr_new - Zerr)/Zerr/)) .gt. Ztolscale*epsilon(Z))) then
-      call polishEvidence(Z_3, Zmsq_3, Zerr_3, prior, Nsamples_saved, path, run_params, .false.)
+      call polishEvidence(Z_3, Zmsq_3, Zerr_3, prior, run_params%context, Nsamples_saved, path, run_params, .false.)
       if (any(abs((/(Z_3-Z)/Z, (Zmsq_3-Zmsq)/Zmsq, (Zerr_3 - Zerr)/Zerr/)) .gt. Ztolscale*epsilon(Z))) then
         write(*,*) ' Error: evidence variables in devo file do not exactly match sample file:'
         write(*,'(A24,3F16.5)') '  From devo file: ', log(Z), log(Zmsq), log(Zerr)

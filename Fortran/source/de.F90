@@ -24,32 +24,33 @@ contains
 
 
   !Main differential evolution routine.  
-  subroutine run_de(func, lowerbounds, upperbounds, path, nDerived, discrete, partitionDiscrete, &
-                    maxciv, maxgen, NP, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE,           &
-                    removeDuplicates, doBayesian, prior, maxNodePop, Ztolerance, savecount, resume)
+  subroutine run_de(func, lowerbounds, upperbounds, path, nDerived, discrete, partitionDiscrete,            &
+                    maxciv, maxgen, NP, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE,               &
+                    removeDuplicates, doBayesian, prior, maxNodePop, Ztolerance, savecount, resume, context)
 
     real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds !boundaries of parameter space
-    character(len=*), intent(in)   :: path			!path to save samples, resume files, etc  
-    integer, intent(in), optional  :: nDerived	 		!input number of derived quantities to output
+    character(len=*), intent(in)     :: path			!path to save samples, resume files, etc  
+    integer, intent(in), optional    :: nDerived	 	!input number of derived quantities to output
     integer, dimension(:), intent(in), optional :: discrete     !a vector listing all discrete dimensions of parameter space
-    logical, intent(in), optional  :: partitionDiscrete         !split the population evenly amongst discrete parameters and evolve separately
-    integer, intent(in), optional  :: maxciv 			!maximum number of civilisations
-    integer, intent(in), optional  :: maxgen 			!maximum number of generations per civilisation
-    integer, intent(in), optional  :: NP 			!population size (individuals per generation)
+    logical, intent(in), optional    :: partitionDiscrete       !split the population evenly amongst discrete parameters and evolve separately
+    integer, intent(in), optional    :: maxciv 			!maximum number of civilisations
+    integer, intent(in), optional    :: maxgen 			!maximum number of generations per civilisation
+    integer, intent(in), optional    :: NP 			!population size (individuals per generation)
     real(dp), dimension(:), intent(in), optional :: F		!scale factor(s).  Note that this must be entered as an array.
-    real(dp), intent(in), optional :: Cr 			!crossover factor
-    real(dp), intent(in), optional :: lambda 			!mixing factor between best and rand/current
-    logical, intent(in), optional  :: current 			!use current vector for mutation
-    logical, intent(in), optional  :: expon 			!use exponential crossover
-    integer, intent(in), optional  :: bndry                     !boundary constraint: 1 -> brick wall, 2 -> random re-initialization, 3 -> reflection
-    logical, intent(in), optional  :: jDE                       !use self-adaptive choices for rand/1/bin parameters as described in Brest et al 2006
-    logical, intent(in), optional  :: lambdajDE                 !use self-adaptive choices for rand-to-best/1/bin parameters; based on Brest et al 2006
-    logical, intent(in), optional  :: removeDuplicates          !weed out duplicate vectors within a single generation
-    logical, intent(in), optional  :: doBayesian                !calculate log evidence and posterior weightings
-    real(dp), intent(in), optional :: maxNodePop                !population at which node is partitioned in binary space partitioning for posterior
-    real(dp), intent(in), optional :: Ztolerance		!input tolerance in log-evidence
-    integer, intent(in), optional  :: savecount			!save progress every savecount generations
-    logical, intent(in), optional  :: resume			!restart from a previous run
+    real(dp), intent(in), optional   :: Cr 			!crossover factor
+    real(dp), intent(in), optional   :: lambda 			!mixing factor between best and rand/current
+    logical, intent(in), optional    :: current 		!use current vector for mutation
+    logical, intent(in), optional    :: expon			!use exponential crossover
+    integer, intent(in), optional    :: bndry			!boundary constraint: 1 -> brick wall, 2 -> random re-initialization, 3 -> reflection
+    logical, intent(in), optional    :: jDE			!use self-adaptive choices for rand/1/bin parameters as described in Brest et al 2006
+    logical, intent(in), optional    :: lambdajDE		!use self-adaptive choices for rand-to-best/1/bin parameters; based on Brest et al 2006
+    logical, intent(in), optional    :: removeDuplicates	!weed out duplicate vectors within a single generation
+    logical, intent(in), optional    :: doBayesian		!calculate log evidence and posterior weightings
+    real(dp), intent(in), optional   :: maxNodePop		!population at which node is partitioned in binary space partitioning for posterior
+    real(dp), intent(in), optional   :: Ztolerance		!input tolerance in log-evidence
+    integer, intent(in), optional    :: savecount		!save progress every savecount generations
+    logical, intent(in), optional    :: resume			!restart from a previous run
+    integer, intent(inout), optional :: context                 !context pointer/integer, used for passing info from the caller to likelihood/prior 
      
     type(codeparams) :: run_params                              !carries the code parameters 
 
@@ -79,26 +80,27 @@ contains
 
     interface
     !the likelihood function to be minimised -- assumed to be -ln(likelihood)
-       real(dp) function func(params, fcall, quit, validvector)
+       real(dp) function func(params, fcall, quit, validvector, context)
           use detypes
           implicit none
           real(dp), dimension(:), intent(inout) :: params
           integer, intent(inout) :: fcall 
           logical, intent(out) :: quit
           logical, intent(in) :: validvector
+          integer, intent(inout) :: context
        end function func
     end interface
 	
     optional :: prior
     interface
     !the prior function
-       real(dp) function prior(X)
+       real(dp) function prior(X, context)
           use detypes
           implicit none
           real(dp), dimension(:), intent(in) :: X
+          integer, intent(inout) :: context
        end function prior
     end interface
-
 
     call cpu_time(t1)
 
@@ -111,7 +113,7 @@ contains
                       partitionDiscrete=partitionDiscrete, maxciv=maxciv, maxgen=maxgen, NP=NP, &
                       F=F, Cr=Cr, lambda=lambda, current=current, expon=expon, bndry=bndry, jDE=jDE, & 
                       lambdajDE=lambdajDE, removeDuplicates=removeDuplicates, doBayesian=doBayesian, &
-                      maxNodePop=maxNodePop, Ztolerance=Ztolerance, savecount=savecount)
+                      maxNodePop=maxNodePop, Ztolerance=Ztolerance, savecount=savecount, context=context)
 
     !seed the random number generator(s) from the system clock
     call init_all_random_seeds(run_params%DE%NP/run_params%mpipopchunk, run_params%mpirank)
@@ -159,8 +161,7 @@ contains
          call io_begin(path, civstart, genstart, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF, prior=prior, &
           restart=resume)
        else
-         call io_begin(path, civstart, genstart, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF, &
-          restart=resume)
+         call io_begin(path, civstart, genstart, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF, restart=resume)
        endif
        if (resume) genstart = genstart + 1
     else 
@@ -198,7 +199,7 @@ contains
           if (gen .eq. 1) then 
 
             !Initialise the first generation
-            call initialize(X, Xnew, run_params, fcall, func, quit)
+            call initialize(X, Xnew, run_params, func, fcall, quit)
             !Don't use initial generation for estimating evidence, as it biases the BSP
             if ((civ .eq. 1) .and. (run_params%mpirank .eq. 0)) call save_run_params(path, run_params)
             
@@ -220,7 +221,7 @@ contains
                 call gencrossover(X, V, U, n, run_params, trialCr)         !trial vectors 
     
                 !choose next generation          
-                call selector(X, Xnew, U, trialF, triallambda, trialCr, m, n, run_params, fcall, func, quit, accept)
+                call selector(X, Xnew, U, trialF, triallambda, trialCr, m, n, run_params, func, fcall, quit, accept)
 
                 if (verbose) then
                    if (run_params%DE%lambdajDE) then
@@ -239,7 +240,7 @@ contains
              call replace_generation(X, Xnew, run_params, func, fcall, quit, accept, init=.false.)
 
              !debugging code: choose random new population members uniformly from the allowed parameter ranges
-             !call initialize(X, Xnew, run_params, fcall, func, quit)
+             !call initialize(X, Xnew, run_params, func, fcall, quit)
 
 #ifdef USEMPI
              call MPI_Allreduce(accept, totaccept, 1, MPI_integer, MPI_sum, MPI_COMM_WORLD, ierror)
@@ -250,7 +251,7 @@ contains
              if (verbose .and. run_params%mpirank .eq. 0) write (*,*) '  Acceptance rate: ', totaccept/real(run_params%DE%NP)
 
              !Update the evidence calculation
-             if (run_params%calcZ) call updateEvidence(X, Z, Zmsq, Zerr, prior, Nsamples)
+             if (run_params%calcZ) call updateEvidence(X, Z, Zmsq, Zerr, prior, run_params%context, Nsamples)
 
              !Do periodic save
              if ((mod(gen,run_params%savefreq) .eq. 0) .and. (run_params%mpirank .eq. 0)) then
@@ -326,7 +327,7 @@ contains
     !Polish the evidence
     if (run_params%calcZ .and. run_params%mpirank .eq. 0 .and. Nsamples_saved .gt. 0) then
       Zold = Z
-      call polishEvidence(Z, Zmsq, Zerr, prior, Nsamples_saved, path, run_params, .true.)     
+      call polishEvidence(Z, Zmsq, Zerr, prior, run_params%context, Nsamples_saved, path, run_params, .true.)     
       write (*,'(A25,E13.6)') ' corrected ln(Evidence): ', log(Z)
       write (*,'(A25,E13.6,A6)') '                     +/- ', abs(log(Z/Zold)), ' (sys)'
       write (*,'(A25,E13.6,A7)') '                     +/- ', log(Z/(Z-Zerr)), ' (stat)'

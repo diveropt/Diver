@@ -7,7 +7,7 @@ HEADERFILES = $(INC)/devo.hpp
 all: $(EXAMPLENAME)
 
 %.o: %.cpp
-	$(CC) -c $(COPT) -I$(INC) $<
+	$(CC) -c $(COPT) $(CPPOPT) -I$(INC) $<
  
 $(EXAMPLENAME): $(OBJ) $(HEADERS)
 	$(FF) $(MIXOPT_CPP) $(OBJ) $(LIBS) -o $(NAME)

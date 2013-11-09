@@ -13,7 +13,7 @@ integer, parameter :: rawlun=1, samlun = 2, devolun=3
 contains
 
   !Get posterior weights and update evidence on the fly
-  subroutine updateEvidence(X, Z, Zmsq, Zerr, prior, oldsamples)
+  subroutine updateEvidence(X, Z, Zmsq, Zerr, prior, context, oldsamples)
   
     type(population), intent(inout) :: X		!current generation
     real(dp), intent(inout) :: Z, Zmsq, Zerr		!evidence, mean square of weights, error on evidence
@@ -21,9 +21,10 @@ contains
     real(dp) :: sampleratio, totsamples                 !ratio of old samples to total samples, total samples
     integer, intent(inout) :: oldsamples		!previous (running) number of samples
     integer :: inttotsamples				!total number of samples (integer)
+    integer, intent(inout) :: context			!context pointer
     
     !Find weights for posterior pdf / evidence calculation
-    call growTree(X,prior)
+    call growTree(X,prior,context)
     
     !Find total number of samples and ratio to the old number
     inttotsamples = oldsamples + size(X%weights)
@@ -47,13 +48,14 @@ contains
 
   
   !Recalculate evidence and all posterior weights at the end of a run
-  subroutine polishEvidence(Z, Zmsq, Zerr, prior, Nsamples, path, run_params, update)
+  subroutine polishEvidence(Z, Zmsq, Zerr, prior, context, Nsamples, path, run_params, update)
 
     type(codeparams), intent(in) :: run_params
     real(dp), intent(inout) :: Z, Zmsq, Zerr
     real(dp), external :: prior 				
     real(dp) :: lnlike, multiplicity, vector(run_params%D), vectors_and_derived(run_params%D+run_params%D_derived)
     integer, intent(in) :: Nsamples
+    integer, intent(inout) :: context
     integer :: filestatus, reclen_raw, reclen_sam, civ, gen, i
     character(len=*), intent(in) :: path
     character(len=31) :: formatstring_raw 
@@ -93,7 +95,7 @@ contains
       !Could implement a skip out if this is the first generation (burn in), but this gen should not be in the raw/sam file anyway
       !if (gen .eq. 1) cycle
       !use the tree to get a new weight for the point
-      multiplicity = getWeight(vector,prior)*exp(-lnlike)/real(Nsamples, kind=dp) 
+      multiplicity = getWeight(vector,prior,context)*exp(-lnlike)/real(Nsamples, kind=dp) 
       !save the new multiplicity of the point to disk
       if (update) then
         write(rawlun,formatstring_raw,rec=i) multiplicity, lnlike, civ, gen, vector, LF

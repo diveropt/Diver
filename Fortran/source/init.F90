@@ -21,7 +21,7 @@ contains
 
   subroutine param_assign(run_params, lowerbounds, upperbounds, nDerived, discrete, partitionDiscrete, maxciv, maxgen, &
                           NP, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, removeDuplicates, doBayesian, &
-                          maxNodePop, Ztolerance, savecount)
+                          maxNodePop, Ztolerance, savecount, context)
 
     type(codeparams), intent(out) :: run_params 
     real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space 
@@ -44,6 +44,7 @@ contains
     real(dp), intent(in), optional :: maxNodePop                !population at which node is partitioned in binary space partitioning for posterior
     real(dp), intent(in), optional :: Ztolerance		!input tolerance in log-evidence
     integer, intent(in), optional  :: savecount			!save progress every savecount generations
+    integer, intent(inout), optional  :: context		!context pointer/integer, used for passing info from the caller to likelihood/prior 
 
     integer :: mpiprocs, mpirank, ierror                        !number of processes running, rank of current process, error code
     character (len=70) :: DEstrategy                    	!for printing mutation/crossover DE strategy
@@ -434,6 +435,13 @@ contains
        end select
     end if
 
+    !Just set up a dummy null context pointer if it happens to be missing
+    if (present(context)) then
+      run_params%context = context
+    else
+      run_params%context = 0
+    endif
+
   end subroutine param_assign
 
 
@@ -482,7 +490,7 @@ contains
 
 
   !initializes first generation of target vectors
-  subroutine initialize(X, Xnew, run_params, fcall, func, quit) 
+  subroutine initialize(X, Xnew, run_params, func, fcall, quit) 
 
     type(population), intent(inout) :: X
     type(population), intent(inout) :: Xnew
@@ -537,7 +545,7 @@ contains
           enddo
 
           Xnew%vectors_and_derived(m,:run_params%D) = roundvector(Xnew%vectors(m,:), run_params)
-          Xnew%values(m) = func(Xnew%vectors_and_derived(m,:), fcall, quit, .true.)
+          Xnew%values(m) = func(Xnew%vectors_and_derived(m,:), fcall, quit, .true., run_params%context)
 
           if (verbose) then
              if (run_params%DE%lambdajDE) then

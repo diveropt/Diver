@@ -33,7 +33,7 @@ const bool        resume              = false;                        // Restart
 
 //Function to be minimized.  Corresponds to -ln(Likelihood).
 //Plain Gaussian centred at the origin. Valid for any number of dimensions.
-double gauss(double params[], const int param_dim, int *fcall, bool *quit, const bool validvector)
+double gauss(double params[], const int param_dim, int *fcall, bool *quit, const bool validvector, void** context)
 {
   double result = 0.0;
   for (int i = 0; i<param_dim; i++) result += params[i]*params[i];
@@ -46,8 +46,9 @@ double gauss(double params[], const int param_dim, int *fcall, bool *quit, const
 
 int main(int argc, char** argv)
 {
+  void* context = &gauss; //Not actually used in this example.
   runde(gauss, nPar, lowerbounds, upperbounds, path, nDerived, nDiscrete, discrete, partitionDiscrete, 
         maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, removeDuplicates,
-        doBayesian, NULL, maxNodePop, Ztolerance, savecount, resume); 
-  //Note that prior, maxNodePop and Ztolerance are just ignored if doBayesian = false
+        doBayesian, NULL, maxNodePop, Ztolerance, savecount, resume, context); 
+        //Note that prior, maxNodePop and Ztolerance are just ignored if doBayesian = false
 }
