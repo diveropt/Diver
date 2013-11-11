@@ -4,6 +4,7 @@
 *.so
 *.lo
 *.la
+*.mod
 C++/src/.deps/
 C++/src/.libs/
 C++/examples/.deps/
@@ -19,6 +20,11 @@ config.status
 C++/examples/DE_example
 Fortran/build/
 Fortran/devopack_f
+Fortran/devo.example_f
+Fortran/example_f/output/example.devo
+Fortran/example_f/output/example.raw
+Fortran/example_f/output/example.rparam
+Fortran/example_f/output/example.sam
 Fortran/example_output/example.devo
 Fortran/example_output/example.sam
 Fortran/example_output/example.rparam

@@ -23,7 +23,7 @@ contains
                           NP, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, removeDuplicates, doBayesian, &
                           maxNodePop, Ztolerance, savecount, context)
 
-    use iso_c_binding, only: C_NULL_PTR
+    use iso_c_binding, only: C_NULL_PTR, c_ptr
 
     type(codeparams), intent(out) :: run_params 
     real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space 
@@ -496,10 +496,10 @@ contains
 
     type(population), intent(inout) :: X
     type(population), intent(inout) :: Xnew
-    type(codeparams), intent(in) :: run_params
+    type(codeparams), intent(inout) :: run_params
     integer, intent(inout) :: fcall
     logical, intent(inout) :: quit
-    real(dp), external :: func
+    procedure(MinusLogLikeFunc) :: func
     integer :: n, m, i, discrete_index, accept=0
 
     X%multiplicities = 1.0_dp !Initialise to 1 in case posteriors are not calculated
@@ -547,6 +547,7 @@ contains
           enddo
 
           Xnew%vectors_and_derived(m,:run_params%D) = roundvector(Xnew%vectors(m,:), run_params)
+
           Xnew%values(m) = func(Xnew%vectors_and_derived(m,:), fcall, quit, .true., run_params%context)
 
           if (verbose) then

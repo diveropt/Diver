@@ -8,7 +8,7 @@ implicit none
 
  integer, parameter :: param_dim = 5 !dimensions of parameter space
 
- integer, parameter :: NP=10, numgen=15, numciv=1, nDerived=2
+ integer, parameter :: NP=10, numgen=15, numciv=1, nDerived=0
  character (len=300) :: path='example_f/output/example'
  real(dp), parameter ::  Cr=0.9, tol = 1e-3, lambda=0.8					!0<=Cr<=1, 0<=lambda<=1
  real(dp), parameter, dimension(1) :: F=0.6						!recommend 0<F<1
@@ -34,14 +34,15 @@ real(dp) function constant(params, fcall, quit, validvector, context)
   constant = 0.0_dp 
   if (.not. validvector) constant=huge(1.0_dp)
   !derived quantities (other functions of the parameters)
-  params(size(lowerbounds)+1:) = [2.*params(1),params(1)+params(2)]
+  !params(size(lowerbounds)+1:) = [2.*params(1),params(1)+params(2)]
 
 end function constant
 
 
 real(dp) function step(params, fcall, quit, validvector, context)
 
-  real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
+  !real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
+  real(dp), dimension(:), intent(inout) :: params
   integer, intent(inout) :: fcall
   type(c_ptr), intent(inout) :: context
   logical, intent(out) :: quit
@@ -56,14 +57,15 @@ real(dp) function step(params, fcall, quit, validvector, context)
   else 
     step = 1.0_dp
   endif
-  params(size(lowerbounds)+1:) = [2.0_dp*params(1),params(1)+params(2)]
+  !params(size(lowerbounds)+1:) = [2.0_dp*params(1),params(1)+params(2)]
   
 end function step
 
 
 real(dp) function linear(params, fcall, quit, validvector, context)
 
-  real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
+  !real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
+  real(dp), dimension(:), intent(inout) :: params
   integer, intent(inout) :: fcall
   type(c_ptr), intent(inout) :: context
   logical, intent(out) :: quit
@@ -78,14 +80,16 @@ real(dp) function linear(params, fcall, quit, validvector, context)
   else 
     linear = 0.0_dp
   endif
-  params(size(lowerbounds)+1:) = [2.0_dp*params(1),params(1)+params(2)]
+
+  !params(size(lowerbounds)+1:) = [2.0_dp*params(1),params(1)+params(2)]
   
 end function linear
 
 
 !valid for any number of dimensions
 real(dp) function gauss(params, fcall, quit, validvector, context)
-  real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
+  !real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
+  real(dp), dimension(:), intent(inout) :: params
   integer, intent(inout) :: fcall
   type(c_ptr), intent(inout) :: context
   logical, intent(out) :: quit
@@ -96,8 +100,11 @@ real(dp) function gauss(params, fcall, quit, validvector, context)
   quit = .false.
 
   gauss = 0.0_dp
+
   do i = 1, size(lowerbounds)
+
     gauss = gauss + params(i)*params(i)
+
   enddo
 
   if (.not. validvector) gauss = huge(1.0_dp)
@@ -110,7 +117,8 @@ end function gauss
 
 !valid for any number of dimensions, but with some (hard-coded) number discrete indices
 real(dp) function manygauss(params, fcall, quit, validvector, context)
-  real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
+  !real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
+  real(dp), dimension(:), intent(inout) :: params
   integer, intent(inout) :: fcall
   type(c_ptr), intent(inout) :: context
   logical, intent(out) :: quit
@@ -135,7 +143,8 @@ end function manygauss
 
 
 real(dp) function spikygauss(params, fcall, quit, validvector, context)
-  real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
+  !real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
+  real(dp), dimension(:), intent(inout) :: params
   integer, intent(inout) :: fcall
   type(c_ptr), intent(inout) :: context
   logical, intent(out) :: quit
@@ -150,10 +159,7 @@ real(dp) function spikygauss(params, fcall, quit, validvector, context)
   denominator = 0.0_dp
   do i = 1, size(lowerbounds)
     spikygauss = spikygauss + params(i)*params(i) + 1.e32*sin(params(i))*sin(params(i))
-   ! denominator = denominator + sin(200*params(i)-1.)*sin(200*params(i)-1.)
   enddo
-
-  !spikygauss = spikygauss/denominator
 
   if (.not. validvector) spikygauss = huge(1.0_dp)
 
@@ -163,7 +169,8 @@ end function spikygauss
 
 !2-dimensional
 real(dp) function rosenbrock(params, fcall, quit, validvector, context)
-  real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
+  !real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
+  real(dp), dimension(:), intent(inout) :: params
   integer, intent(inout) :: fcall
   type(c_ptr), intent(inout) :: context
   logical, intent(out) :: quit
@@ -183,7 +190,8 @@ end function rosenbrock
 
 !valid for any number of dimensions
 real(dp) function rastrigin(params, fcall, quit, validvector, context)
-  real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
+  !real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
+  real(dp), dimension(:), intent(inout) :: params
   integer, intent(inout) :: fcall
   type(c_ptr), intent(inout) :: context
   logical, intent(out) :: quit
@@ -209,7 +217,8 @@ end function rastrigin
 
 
 real(dp) function eggcarton(params, fcall, quit, validvector, context)
-  real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
+  !real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
+  real(dp), dimension(:), intent(inout) :: params
   integer, intent(inout) :: fcall
   type(c_ptr), intent(inout) :: context
   logical, intent(out) :: quit
@@ -238,7 +247,8 @@ end function eggcarton
 real(dp) function flatprior(X, context)
 
   type(c_ptr), intent(inout) :: context
-  real(dp), dimension(size(lowerbounds)), intent(in) :: X
+  !real(dp), dimension(size(lowerbounds)), intent(in) :: X
+  real(dp), dimension(:), intent(in) :: X
   flatprior = 1.0_dp / product(ranges)
 
 end function flatprior

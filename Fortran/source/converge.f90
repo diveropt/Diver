@@ -40,6 +40,8 @@ contains
 
   end function converged
 
+!FIXME: change meanimproveconv to be *fractional* improvement, and pass a tolerance for it from the main calling sequence
+!FIXME: add weighted meanimproveconv, pass a threshold from main calling sequence
 
   logical function meanimproveconv(X, gen, run_params) !mean improvement in the average/best fitness of the population
 

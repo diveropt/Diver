@@ -19,7 +19,7 @@ contains
 
     type(population), intent(inout) :: X		!current generation
     real(dp), intent(inout) :: Z, Zmsq, Zerr		!evidence, mean square of weights, error on evidence
-    real(dp), external :: prior 			!prior funtion
+    procedure(PriorFunc), optional :: prior             !prior function
     real(dp) :: sampleratio, totsamples                 !ratio of old samples to total samples, total samples
     integer, intent(inout) :: oldsamples		!previous (running) number of samples
     integer :: inttotsamples				!total number of samples (integer)
@@ -56,7 +56,7 @@ contains
 
     type(codeparams), intent(in) :: run_params
     real(dp), intent(inout) :: Z, Zmsq, Zerr
-    real(dp), external :: prior 				
+    procedure(PriorFunc) :: prior
     real(dp) :: lnlike, multiplicity, vector(run_params%D), vectors_and_derived(run_params%D+run_params%D_derived)
     integer, intent(in) :: Nsamples
     type(c_ptr), intent(inout) :: context

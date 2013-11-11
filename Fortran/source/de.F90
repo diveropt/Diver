@@ -30,6 +30,7 @@ contains
 
     use iso_c_binding, only: c_ptr
 
+    procedure(MinusLogLikeFunc)      :: func                    !the likelihood function to be minimised -- assumed to be -ln(likelihood)
     real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds !boundaries of parameter space
     character(len=*), intent(in)     :: path			!path to save samples, resume files, etc  
     integer, intent(in), optional    :: nDerived	 	!input number of derived quantities to output
@@ -48,6 +49,7 @@ contains
     logical, intent(in), optional    :: lambdajDE		!use self-adaptive choices for rand-to-best/1/bin parameters; based on Brest et al 2006
     logical, intent(in), optional    :: removeDuplicates	!weed out duplicate vectors within a single generation
     logical, intent(in), optional    :: doBayesian		!calculate log evidence and posterior weightings
+    procedure(PriorFunc), optional   :: prior                   !the prior function
     real(dp), intent(in), optional   :: maxNodePop		!population at which node is partitioned in binary space partitioning for posterior
     real(dp), intent(in), optional   :: Ztolerance		!input tolerance in log-evidence
     integer, intent(in), optional    :: savecount		!save progress every savecount generations
@@ -80,31 +82,33 @@ contains
     integer :: ierror		                                !MPI error code
     real(dp) :: t1, t2                                          !for timing
 
-    interface
-    !the likelihood function to be minimised -- assumed to be -ln(likelihood)
-       real(dp) function func(params, fcall, quit, validvector, context)
-          use iso_c_binding, only: c_ptr
-          use detypes
-          implicit none
-          real(dp), dimension(:), intent(inout) :: params
-          integer, intent(inout) :: fcall 
-          logical, intent(out) :: quit
-          logical, intent(in) :: validvector
-          type(c_ptr), intent(inout) :: context
-       end function func
-    end interface
+!!$    interface
+!!$    !the likelihood function to be minimised -- assumed to be -ln(likelihood)
+!!$       real(dp) function func(params, fcall, quit, validvector, context)
+!!$          use iso_c_binding, only: c_ptr
+!!$          use detypes
+!!$          implicit none
+!!$          real(dp), dimension(:), intent(inout) :: params
+!!$          !real(dp), dimension(5), intent(inout) :: params
+!!$          integer, intent(inout) :: fcall 
+!!$          logical, intent(out) :: quit
+!!$          logical, intent(in) :: validvector
+!!$          type(c_ptr), intent(inout) :: context
+!!$       end function func
+!!$    end interface
 	
-    optional :: prior
-    interface
-    !the prior function
-       real(dp) function prior(X, context)
-          use iso_c_binding, only: c_ptr
-          use detypes
-          implicit none
-          real(dp), dimension(:), intent(in) :: X
-          type(c_ptr), intent(inout) :: context
-       end function prior
-    end interface
+!!$    optional :: prior
+!!$    interface
+!!$    !the prior function
+!!$       real(dp) function prior(X, context)
+!!$          use iso_c_binding, only: c_ptr
+!!$          use detypes
+!!$          implicit none
+!!$          real(dp), dimension(:), intent(in) :: X
+!!$          !real(dp), dimension(size(lowerbounds)+nDerived), intent(in) :: X
+!!$          type(c_ptr), intent(inout) :: context
+!!$       end function prior
+!!$    end interface
 
     call cpu_time(t1)
 

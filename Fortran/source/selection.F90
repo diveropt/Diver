@@ -24,9 +24,9 @@ contains
     real(dp), dimension(:), intent(in) :: U
     real(dp), intent(in) :: trialF, triallambda, trialCr
     integer, intent(in) :: m, n              !current index for population chunk (m) and full population (n) 
-    type(codeparams), intent(in) :: run_params
+    type(codeparams), intent(inout) :: run_params
     logical, intent(inout) :: quit
-    real(dp), external :: func
+    procedure(MinusLogLikeFunc) :: func
 
     real(dp) :: trialvalue
     real(dp), dimension(size(U)) :: trialvector
@@ -113,8 +113,8 @@ contains
   subroutine replace_generation(X, Xnew, run_params, func, fcall, quit, accept, init)
     type(population), intent(inout) :: X              !old population, will be replaced
     type(population), intent(inout) :: Xnew           !recently calculated population chunk
-    type(codeparams), intent(in) :: run_params
-    real(dp), external :: func
+    type(codeparams), intent(inout) :: run_params
+    procedure(MinusLogLikeFunc) :: func
     integer, intent(inout) :: fcall, accept
     logical, intent(inout) :: quit
     logical, intent(in) :: init
@@ -203,8 +203,8 @@ contains
 
     type(population), intent(inout) :: X              !old population, will be replaced
     type(population), intent(inout) :: Xnew           !recently calculated population chunk
-    type(codeparams), intent(in) :: run_params
-    real(dp), external :: func
+    type(codeparams), intent(inout) :: run_params
+    procedure(MinusLogLikeFunc) :: func
     integer, intent(inout) :: fcall, accept
     logical, intent(inout) :: quit
     logical, intent(in) :: init
@@ -278,11 +278,11 @@ contains
 !its counterpart in the previous generation (X) (if revert=.true.) or a new randomly generated vector
   subroutine replace_vector(Xnew, allvecs, X, run_params, func, n, fcall, quit, accept, revert)
     type(population), intent(inout) :: Xnew
-    type(codeparams), intent(in) :: run_params
+    type(codeparams), intent(inout) :: run_params
     real(dp), intent(inout), dimension(run_params%DE%NP, run_params%D) :: allvecs
     type(population), intent(in) :: X
     integer, intent(in) :: n                                     !index of vector X to replace
-    real(dp), external :: func
+    procedure(MinusLogLikeFunc) :: func
     integer, intent(inout) :: fcall, accept
     logical, intent(in) :: revert
     logical, intent(inout) :: quit

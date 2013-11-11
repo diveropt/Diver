@@ -50,4 +50,34 @@ type population
   real(dp), allocatable, dimension(:) :: FjDE, CrjDE, lambdajDE          !dimension(NP)
 end type population
 
+
+abstract interface
+   !the likelihood function to be minimised -- assumed to be -ln(likelihood)
+   real(dp) function MinusLogLikeFunc(params, fcall, quit, validvector, context)
+     use iso_c_binding, only: c_ptr
+     !use detypes
+     import dp
+     implicit none
+     real(dp), dimension(:), intent(inout) :: params
+     integer, intent(inout) :: fcall 
+     logical, intent(out) :: quit
+     logical, intent(in) :: validvector
+     type(c_ptr), intent(inout) :: context
+   end function MinusLogLikeFunc
+end interface
+
+abstract interface
+   !the prior function
+   real(dp) function PriorFunc(X, context)
+     use iso_c_binding, only: c_ptr
+     !use detypes
+     import dp
+     implicit none
+     real(dp), dimension(:), intent(in) :: X
+     !real(dp), dimension(size(lowerbounds)+nDerived), intent(in) :: X
+     type(c_ptr), intent(inout) :: context
+   end function PriorFunc
+end interface
+
+
 end module detypes

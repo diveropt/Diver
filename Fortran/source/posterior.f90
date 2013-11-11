@@ -96,8 +96,7 @@ contains
 
     type(c_ptr), intent(inout) :: context         !context pointer 
     real(dp), intent (in), target :: vector(:)    !target vector 
-    real(dp) :: prior				  !prior pdf function
-    external prior
+    procedure(PriorFunc) :: prior                 !prior pdf function
     type (Point), pointer :: individual                           
     real(dp), target :: weight
 
@@ -120,8 +119,7 @@ contains
 
     type(population), target :: X                 !current generation of target vectors
     type(c_ptr), intent(inout) :: context         !context pointer 
-    real(dp) prior			          !prior pdf function
-    external prior
+    procedure(PriorFunc) :: prior                 !prior pdf function
     type(Point), pointer :: individual	 	  !pointer to a holder for an individual point in parameter space
     integer :: NP, i				  !size of generation, iteration variable
 

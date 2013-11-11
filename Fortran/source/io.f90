@@ -23,7 +23,7 @@ subroutine io_begin(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_save
   logical, intent(in), optional :: restart
   integer :: filestatus  
   type(population), intent(inout) :: X, BF
-  real(dp), optional, external :: prior
+  procedure(PriorFunc), optional :: prior
 
   if (present(restart) .and. restart) then !FIXME: make quitting MPI-friendly
     if (present(prior)) then
@@ -293,7 +293,7 @@ subroutine resume(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved,
   integer, intent(inout) :: civ, gen, Nsamples, Nsamples_saved, fcall
   integer :: reclen, filestatus, i, j
   real(dp), intent(inout) :: Z, Zmsq, Zerr, Zold
-  real(dp), optional, external :: prior				  
+  procedure(PriorFunc), optional :: prior
   real(dp) :: Z_new, Zmsq_new, Zerr_new, Z_3, Zmsq_3, Zerr_3
   character(len=31) :: formatstring
   character(len=1) :: LF
