@@ -86,7 +86,7 @@ contains
           use iso_c_binding, only: c_ptr
           use detypes
           implicit none
-          real(dp), dimension(:), intent(inout) :: params
+          real(dp), dimension(*), intent(inout) :: params
           integer, intent(inout) :: fcall 
           logical, intent(out) :: quit
           logical, intent(in) :: validvector
@@ -101,7 +101,7 @@ contains
           use iso_c_binding, only: c_ptr
           use detypes
           implicit none
-          real(dp), dimension(:), intent(in) :: X
+          real(dp), dimension(*), intent(in) :: X
           type(c_ptr), intent(inout) :: context
        end function prior
     end interface

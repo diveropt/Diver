@@ -23,7 +23,7 @@ contains
                           NP, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, removeDuplicates, doBayesian, &
                           maxNodePop, Ztolerance, savecount, context)
 
-    use iso_c_binding, only: C_NULL_PTR
+    use iso_c_binding, only: C_NULL_PTR, c_ptr
 
     type(codeparams), intent(out) :: run_params 
     real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space 
