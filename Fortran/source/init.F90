@@ -163,8 +163,12 @@ contains
 
        if (present(F)) write (*,*) 'WARNING: value set for F not used during jDE run'
        if (present(Cr)) write (*,*) 'WARNING: value set for Cr not used during jDE run'
-       if (present(current)) write (*,*) 'WARNING: current not used during jDE run'
-       if (present(expon)) write (*,*) 'WARNING: jDE uses binary crossover'
+       if (present(current)) then
+          if (current) write (*,*) 'WARNING: current not used during jDE run'
+       end if
+       if (present(expon)) then
+          if (expon) write (*,*) 'WARNING: jDE uses binary crossover. Value set for expon will be ignored.'
+       end if
 
        !the {F_i} and {Cr_i} are kept as part of the population (X%FjDE and X%CrjDE) with single variables (trialF and trialCr) 
        !in the main subroutine of the program for the trial parameters.

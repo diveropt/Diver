@@ -19,6 +19,14 @@ Makefile.in
 config.status
 C++/examples/DE_example
 Fortran/build/
+Fortran/devo.example_c
+Fortran/devo.example_cpp
+Fortran/example_c/output/example.devo
+Fortran/example_c/output/example.raw
+Fortran/example_c/output/example.rparam
+Fortran/example_cpp/output/example.devo
+Fortran/example_cpp/output/example.raw
+Fortran/example_cpp/output/example.rparam
 Fortran/devopack_f
 Fortran/devo.example_f
 Fortran/example_f/output/example.devo
