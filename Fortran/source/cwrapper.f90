@@ -94,7 +94,7 @@ contains
        use iso_c_binding, only: c_f_procpointer, c_ptr
        use detypes, only: dp
   
-       real(dp),    intent(inout) :: params(:) !(nPar+nDerived)
+       real(dp),    intent(inout) :: params(:)
        integer,     intent(inout) :: fcall
        logical,     intent(out)   :: quit
        logical,     intent(in)    :: validvector
@@ -131,7 +131,7 @@ contains
        use iso_c_binding, only: c_f_procpointer
        use detypes, only: dp
 
-       real(dp),    intent(in)    :: true_params(:) !(nPar)
+       real(dp),    intent(in)    :: true_params(:)
        type(c_ptr), intent(inout) :: context
        
        interface
