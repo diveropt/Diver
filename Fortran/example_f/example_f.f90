@@ -6,14 +6,14 @@ use iso_c_binding, only: c_ptr
 
 implicit none
 
- integer, parameter :: param_dim = 5 !dimensions of parameter space
+ integer, parameter :: param_dim = 2!5 !dimensions of parameter space
 
  integer, parameter :: NP=10, numgen=15, numciv=1, nDerived=0
  character (len=300) :: path='example_f/output/example'
  real(dp), parameter ::  Cr=0.9, tol = 1e-3, lambda=0.8					!0<=Cr<=1, 0<=lambda<=1
  real(dp), parameter, dimension(1) :: F=0.6						!recommend 0<F<1
- real(dp), parameter, dimension(param_dim) :: lowerbounds=(/-5.,-50.,1.,-50.,-1./) 	!boundaries of parameter space
- real(dp), parameter, dimension(param_dim) :: upperbounds=(/-1.,50.,5.,50.,2./)
+ real(dp), parameter, dimension(param_dim) :: lowerbounds=-50.! (/-5.,-50.,1.,-50.,-1./) 	!boundaries of parameter space
+ real(dp), parameter, dimension(param_dim) :: upperbounds=50.! (/-1.,50.,5.,50.,2./)
  real(dp), parameter, dimension(param_dim) :: ranges = upperbounds - lowerbounds
 
 contains
@@ -21,8 +21,7 @@ contains
 !Functions to be minimized.  Assumed to be -ln(Likelihood)
 
 real(dp) function constant(params, fcall, quit, validvector, context)
-
-  real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
+  real(dp), dimension(:), intent(inout) :: params
   integer, intent(inout) :: fcall
   type(c_ptr), intent(inout) :: context
   logical, intent(out) :: quit
@@ -40,8 +39,6 @@ end function constant
 
 
 real(dp) function step(params, fcall, quit, validvector, context)
-
-  !real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
   real(dp), dimension(:), intent(inout) :: params
   integer, intent(inout) :: fcall
   type(c_ptr), intent(inout) :: context
@@ -63,8 +60,6 @@ end function step
 
 
 real(dp) function linear(params, fcall, quit, validvector, context)
-
-  !real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
   real(dp), dimension(:), intent(inout) :: params
   integer, intent(inout) :: fcall
   type(c_ptr), intent(inout) :: context
@@ -88,7 +83,6 @@ end function linear
 
 !valid for any number of dimensions
 real(dp) function gauss(params, fcall, quit, validvector, context)
-  !real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
   real(dp), dimension(:), intent(inout) :: params
   integer, intent(inout) :: fcall
   type(c_ptr), intent(inout) :: context
@@ -117,7 +111,6 @@ end function gauss
 
 !valid for any number of dimensions, but with some (hard-coded) number discrete indices
 real(dp) function manygauss(params, fcall, quit, validvector, context)
-  !real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
   real(dp), dimension(:), intent(inout) :: params
   integer, intent(inout) :: fcall
   type(c_ptr), intent(inout) :: context
@@ -133,6 +126,8 @@ real(dp) function manygauss(params, fcall, quit, validvector, context)
   do i = 1, size(lowerbounds)
     if (.not. any(discrete .eq. i)) manygauss = manygauss + params(i)*params(i)
   enddo
+
+  manygauss=manygauss + 1
 
   if (.not. validvector) manygauss = huge(1.0_dp)
 
@@ -169,7 +164,6 @@ end function spikygauss
 
 !2-dimensional
 real(dp) function rosenbrock(params, fcall, quit, validvector, context)
-  !real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
   real(dp), dimension(:), intent(inout) :: params
   integer, intent(inout) :: fcall
   type(c_ptr), intent(inout) :: context
@@ -179,7 +173,7 @@ real(dp) function rosenbrock(params, fcall, quit, validvector, context)
   fcall = fcall + 1
   quit = .false.
   
-  rosenbrock = (1 - params(1))**2 + 100*(params(2) - params(1)**2)**2
+  rosenbrock = (1 - params(1))**2 + 100*(params(2) - params(1)**2)**2 + 1
   if (.not. validvector) rosenbrock = huge(1.0_dp)
 
   !derived quantities
@@ -190,7 +184,6 @@ end function rosenbrock
 
 !valid for any number of dimensions
 real(dp) function rastrigin(params, fcall, quit, validvector, context)
-  !real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
   real(dp), dimension(:), intent(inout) :: params
   integer, intent(inout) :: fcall
   type(c_ptr), intent(inout) :: context
@@ -208,6 +201,8 @@ real(dp) function rastrigin(params, fcall, quit, validvector, context)
      rastrigin = rastrigin + params(i)**2 - 10*cos(2*pi*params(i))
   end do
 
+  rastrigin = rastrigin + 1.
+
   if (.not. validvector) rastrigin = huge(1.0_dp)
 
   !derived quantities
@@ -217,25 +212,23 @@ end function rastrigin
 
 
 real(dp) function eggcarton(params, fcall, quit, validvector, context)
-  !real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
   real(dp), dimension(:), intent(inout) :: params
   integer, intent(inout) :: fcall
   type(c_ptr), intent(inout) :: context
   logical, intent(out) :: quit
   logical, intent(in) :: validvector
-  integer :: D = size(lowerbounds)
 
   fcall = fcall + 1
   quit = .false.
 
   !slight dip at center. Needs smaller Ztolerance, tolerance in convergence (long run) or gets stuck in local minima
-  !eggcarton =  0.001*(params(1)**2 + params(2)**2) - cos(params(1))*cos(params(2)) + 1
+  !eggcarton =  0.001*(params(1)**2 + params(2)**2) - cos(params(1))*cos(params(2)) + 2
 
   !as used in MultiNest (-ln of formula given in paper). Parameter space should range from 0 to 10 pi
-  eggcarton = -(2 + cos(0.5*params(1))*cos(0.5*params(2)))**5
+  eggcarton = -(2 + cos(0.5*params(1))*cos(0.5*params(2)))**5 + 1 !last +1 not from Multinest--needed to keep convergence criteria happy
 
   !flat. Set bndry=3 (reflective) to better explore edges
-  !eggcarton = cos(params(1))*cos(params(2))
+  !eggcarton = cos(params(1))*cos(params(2)) + 1
 
 end function eggcarton
 
@@ -263,8 +256,10 @@ program dedriver
 
   implicit none
 
-  call run_de(manygauss, lowerbounds, upperbounds, path, doBayesian=.false.,discrete=(/1,3,5/), &
-        lambdajDE=.true., partitionDiscrete=.true., resume=.false., Ztolerance=0.1_dp, &
-       removeDuplicates=.true., maxciv=1, NP=1000, bndry=3, prior=flatprior)
+ ! call run_de(manygauss, lowerbounds, upperbounds, path, doBayesian=.false.,discrete=(/1,3,5/), &
+  !      lambdajDE=.true., partitionDiscrete=.true., resume=.false., Ztolerance=0.1_dp, &
+   !    removeDuplicates=.true., maxciv=1, NP=1000, bndry=3, prior=flatprior, verbose=1)
+
+  call run_de(rosenbrock, lowerbounds, upperbounds, path, doBayesian=.false., verbose=3, prior=flatprior,lambdajDE=.true.)
 
 end program dedriver

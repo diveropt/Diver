@@ -4,10 +4,13 @@ use iso_c_binding, only: c_ptr
 
 implicit none
 
-logical :: verbose = .false.		                !print verbose output
-
+!FIXME: make sure fortran types will play nicely with c/c++ ints and doubles
 integer, parameter, public :: dp = kind(1.0d0)          !definition of 'double precision' used throughout
 !integer, parameter, public :: dp = kind(1.0)
+
+
+!type definitions
+
 type deparams                 				!differential evolution parameters 
                                                         ! (remember to expand io::save_run_params and io::read_state if you expand this type)
    integer NP                 				!population size
@@ -33,6 +36,8 @@ type codeparams                 			!code parameters (remember to expand io::save
    integer, allocatable, dimension(:) :: repeat_scales  !population scale on which partitioned parameters repeat when partitionDiscrete = true 
    integer :: subpopNP					!subpopulation in each partition of the population when partitionDiscrete = true
    integer :: numciv, numgen				!maximum number of civilizations, generations
+   real(dp) :: convthresh                               !threshold for convergence (smoothed fractional improvement in the mean population value)
+   integer :: convsteps                                 !number of steps to smooth over for testing convergence
    real(dp) :: tol					!tolerance in log-evidence
    real(dp) :: maxNodePop                               !maximum population to allow in a cell before partitioning it
    logical :: calcZ      				!calculate evidence or not
@@ -40,6 +45,7 @@ type codeparams                 			!code parameters (remember to expand io::save
    integer :: mpirank					!rank of current process (0 if no MPI)
    integer :: mpipopchunk				!number of vectors for each process to work on (NP if no MPI)
    type(c_ptr) :: context				!context pointer
+   integer :: verbose                                   !level of verbosity: 0=quiet, 1=basic, 2=civ-level info, 3=verbose, negative for mpirank!=0
 end type codeparams
 
 type population
@@ -51,11 +57,13 @@ type population
 end type population
 
 
+
+!interfaces for the likelihood and prior functions
+
 abstract interface
    !the likelihood function to be minimised -- assumed to be -ln(likelihood)
    real(dp) function MinusLogLikeFunc(params, fcall, quit, validvector, context)
      use iso_c_binding, only: c_ptr
-     !use detypes
      import dp
      implicit none
      real(dp), dimension(:), intent(inout) :: params
@@ -70,11 +78,9 @@ abstract interface
    !the prior function
    real(dp) function PriorFunc(X, context)
      use iso_c_binding, only: c_ptr
-     !use detypes
      import dp
      implicit none
      real(dp), dimension(:), intent(in) :: X
-     !real(dp), dimension(size(lowerbounds)+nDerived), intent(in) :: X
      type(c_ptr), intent(inout) :: context
    end function PriorFunc
 end interface

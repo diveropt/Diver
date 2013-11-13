@@ -49,8 +49,10 @@ contains
     enddo    
 
     if (subpopulationIndex .ne. run_params%subpopNP) then
-       write(*,*) 'Apparent subpopulation size: ',subpopulationIndex
-       write(*,*) 'Expected subpopulation size: ',run_params%subpopNP
+       if (run_params%verbose .ge. 1) then
+          write(*,*) 'Apparent subpopulation size: ',subpopulationIndex
+          write(*,*) 'Expected subpopulation size: ',run_params%subpopNP
+       end if
        call quit_de('ERROR: subpopulation size does not match run_params%subpopNP!')
     endif
 

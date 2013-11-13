@@ -220,45 +220,44 @@ contains
              if ( all(allvecs(k,:) .eq. allvecs(kmatch,:)) ) then               !we've found a duplicate vector 
                 !FIXME:switch all() to any() above to avoid duplicates in single dimensions? 
                 !Would also need to check all dimensions (not just first)
-                if (verbose .and. (run_params%mpirank .eq. 0)) write (*,*) '  Duplicate vectors:', k, kmatch
+                if (run_params%verbose .ge. 3) write (*,*) '  Duplicate vectors:', k, kmatch
                 
                 !Now, compare their counterparts in the previous generation to decide which vector will be kept, which will be reverted
                 picksurvivor: if (init) then
-                   if (run_params%mpirank .eq. 0) write (*,*) 'WARNING: Duplicate vectors in initial generation'  !This should never happen.
-                   if (verbose .and. (run_params%mpirank .eq. 0)) write (*,*) '  Generating new vector ', kmatch             
+                   if (run_params%verbose .ge. 1) write (*,*) 'WARNING: Duplicate vectors in initial generation'  !This should never happen.
+                   if (run_params%verbose .ge. 3) write (*,*) '  Generating new vector ', kmatch             
                    !replacing second vector with a random new one
                    call replace_vector(Xnew, allvecs, X, run_params, func, kmatch, fcall, quit, accept, revert=.false.)
 
                 else if (all(allvecs(k,:) .eq. X%vectors(k,:)) .and. &                         !both vectors were inherited, so keep k & randomly re-pick kmatch
                            all(allvecs(kmatch,:) .eq. X%vectors(kmatch,:))) then
-                   if (run_params%mpirank .eq. 0) then
-                      write (*,*) 'WARNING: Duplicate vectors inherited from previous generation' !Shouldn't happen, but...
-                               !can occur if one vector inherited, other reverted in previous generation to a vector which matches the first
-                               !This can be a sign that single-dimension duplicates are polluting the population, or that you're just unlucky
-                      if (verbose) write (*,*) '  Generating new vector ', kmatch              !replacing second vector with a random new one
-                   end if
+                    if (run_params%verbose .ge. 1) write (*,*) 'WARNING: Duplicate vectors inherited from previous generation'
+                        !Shouldn't happen, but...
+                        !can occur if one vector inherited, other reverted in previous generation to a vector which matches the first
+                        !This can be a sign that single-dimension duplicates are polluting the population, or that you're just unlucky
+                    if (run_params%verbose .ge. 3) write (*,*) '  Generating new vector ', kmatch              !replacing second vector with a random new one
                    call replace_vector(Xnew, allvecs, X, run_params, func, kmatch, fcall, quit, accept, revert=.false.)
                    
                 else if (all(allvecs(k,:) .eq. X%vectors(k,:)) ) then                          !vector at k was inherited, so keep it & revert kmatch
-                   if (verbose .and. (run_params%mpirank .eq. 0)) then
+                   if (run_params%verbose .ge. 3) then
                       write (*,*) '    Vector ', k, ' inherited, reverting vector ', kmatch
                    end if
                    call replace_vector(Xnew, allvecs, X, run_params, func, kmatch, fcall, quit, accept, revert=.true.)
                    
                 else if (all(allvecs(kmatch,:) .eq. X%vectors(kmatch,:))) then                 !vector at kmatch was inherited. Keep it
-                   if (verbose .and. (run_params%mpirank .eq. 0)) then
+                   if (run_params%verbose .ge. 3) then
                       write (*,*) '    Vector ', kmatch, ' inherited, reverting vector ', k
                    end if
                    call replace_vector(Xnew, allvecs, X, run_params, func, k, fcall, quit, accept, revert=.true.) 
                    
                 else if (X%values(k) .lt. X%values(kmatch)) then                               !kmatch improved more (or the same), so keep it
-                   if (verbose .and. (run_params%mpirank .eq. 0)) then
+                   if (run_params%verbose .ge. 3) then
                       write (*,*) '    Vector ', kmatch, ' improved more, reverting vector', k
                    end if
                    call replace_vector(Xnew, allvecs, X, run_params, func, k, fcall, quit, accept, revert=.true.) 
                    
                 else                                                                           !k improved more, so keep it
-                   if (verbose .and. (run_params%mpirank .eq. 0)) then
+                   if (run_params%verbose .ge. 3) then
                       write (*,*) '    Vector ', k, ' improved more, reverting vector', kmatch
                    endif
                    call replace_vector(Xnew, allvecs, X, run_params, func, kmatch, fcall, quit, accept, revert=.true.) 
@@ -335,7 +334,9 @@ contains
           newvector = Xnew%vectors(m,:)
        end if
 
-       if (verbose) write (*,*) '    Replacement vector:', n, Xnew%vectors_and_derived(m,:), '->', Xnew%values(m)
+       if (abs(run_params%verbose) .ge. 3) then
+          write (*,*) '    Replacement vector:', n, Xnew%vectors_and_derived(m,:), '->', Xnew%values(m)
+       end if
 
     end if
 

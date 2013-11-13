@@ -26,7 +26,8 @@ contains
   !Main differential evolution routine.  
   subroutine run_de(func, lowerbounds, upperbounds, path, nDerived, discrete, partitionDiscrete,            &
                     maxciv, maxgen, NP, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE,               &
-                    removeDuplicates, doBayesian, prior, maxNodePop, Ztolerance, savecount, resume, context)
+                    convthresh, convsteps, removeDuplicates, doBayesian, prior, maxNodePop, Ztolerance,     &
+                    savecount, resume, context, verbose)
 
     use iso_c_binding, only: c_ptr
 
@@ -47,6 +48,8 @@ contains
     integer, intent(in), optional    :: bndry			!boundary constraint: 1 -> brick wall, 2 -> random re-initialization, 3 -> reflection
     logical, intent(in), optional    :: jDE			!use self-adaptive choices for rand/1/bin parameters as described in Brest et al 2006
     logical, intent(in), optional    :: lambdajDE		!use self-adaptive choices for rand-to-best/1/bin parameters; based on Brest et al 2006
+    real(dp), intent(in), optional   :: convthresh              !threshold for generation-level convergence
+    integer, intent(in), optional    :: convsteps               !number of steps to smooth over when checking convergence
     logical, intent(in), optional    :: removeDuplicates	!weed out duplicate vectors within a single generation
     logical, intent(in), optional    :: doBayesian		!calculate log evidence and posterior weightings
     procedure(PriorFunc), optional   :: prior                   !the prior function
@@ -55,6 +58,7 @@ contains
     integer, intent(in), optional    :: savecount		!save progress every savecount generations
     logical, intent(in), optional    :: resume			!restart from a previous run
     type(c_ptr), intent(inout), optional :: context		!context pointer, used for passing info from the caller to likelihood/prior 
+    integer, intent(in), optional    :: verbose                 !verbosity of output: 0=only error messages, 1=basic info, 2=civ-level info, 3+=population info
      
     type(codeparams) :: run_params                              !carries the code parameters 
 
@@ -82,46 +86,25 @@ contains
     integer :: ierror		                                !MPI error code
     real(dp) :: t1, t2                                          !for timing
 
-!!$    interface
-!!$    !the likelihood function to be minimised -- assumed to be -ln(likelihood)
-!!$       real(dp) function func(params, fcall, quit, validvector, context)
-!!$          use iso_c_binding, only: c_ptr
-!!$          use detypes
-!!$          implicit none
-!!$          real(dp), dimension(:), intent(inout) :: params
-!!$          !real(dp), dimension(5), intent(inout) :: params
-!!$          integer, intent(inout) :: fcall 
-!!$          logical, intent(out) :: quit
-!!$          logical, intent(in) :: validvector
-!!$          type(c_ptr), intent(inout) :: context
-!!$       end function func
-!!$    end interface
-	
-!!$    optional :: prior
-!!$    interface
-!!$    !the prior function
-!!$       real(dp) function prior(X, context)
-!!$          use iso_c_binding, only: c_ptr
-!!$          use detypes
-!!$          implicit none
-!!$          real(dp), dimension(:), intent(in) :: X
-!!$          !real(dp), dimension(size(lowerbounds)+nDerived), intent(in) :: X
-!!$          type(c_ptr), intent(inout) :: context
-!!$       end function prior
-!!$    end interface
-
     call cpu_time(t1)
 
 #ifdef USEMPI
     call MPI_Init(ierror)
 #endif
 
+    !FIXME: if doBayesian, check that prior, etc is present...
     !Assign specified or default values to run_params and print out information to the screen
-    call param_assign(run_params, lowerbounds, upperbounds, nDerived=nDerived, discrete=discrete, &
-                      partitionDiscrete=partitionDiscrete, maxciv=maxciv, maxgen=maxgen, NP=NP, &
+    call param_assign(run_params, lowerbounds, upperbounds, nDerived=nDerived, discrete=discrete,    &
+                      partitionDiscrete=partitionDiscrete, maxciv=maxciv, maxgen=maxgen, NP=NP,      &
                       F=F, Cr=Cr, lambda=lambda, current=current, expon=expon, bndry=bndry, jDE=jDE, & 
-                      lambdajDE=lambdajDE, removeDuplicates=removeDuplicates, doBayesian=doBayesian, &
-                      maxNodePop=maxNodePop, Ztolerance=Ztolerance, savecount=savecount, context=context)
+                      lambdajDE=lambdajDE, convthresh=convthresh, convsteps=convsteps,               &
+                      removeDuplicates=removeDuplicates, doBayesian=doBayesian,                      &
+                      maxNodePop=maxNodePop, Ztolerance=Ztolerance, savecount=savecount,             &
+                      context=context, verbose=verbose)
+
+    if (run_params%calcZ .and. .not. present(prior)) then
+       call quit_de('Error: evidence calculation requested without specifying a prior.')
+    end if
 
     !seed the random number generator(s) from the system clock
     call init_all_random_seeds(run_params%DE%NP/run_params%mpipopchunk, run_params%mpirank)
@@ -163,21 +146,11 @@ contains
     BF%values(1) = huge(BF%values(1))
 
     !Resume from saved run or initialise save files for a new one.
-    !FIXME The switching I've implemented here is ridiculous.  Surely there is a better way, some option forwarding or similar??
-    if (present(resume)) then 
-       if (present(prior)) then
-         call io_begin(path, civstart, genstart, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF, prior=prior, &
-          restart=resume)
-       else
-         call io_begin(path, civstart, genstart, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF, restart=resume)
-       endif
+    call io_begin(path, civstart, genstart, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, &
+                  run_params, X, BF, prior=prior, restart=resume)    
+
+    if (present(resume)) then
        if (resume) genstart = genstart + 1
-    else 
-       if (present(prior)) then
-         call io_begin(path, civstart, genstart, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF, prior=prior)
-       else
-         call io_begin(path, civstart, genstart, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF)
-       endif
     endif
 
     !Run a number of sequential DE optimisations, exiting either after a set number of
@@ -192,16 +165,17 @@ contains
           endif
        endif
 
-       if (run_params%mpirank .eq. 0) then
-          if (verbose) write (*,*) '-----------------------------'
-          if (verbose) write (*,*) 'Civilisation: ', civ
+       if (run_params%verbose .ge. 2) then
+          write (*,*) '-----------------------------'
+          write (*,*) 'Civilisation: ', civ
        end if
        
        !Internal (normal) DE loop: calculates population for each generation
        genloop: do gen = genstart, run_params%numgen 
-          if (run_params%mpirank .eq. 0) then
-             if (verbose) write (*,*) '  -----------------------------'
-             if (verbose) write (*,*) '  Generation: ', gen
+
+          if (run_params%verbose .ge. 3) then
+             write (*,*) '  -----------------------------'
+             write (*,*) '  Generation: ', gen
           end if
      
           if (gen .eq. 1) then 
@@ -231,7 +205,7 @@ contains
                 !choose next generation          
                 call selector(X, Xnew, U, trialF, triallambda, trialCr, m, n, run_params, func, fcall, quit, accept)
 
-                if (verbose) then
+                if (abs(run_params%verbose) .ge. 3) then
                    if (run_params%DE%lambdajDE) then
                       write (*,*) n, Xnew%vectors_and_derived(m, :), '->', Xnew%values(m), '|', &
                                   Xnew%lambdajDE(m), Xnew%FjDE(m), Xnew%CrjDE(m)
@@ -256,7 +230,7 @@ contains
              totaccept = accept
 #endif
 
-             if (verbose .and. run_params%mpirank .eq. 0) write (*,*) '  Acceptance rate: ', totaccept/real(run_params%DE%NP)
+             if (run_params%verbose .ge. 3) write (*,*) '  Acceptance rate: ', totaccept/real(run_params%DE%NP)
 
              !Update the evidence calculation
              if (run_params%calcZ) call updateEvidence(X, Z, Zmsq, Zerr, prior, run_params%context, Nsamples)
@@ -269,7 +243,7 @@ contains
           endif
 
           if (quit) then
-             write(*,*) 'Quit requested by objective function - saving and exiting.'
+             if (run_params%verbose .gt. 0) write(*,*) 'Quit requested by objective function - saving and exiting.'
              if (run_params%mpirank .eq. 0) then 
                 call save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, huge(Z), Nsamples, Nsamples_saved, fcall, run_params, &
                              final=(mod(gen,run_params%savefreq) .eq. 0) )
@@ -308,14 +282,15 @@ contains
        totfcall = fcall
 #endif
  
-       if (run_params%mpirank .eq. 0) then
-          !bestvecderived(:run_params%D) = avgvector
-          if (verbose) write (*,*)
-          if (verbose) write (*,*) '  ============================='
-          if (verbose) write (*,*) '  Number of generations in this civilisation: ', min(gen,run_params%numgen)
-          if (verbose) write (*,*) '  Best final vector in this civilisation: ', roundvector(bestvector, run_params)
-          if (verbose) write (*,*) '  Value at best final vector in this civilisation: ', bestvalue
-          if (verbose) write (*,*) '  Cumulative function calls: ', totfcall
+       if (run_params%verbose .ge. 3) then
+          write (*,*)
+          write (*,*) '  ============================='
+       end if
+       if (run_params%verbose .ge. 2) then
+          write (*,*) '  Number of generations in this civilisation: ', min(gen,run_params%numgen)
+          write (*,*) '  Best final vector in this civilisation: ', roundvector(bestvector, run_params)
+          write (*,*) '  Value at best final vector in this civilisation: ', bestvalue
+          write (*,*) '  Cumulative function calls: ', totfcall
        end if
 
     enddo civloop
@@ -323,22 +298,26 @@ contains
     !Correct civ in cases where the loop has gone through at least once
     if (civ .ne. civstart) civ = civ - 1
 
-    if (run_params%mpirank .eq. 0) then
+    if (run_params%verbose .ge. 1) then
        write (*,*) '============================='
        write (*,'(A25,I4)') 'Number of civilisations: ', min(civ,run_params%numciv)
        write (*,*) 'Best final vector: ', roundvector(BF%vectors(1,:), run_params)
        write (*,*) 'Value at best final vector: ', BF%values(1)
-       if (run_params%calcZ) write (*,'(A23,E13.6,A5,E13.6,A7)') ' approx. ln(Evidence): ', log(Z), ' +/- ', log(Z/(Z-Zerr)), ' (stat)'
+       if (run_params%calcZ) then
+          write (*,'(A23,E13.6,A5,E13.6,A7)') ' approx. ln(Evidence): ', log(Z), ' +/- ', log(Z/(Z-Zerr)), ' (stat)'
+       end if
        write (*,*) 'Total Function calls: ', totfcall
     end if
 
     !Polish the evidence
     if (run_params%calcZ .and. run_params%mpirank .eq. 0 .and. Nsamples_saved .gt. 0) then
       Zold = Z
-      call polishEvidence(Z, Zmsq, Zerr, prior, run_params%context, Nsamples_saved, path, run_params, .true.)     
-      write (*,'(A25,E13.6)') ' corrected ln(Evidence): ', log(Z)
-      write (*,'(A25,E13.6,A6)') '                     +/- ', abs(log(Z/Zold)), ' (sys)'
-      write (*,'(A25,E13.6,A7)') '                     +/- ', log(Z/(Z-Zerr)), ' (stat)'
+      call polishEvidence(Z, Zmsq, Zerr, prior, run_params%context, Nsamples_saved, path, run_params, .true.)   
+      if (run_params%verbose .ge. 1) then
+         write (*,'(A25,E13.6)') ' corrected ln(Evidence): ', log(Z)
+         write (*,'(A25,E13.6,A6)') '                     +/- ', abs(log(Z/Zold)), ' (sys)'
+         write (*,'(A25,E13.6,A7)') '                     +/- ', log(Z/(Z-Zerr)), ' (stat)'
+      end if
     endif
 
     !Do final save operation
@@ -370,7 +349,9 @@ contains
 
     call cpu_time(t2)
 
-    write (*,'(A23,I4,A2,F7.2)') 'Total time for process ', run_params%mpirank, ': ', t2-t1
+    if (run_params%verbose .ge. 1) then
+       write (*,'(A23,I4,A2,F7.2)') 'Total time for process ', run_params%mpirank, ': ', t2-t1
+    end if
 
   end subroutine run_de
 

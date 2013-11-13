@@ -6,8 +6,8 @@
 !            int nPar, const double lowerbounds[], const double upperbounds[], const char path[], int nDerived, 
 !            int nDiscrete, const int discrete[], bool partitionDiscrete, int maxciv, int maxgen, int NP, int nF, 
 !            const double F[], double Cr, double lambda, bool current, bool expon, int bndry, bool jDE, bool lambdajDE, 
-!            bool removeDuplicates, bool doBayesian, double(*prior)(const double[], const int, void*&),
-!            double maxNodePop, double Ztolerance, int savecount, bool resume, void*& context)
+!            double convthresh, int convsteps, bool removeDuplicates, bool doBayesian, double(*prior)(const double[], const int, void*&),
+!            double maxNodePop, double Ztolerance, int savecount, bool resume, void*& context, int verbose)
 !
 ! double minusloglike(double params[], const int param_dim, int &fcall, bool &quit, bool validvector, void*& context)
 !
@@ -24,18 +24,18 @@ contains
 	
     subroutine runde(minusloglike, nPar, lowerbounds, upperbounds, path, nDerived, nDiscrete, discrete,  &
                      partitionDiscrete, maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon,           &
-                     bndry, jDE, lambdajDE, removeDuplicates, doBayesian, prior, maxNodePop, Ztolerance, &
-                     savecount, resume, context) bind(c)
+                     bndry, jDE, lambdajDE,  convthresh, convsteps, removeDuplicates, doBayesian, prior, &
+                     maxNodePop, Ztolerance, savecount, resume, context, verbose) bind(c)
 
     use iso_c_binding, only: c_int, c_bool, c_double, c_char, c_funptr, c_ptr, C_NULL_CHAR
     use de, only: run_de
 
     type(c_funptr),  intent(in), value :: minusloglike, prior
     type(c_ptr),     intent(inout)     :: context
-    integer(c_int),  intent(in), value :: nPar, nDerived, nDiscrete, maxciv, maxgen, NP, nF, bndry, savecount
+    integer(c_int),  intent(in), value :: nPar, nDerived, nDiscrete, maxciv, maxgen, NP, nF, bndry, convsteps, savecount, verbose
     integer(c_int),  intent(in), target:: discrete(nDiscrete)
     logical(c_bool), intent(in), value :: partitionDiscrete, current, expon, jDE, lambdajDE, removeDuplicates, doBayesian, resume
-    real(c_double),  intent(in), value :: Cr, lambda, maxNodePop, Ztolerance
+    real(c_double),  intent(in), value :: Cr, lambda, convthresh, maxNodePop, Ztolerance
     real(c_double),  intent(in)        :: lowerbounds(nPar), upperbounds(nPar), F(nF)
     character(kind=c_char,len=1), dimension(1), intent(in) :: path
 
@@ -83,9 +83,10 @@ contains
     call run_de(minusloglike_f, lowerbounds, upperbounds, path_f, nDerived=nDerived, discrete=discrete_f,       &
                 partitionDiscrete=logical(partitionDiscrete), maxciv=maxciv, maxgen=maxgen, NP=NP, F=F, Cr=Cr,  &
                 lambda=lambda, current=logical(current), expon=logical(expon), bndry=bndry, jDE=logical(jDE),   &
-                lambdajDE=logical(lambdajDE), removeDuplicates=logical(removeDuplicates),                       &
-                doBayesian=logical(doBayesian), prior = priorPtr, maxNodePop=maxNodePop, Ztolerance=Ztolerance, &
-                savecount=savecount, resume=logical(resume), context=context)
+                lambdajDE=logical(lambdajDE), convthresh=convthresh, convsteps=convsteps,                       &
+                removeDuplicates=logical(removeDuplicates), doBayesian=logical(doBayesian), prior = priorPtr,   &
+                maxNodePop=maxNodePop, Ztolerance=Ztolerance, savecount=savecount, resume=logical(resume),      &
+                context=context, verbose=verbose)
     
     contains
 

@@ -24,12 +24,16 @@ const bool        expon               = false;                        // Use exp
 const int         bndry               = 3;                            // Boundary constraint: 1=brick wall, 2=random re-initialization, 3=reflection
 const bool        jDE                 = true;                         // Use self-adaptive choices for rand/1/bin parameters as per Brest et al 2006
 const bool        lambdajDE           = true;                         // Use self-adaptive rand-to-best/1/bin parameters; based on Brest et al 2006
+const double      convthresh          = 1.e-3;                        // Threshold for gen-level convergence: smoothed fractional improvement in the mean population value
+const int         convsteps           = 10;                           // Number of steps to smooth over when checking convergence
 const bool        removeDuplicates    = true;                         // Weed out duplicate vectors within a single generation
 const bool        doBayesian          = true;                         // Calculate approximate log evidence and posterior weightings
 const double      maxNodePop          = 1.9;                          // Population at which node is partitioned in binary space partitioning for posterior
 const double      Ztolerance          = 0.1;                          // Input tolerance in log-evidence
 const int         savecount           = 1;                            // Save progress every savecount generations
 const bool        resume              = false;                        // Restart from a previous run
+const int         verbose             = 1;                            // Output verbosity: 0=only error messages, 1=basic info, 2=civ-level info, 3+=population info
+
 
 const double Pi = 3.14159265359;                                            // Tasty
 typedef double (*likelihood)(double[], const int, int&, bool&, const bool); // This example's internal standard likelihood function signature
@@ -106,7 +110,7 @@ int main(int argc, char** argv)
   void* context = &minus_lnlike;
 
   runde(objective, nPar, lowerbounds, upperbounds, path, nDerived, nDiscrete, discrete, partitionDiscrete, 
-        maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, removeDuplicates,
-        doBayesian, flatprior, maxNodePop, Ztolerance, savecount, resume, context); 
+        maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh, convsteps,
+        removeDuplicates, doBayesian, flatprior, maxNodePop, Ztolerance, savecount, resume, context, verbose); 
         //Note that prior, maxNodePop and Ztolerance are just ignored if doBayesian = false
 }
