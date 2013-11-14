@@ -3,7 +3,7 @@ module init
 use detypes
 use deutils
 use mutation, only: init_FjDE, init_lambdajDE    !initializes scale factors for jDE
-use crossover, only: init_CrjDE  !initializes crossovers for jDE
+use crossover, only: init_CrjDE                  !initializes crossovers for jDE
 use selection, only: replace_generation
 
 implicit none
@@ -14,6 +14,8 @@ implicit none
 
 private
 public param_assign, initialize, init_all_random_seeds
+
+character (len=*), parameter :: version_number = "1.0.0"
 
 contains 
 
@@ -78,10 +80,11 @@ contains
 
     if (run_params%verbose .ge. 1) then
        write (*,*) 
-       write (*,*) '============================='
-       write (*,*) ' ******** Begin DE ********* '
-       write (*,*) 'DEIS v0.1'
+       write (*,*) '============================================='
+       write (*,*) '************ Begin DE Sampling **************'
+       write (*,*) 'Diver v'//trim(version_number)
        write (*,*) 'Copyright Elinore Roebber and Pat Scott, 2013'
+       write (*,*) '============================================='
        write (*,*) 
     end if
 

@@ -1,7 +1,7 @@
 #include <float.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include "devo.h"
+#include "diver.h"
 
 const int         nPar                = 5;                            // Dimensionality of the parameter space
 const double      lowerbounds[]       = {-5.,-50.,-5.,-50.,-2.};      // Lower boundaries of parameter space
@@ -50,9 +50,9 @@ double gauss(double params[], const int param_dim, int *fcall, bool *quit, const
 int main(int argc, char** argv)
 {
   void* context = &gauss; //Not actually used in this example.
-  runde(gauss, nPar, lowerbounds, upperbounds, path, nDerived, nDiscrete, discrete, partitionDiscrete, 
-        maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh,
-	convsteps, removeDuplicates, doBayesian, NULL, maxNodePop, Ztolerance, savecount, resume, 
-	context, verbose); 
-        //Note that prior, maxNodePop and Ztolerance are just ignored if doBayesian = false
+  cdiver(gauss, nPar, lowerbounds, upperbounds, path, nDerived, nDiscrete, discrete, partitionDiscrete, 
+         maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh,
+	 convsteps, removeDuplicates, doBayesian, NULL, maxNodePop, Ztolerance, savecount, resume, 
+	 context, verbose); 
+         //Note that prior, maxNodePop and Ztolerance are just ignored if doBayesian = false
 }

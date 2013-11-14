@@ -1,6 +1,7 @@
 module evidence
 
 use detypes
+use deutils
 use post
 
 implicit none
@@ -82,11 +83,11 @@ contains
     !open the chain files
     open(unit=rawlun, file=trim(path)//'.raw', &
      iostat=filestatus, status='OLD', access='DIRECT', recl=reclen_raw, form='FORMATTED')
-    if (filestatus .ne. 0) stop ' Error opening .raw file. Quitting...' !FIXME: use quit_de subroutine
+    if (filestatus .ne. 0) call quit_de(' Error opening .raw file. Quitting...')
     if (dosam) then
       open(unit=samlun, file=trim(path)//'.sam', &
        iostat=filestatus, status='OLD', access='DIRECT', recl=reclen_sam, form='FORMATTED')
-      if (filestatus .ne. 0) stop ' Error opening .sam file. Quitting...' !FIXME: use quit_de subroutine
+      if (filestatus .ne. 0) call quit_de(' Error opening .sam file. Quitting...')
     endif
     
     !loop over the points in the raw and sam files

@@ -2,7 +2,7 @@
 #include <cstring>
 #include <cmath>
 #include <limits>
-#include "devo.hpp"
+#include "diver.hpp"
 
 const int         nPar                = 2;                            // Dimensionality of the parameter space
 const double      lowerbounds[nPar]   = {-6.0, -6.0};                 // Lower boundaries of parameter space
@@ -109,8 +109,8 @@ int main(int argc, char** argv)
   if (argc > 1 and strcmp(argv[1], "shell") == 0) minus_lnlike = gauss_shell; else minus_lnlike = &gauss;
   void* context = &minus_lnlike;
 
-  runde(objective, nPar, lowerbounds, upperbounds, path, nDerived, nDiscrete, discrete, partitionDiscrete, 
-        maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh, convsteps,
-        removeDuplicates, doBayesian, flatprior, maxNodePop, Ztolerance, savecount, resume, context, verbose); 
-        //Note that prior, maxNodePop and Ztolerance are just ignored if doBayesian = false
+  cdiver(objective, nPar, lowerbounds, upperbounds, path, nDerived, nDiscrete, discrete, partitionDiscrete, 
+         maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh, convsteps,
+         removeDuplicates, doBayesian, flatprior, maxNodePop, Ztolerance, savecount, resume, context, verbose); 
+         //Note that prior, maxNodePop and Ztolerance are just ignored if doBayesian = false
 }

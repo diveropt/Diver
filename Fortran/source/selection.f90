@@ -1,18 +1,18 @@
 module selection
 
-  use detypes
-  use deutils
-  use mutation, only: init_FjDE, init_lambdajDE
-  use crossover, only: init_CrjDE
+use detypes
+use deutils
+use mutation, only: init_FjDE, init_lambdajDE
+use crossover, only: init_CrjDE
 
-  implicit none
+implicit none
 
 #ifdef USEMPI
   include 'mpif.h'
 #endif
 
-  private
-  public selector, replace_generation, roundvector
+private
+public selector, replace_generation, roundvector
 
 contains 
 

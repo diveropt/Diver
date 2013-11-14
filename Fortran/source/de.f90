@@ -18,16 +18,16 @@ implicit none
 #endif
 
 private
-public run_de
+public diver
 
 contains 
 
 
   !Main differential evolution routine.  
-  subroutine run_de(func, lowerbounds, upperbounds, path, nDerived, discrete, partitionDiscrete,            &
-                    maxciv, maxgen, NP, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE,               &
-                    convthresh, convsteps, removeDuplicates, doBayesian, prior, maxNodePop, Ztolerance,     &
-                    savecount, resume, context, verbose)
+  subroutine diver(func, lowerbounds, upperbounds, path, nDerived, discrete, partitionDiscrete,            &
+                   maxciv, maxgen, NP, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE,               &
+                   convthresh, convsteps, removeDuplicates, doBayesian, prior, maxNodePop, Ztolerance,     &
+                   savecount, resume, context, verbose)
 
     use iso_c_binding, only: c_ptr
 
@@ -58,7 +58,7 @@ contains
     integer, intent(in), optional    :: savecount		!save progress every savecount generations
     logical, intent(in), optional    :: resume			!restart from a previous run
     type(c_ptr), intent(inout), optional :: context		!context pointer, used for passing info from the caller to likelihood/prior 
-    integer, intent(in), optional    :: verbose                 !verbosity of output: 0=only error messages, 1=basic info, 2=civ-level info, 3+=population info
+    integer, intent(in), optional    :: verbose                 !output verbosity: 0=only error messages, 1=basic info, 2=civ-level info, 3+=population info
      
     type(codeparams) :: run_params                              !carries the code parameters 
 
@@ -353,7 +353,7 @@ contains
        write (*,'(A23,I4,A2,F7.2)') 'Total time for process ', run_params%mpirank, ': ', t2-t1
     end if
 
-  end subroutine run_de
+  end subroutine diver
 
 
 end module de

@@ -46,7 +46,7 @@ plot_colourbar_2D = {4,5} {6,7}			;2D plots that should include colourbars
 
 plot_comparison = F				;Overplot distributions from comparisonFilename in 1D plots and contours in 2D plots
 extra_legend_lines = 'Flat priors' 'gauss2'	;Additional text lines to be included in any legends (EFN)
-blame = 'DEvoPack'				;Credit line to be placed in top corner of all plots
+blame = 'Diver 1.0.0'				;Credit line to be placed in top corner of all plots
 yaxis_number_angle = -90			;Angle relative to vertical for y-axis numerical labels
 
 plot_posterior_mean_on_posterior_pdf = T	;Indicate the posterior mean in all posterior pdf plots
