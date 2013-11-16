@@ -7,7 +7,7 @@ use crossover, only: init_CrjDE
 
 implicit none
 
-#ifdef USEMPI
+#ifdef MPI
   include 'mpif.h'
 #endif
 
@@ -65,7 +65,7 @@ contains
 
     trialderived(:run_params%D) = roundvector(trialvector, run_params)
 
-#ifdef USEMPI 
+#ifdef MPI 
     !call func even if not a valid vector so that all processes can respond to MPI calls inside likelihood function 
     trialvalue = func(trialderived, fcall, quit, validvector, run_params%context)
     if (.not. validvector) trialvalue = huge(1.0_dp)
@@ -124,7 +124,7 @@ contains
     integer :: ierror 
     
     !with MPI enabled, Xnew will only contain some elements of the new population. Create allvecs, allvals for duplicate-hunting
-#ifdef USEMPI
+#ifdef MPI
     !create mpi double precsision real which will be compatible with dp kind specified in detypes.f90
 
     !CS changed
@@ -345,9 +345,10 @@ contains
        allvecs(n,:) = X%vectors(n,:)                          !all processes switch back to previous value
        accept = accept - 1                                    !vector is 'de-accepted' since reverting to the value in the previous generation
     else
-#ifdef USEMPI
+#ifdef MPI
        !root process shares newly-created vector with other processes
 !Cs change 
+!PS FIXME we need to repair this 
        !call MPI_Type_create_f90_real(precision(1.0_dp), range(1.0_dp), mpi_dp, ierror)
        !call MPI_Bcast(newvector, run_params%D, mpi_dp, root, MPI_COMM_WORLD, ierror)
        call MPI_Bcast(newvector, run_params%D, mpi_double_precision, root, MPI_COMM_WORLD, ierror) 

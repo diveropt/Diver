@@ -27,7 +27,7 @@ contains
     integer ierror
 
     if (present(error_message)) write (*,*) error_message
-#ifdef USEMPI
+#ifdef MPI
     call MPI_Finalize(ierror)
 #endif
     stop

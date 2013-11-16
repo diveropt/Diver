@@ -13,7 +13,7 @@ use evidence
 
 implicit none
 
-#ifdef USEMPI
+#ifdef MPI
   include 'mpif.h'
 #endif
 
@@ -88,7 +88,7 @@ contains
 
     call cpu_time(t1)
 
-#ifdef USEMPI
+#ifdef MPI
     call MPI_Init(ierror)
 #endif
 
@@ -224,7 +224,7 @@ contains
              !debugging code: choose random new population members uniformly from the allowed parameter ranges
              !call initialize(X, Xnew, run_params, func, fcall, quit)
 
-#ifdef USEMPI
+#ifdef MPI
              call MPI_Allreduce(accept, totaccept, 1, MPI_integer, MPI_sum, MPI_COMM_WORLD, ierror)
 #else
              totaccept = accept
@@ -252,11 +252,6 @@ contains
           endif
 
           if (converged(X, gen, run_params)) exit    !Check generation-level convergence: if satisfied, exit genloop
-                                                     !PS, comment: it looks like the convergence of the evidence *requires*
-                                                     !that the generation-level convergence check is done, as continuing to
-                                                     !evolve a population after it has converged just results in many more 
-                                                     !copies of the same point ending up in the database, which seems to
-                                                     !start to introduce a bias in the evidence.
 
        end do genloop
        
@@ -276,7 +271,7 @@ contains
        endif
 
        !get the total number of function calls
-#ifdef USEMPI
+#ifdef MPI
        call MPI_Allreduce(fcall, totfcall, 1, MPI_integer, MPI_sum, MPI_COMM_WORLD, ierror)
 #else
        totfcall = fcall
@@ -300,7 +295,7 @@ contains
 
     if (run_params%verbose .ge. 1) then
        write (*,*) '============================='
-       write (*,'(A25,I4)') 'Number of civilisations: ', min(civ,run_params%numciv)
+       write (*,'(A25,I4)') ' Number of civilisations: ', min(civ,run_params%numciv)
        write (*,*) 'Best final vector: ', roundvector(BF%vectors(1,:), run_params)
        write (*,*) 'Value at best final vector: ', BF%values(1)
        if (run_params%calcZ) then
@@ -326,24 +321,26 @@ contains
                      final = ( (mod(gen,run_params%savefreq) .eq. 0) .or. (civ .eq. civstart) ) )
     end if
 
-    deallocate(X%vectors, X%values, X%weights, X%vectors_and_derived, X%multiplicities)
-    deallocate(Xsub%vectors, Xsub%values)
-    deallocate(Xnew%vectors, Xnew%values)
-    if (allocated(X%FjDE)) deallocate(X%FjDE)
-    if (allocated(X%CrjDE)) deallocate(X%CrjDE)
-    if (allocated(X%lambdajDE)) deallocate(X%lambdajDE)
-    if (allocated(Xsub%FjDE)) deallocate(Xsub%FjDE)
-    if (allocated(Xsub%lambdajDE)) deallocate(Xsub%lambdajDE)
-    if (allocated(Xnew%FjDE)) deallocate(Xnew%FjDE)
-    if (allocated(Xnew%CrjDE)) deallocate(Xnew%CrjDE)
-    if (allocated(Xnew%lambdajDE)) deallocate(Xnew%lambdajDE)
-    if (allocated(run_params%DE%F)) deallocate(run_params%DE%F)
-    if (allocated(run_params%discrete)) deallocate(run_params%discrete)
+    !Clean up and shut down.
+    if (allocated(X%FjDE))                   deallocate(X%FjDE)
+    if (allocated(X%CrjDE))                  deallocate(X%CrjDE)
+    if (allocated(X%lambdajDE))              deallocate(X%lambdajDE)
+    if (allocated(Xsub%FjDE))                deallocate(Xsub%FjDE)
+    if (allocated(Xsub%lambdajDE))           deallocate(Xsub%lambdajDE)
+    if (allocated(Xnew%FjDE))                deallocate(Xnew%FjDE)
+    if (allocated(Xnew%CrjDE))               deallocate(Xnew%CrjDE)
+    if (allocated(Xnew%lambdajDE))           deallocate(Xnew%lambdajDE)
+    if (allocated(run_params%DE%F))          deallocate(run_params%DE%F)
+    if (allocated(run_params%discrete))      deallocate(run_params%discrete)
     if (allocated(run_params%repeat_scales)) deallocate(run_params%repeat_scales)
-    deallocate(BF%vectors, BF%values, BF%vectors_and_derived)
+                                             deallocate(X%vectors, X%values, X%weights)
+                                             deallocate(X%vectors_and_derived, X%multiplicities)
+                                             deallocate(Xsub%vectors, Xsub%values)
+                                             deallocate(Xnew%vectors, Xnew%values)
+                                             deallocate(BF%vectors, BF%values, BF%vectors_and_derived)
     if (run_params%calcZ) call clearTree
 
-#ifdef USEMPI
+#ifdef MPI
     call MPI_Finalize(ierror)
 #endif
 

@@ -5,11 +5,11 @@
 # the options below to suit your system
 
 # Define fortran compiler and options
-# to enable mpi, add -DUSEMPI to FOPT
+# to enable mpi, add -DMPI to FOPT
 FF=mpif90
 CC=mpicc
-FOPT=-O3 -extend_source -fPIC -warn all -DUSEMPI -check all -check noarg-temp_created -fpp
-COPT=-O3 -fPIC -DUSEMPI
+FOPT=-O3 -extend_source -fPIC -warn all -DMPI -check all -check noarg-temp_created -fpp
+COPT=-O3 -fPIC -DMPI
 CPPOPT=-lstdc++
 MIXOPT_C=-nofor-main
 MIXOPT_CPP=-nofor-main -lstdc++

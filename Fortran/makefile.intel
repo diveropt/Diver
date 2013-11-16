@@ -5,7 +5,7 @@
 # the options below to suit your system
 
 # Define fortran compiler and options
-# to enable mpi, add -DUSEMPI to FOPT
+# to enable mpi, add -DMPI to FOPT
 FF=ifort
 CC=icc
 FOPT=-O3 -extend_source -fPIC

@@ -8,7 +8,7 @@ use selection, only: replace_generation
 
 implicit none
 
-#ifdef USEMPI
+#ifdef MPI
   include 'mpif.h'
 #endif
 
@@ -59,7 +59,7 @@ contains
     integer, allocatable :: num_discrete_vals(:)
     integer :: i, discrete_index
 
-#ifdef USEMPI
+#ifdef MPI
     call MPI_Comm_size(MPI_COMM_WORLD, mpiprocs, ierror)  !gives the total num of processes. If no MPI, set to 1.
     call MPI_Comm_rank(MPI_COMM_WORLD, mpirank, ierror)   !rank of the current process. If no MPI, set to 0.
 #else
@@ -568,7 +568,7 @@ contains
     if (mpirank .eq. 0) call init_random_seed()
 
     !initialize random seeds for secondary processes
-#ifdef USEMPI
+#ifdef MPI
     call random_seed(size = n)
     allocate(allseeds(n, nprocs))
     allocate(seed(n))
