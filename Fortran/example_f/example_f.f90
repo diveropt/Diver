@@ -14,7 +14,7 @@ implicit none
  real(dp), parameter, dimension(1) :: F=0.6						!recommend 0<F<1
  real(dp), parameter, dimension(param_dim) :: lowerbounds=-50.! (/-5.,-50.,1.,-50.,-1./) 	!boundaries of parameter space
  real(dp), parameter, dimension(param_dim) :: upperbounds=50.! (/-1.,50.,5.,50.,2./)
- real(dp), parameter, dimension(param_dim) :: ranges = upperbounds - lowerbounds
+ real(dp), parameter, dimension(param_dim) :: boundranges = upperbounds - lowerbounds
 
 contains
 
@@ -242,7 +242,7 @@ real(dp) function flatprior(X, context)
   type(c_ptr), intent(inout) :: context
   !real(dp), dimension(size(lowerbounds)), intent(in) :: X
   real(dp), dimension(:), intent(in) :: X
-  flatprior = 1.0_dp / product(ranges)
+  flatprior = 1.0_dp / product(boundranges)
 
 end function flatprior
 

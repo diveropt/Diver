@@ -17,8 +17,7 @@ implicit none
   include 'mpif.h'
 #endif
 
-private
-public diver
+public
 
 contains 
 
@@ -27,7 +26,7 @@ contains
   subroutine diver(func, lowerbounds, upperbounds, path, nDerived, discrete, partitionDiscrete,            &
                    maxciv, maxgen, NP, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE,               &
                    convthresh, convsteps, removeDuplicates, doBayesian, prior, maxNodePop, Ztolerance,     &
-                   savecount, resume, context, verbose)
+                   savecount, resume, context, verbose, skip_MPI_init)
 
     use iso_c_binding, only: c_ptr
 
@@ -59,6 +58,7 @@ contains
     logical, intent(in), optional    :: resume			!restart from a previous run
     type(c_ptr), intent(inout), optional :: context		!context pointer, used for passing info from the caller to likelihood/prior 
     integer, intent(in), optional    :: verbose                 !output verbosity: 0=only error messages, 1=basic info, 2=civ-level info, 3+=population info
+    logical, intent(in), optional    :: skip_MPI_init           !skip the initialisation of MPI, as it is done in the calling routine
      
     type(codeparams) :: run_params                              !carries the code parameters 
 
@@ -89,7 +89,11 @@ contains
     call cpu_time(t1)
 
 #ifdef MPI
-    call MPI_Init(ierror)
+    if (present(skip_MPI_init)) then
+      if (.not. skip_MPI_init) call MPI_Init(ierror)
+    else
+      call MPI_Init(ierror)
+    endif
 #endif
 
     !FIXME: if doBayesian, check that prior, etc is present...

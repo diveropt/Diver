@@ -33,7 +33,7 @@ const double      Ztolerance          = 0.1;                          // Input t
 const int         savecount           = 1;                            // Save progress every savecount generations
 const bool        resume              = false;                        // Restart from a previous run
 const int         verbose             = 1;                            // Output verbosity: 0=only error messages, 1=basic info, 2=civ-level info, 3+=population info
-
+const bool        skip_MPI_init       = false;                        // Skip the initialisation of MPI, as it is done in the calling routine
 
 const double Pi = 3.14159265359;                                            // Tasty
 typedef double (*likelihood)(double[], const int, int&, bool&, const bool); // This example's internal standard likelihood function signature
@@ -111,6 +111,7 @@ int main(int argc, char** argv)
 
   cdiver(objective, nPar, lowerbounds, upperbounds, path, nDerived, nDiscrete, discrete, partitionDiscrete, 
          maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh, convsteps,
-         removeDuplicates, doBayesian, flatprior, maxNodePop, Ztolerance, savecount, resume, context, verbose); 
+         removeDuplicates, doBayesian, flatprior, maxNodePop, Ztolerance, savecount, resume, context, verbose,
+         skip_MPI_init); 
          //Note that prior, maxNodePop and Ztolerance are just ignored if doBayesian = false
 }
