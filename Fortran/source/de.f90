@@ -149,6 +149,9 @@ contains
     !If required, initialise the linked tree used for estimating the evidence and posterior
     if (run_params%calcZ) call iniTree(lowerbounds,upperbounds,run_params%maxNodePop)
 
+    !Initialise the convergence criterion
+    call init_convergence(run_params)
+
     !Initialise internal variables
     BF%values(1) = huge(BF%values(1))
 
@@ -258,7 +261,7 @@ contains
              call quit_de()
           endif
 
-          if (converged(X, gen, run_params)) exit    !Check generation-level convergence: if satisfied, exit genloop
+          if (converged(X, run_params)) exit    !Check generation-level convergence: if satisfied, exit genloop
 
        end do genloop
        

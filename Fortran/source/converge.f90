@@ -9,9 +9,22 @@ logical, parameter :: checkpopres = .false.    !check that the population resolu
                                                !Useful when dealing with duplicates caused *very* small population variance
 
 private
-public converged, evidenceDone, meanimprovement
+public init_convergence, converged, evidenceDone, meanimprovement
 
 contains
+
+  subroutine init_convergence(run_params)
+
+    type(codeparams), intent(inout) :: run_params
+
+    if (run_params%convergence_criterion == meanimprovement) then
+       allocate(run_params%improvements(run_params%convsteps))
+       run_params%meanlike = huge(1.0_dp)
+       run_params%improvements = 1.0_dp
+    endif
+
+  end subroutine init_convergence
+
 
   logical function evidenceDone(Z,Zerr,tol)
 
@@ -23,16 +36,15 @@ contains
   end function evidenceDone
 
 
-  logical function converged(X, gen, run_params)                     
+  logical function converged(X, run_params)                     
     type(population), intent(in) :: X
-    integer, intent(in) :: gen
     type(codeparams), intent(inout) :: run_params
 
     if (run_params%verbose .ge. 3) write(*,*) '  Checking convergence...'
 
     select case (run_params%convergence_criterion)
        case (meanimprovement) 
-          converged = check_SFIM(X, gen, run_params)
+          converged = check_SFIM(X, run_params)
        case default                                 !FIXME implement other convergence criteria options
           converged = .false.                       !no convergence criteria used
     end select
@@ -50,36 +62,28 @@ contains
   !tracks the smoothed fractional improvement of the mean value of the population
   !at each generation, and ends the civilization when this goes below a certain threshold
   !Note that this *does not work* for test functions whose minimum is 0
-  logical function check_SFIM(X, gen, run_params) result(isConverged)
+  logical function check_SFIM(X, run_params) result(isConverged)
 
     type(population), intent(in) :: X
-    integer, intent(in) :: gen
     type(codeparams), intent(inout) :: run_params
 
     real(dp) :: curval         !the average fitness of the population for the current generation
     real(dp) :: fracdiff       !the fractional difference between this and the previous generation's mean value
     real(dp) :: sfim           !the smoothed fractional improvement in the mean
-
-    if (gen .eq. 1) then
-       !initialize
-       allocate(run_params%improvements(run_params%convsteps))
-       run_params%normeanlike = huge(1.0_dp)
-       run_params%improvements = 1.0_dp
-    end if
+    real(dp), parameter :: inf_threshold = 0.001*huge(1.0_dp) !to make sure there are no problems with inifinity
 
     !set the current value to the average of the current population
     curval = sum(X%values)/(real(size(X%values), kind=dp))
     !curval = minval(X%values)            !best population value
 
     !make sure we don't have problems with infinity
-    if (curval .gt. 1.e10) then           !FIXME: is 1e10 a good threshold value?
+    if (curval .gt. inf_threshold) then     
+       run_params%meanlike = inf_threshold
        fracdiff = 1.0_dp
     else
-       fracdiff = 1.0_dp - curval/run_params%normeanlike  !the fractional improvement between this generation and last generation
+       fracdiff = 1.0_dp - curval/run_params%meanlike  !the fractional improvement between this generation and last generation
+       run_params%meanlike = curval
     end if
-
-    !set the most recent value of the average fitness to curval
-    run_params%normeanlike = curval
 
     run_params%improvements = eoshift(run_params%improvements, shift=-1, boundary=fracdiff)   !store new improvement, discard oldest improvement
     sfim = sum(run_params%improvements)/real(run_params%convsteps, kind=dp)                   !average over the generations stored
@@ -87,12 +91,7 @@ contains
     if (run_params%verbose .ge. 3) write (*,*) '  Smoothed fractional improvement of the mean =', sfim
     
     !compare to threshold value
-    if (sfim .lt. run_params%convthresh) then 
-       isConverged = .true.
-       deallocate(run_params%improvements)
-    else
-       isConverged = .false.
-    end if
+    isConverged = (sfim .lt. run_params%convthresh)
 
   end function check_SFIM
 

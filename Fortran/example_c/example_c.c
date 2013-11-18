@@ -23,7 +23,7 @@ const bool        expon               = false;                        // Use exp
 const int         bndry               = 3;                            // Boundary constraint: 1=brick wall, 2=random re-initialization, 3=reflection
 const bool        jDE                 = true;                         // Use self-adaptive choices for rand/1/bin parameters as per Brest et al 2006
 const bool        lambdajDE           = true;                         // Use self-adaptive rand-to-best/1/bin parameters; based on Brest et al 2006
-const double      convthresh          = 1.e-3;                        // Threshold for gen-level convergence: smoothed fractional improvement in the mean population value
+const double      convthresh          = 1.e-6;                        // Threshold for gen-level convergence: smoothed fractional improvement in the mean population value
 const int         convsteps           = 10;                           // Number of steps to smooth over when checking convergence
 const bool        removeDuplicates    = true;                         // Weed out duplicate vectors within a single generation
 const bool        doBayesian          = false;                        // Calculate approximate log evidence and posterior weightings
@@ -36,11 +36,11 @@ const bool        skip_MPI_init       = false;                        // Skip th
 
 
 //Function to be minimized.  Corresponds to -ln(Likelihood).
-//Plain Gaussian centred at the origin. Valid for any number of dimensions.
+//Plain Gaussian centred at the origin. Valid for any number of dimensions.  Minimum value is the number of dimensions.
 double gauss(double params[], const int param_dim, int *fcall, bool *quit, const bool validvector, void** context)
 {
   double result = 0.0;
-  for (int i = 0; i<param_dim; i++) result += params[i]*params[i];
+  for (int i = 0; i<param_dim; i++) result += params[i]*params[i] + 1.0;
   if (!validvector) result = DBL_MAX;
   *fcall += 1;
   *quit = false;

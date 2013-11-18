@@ -34,18 +34,15 @@ subroutine io_begin(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_save
       call resume(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF)
     endif
   else if (run_params%mpirank .eq. 0) then
-    !Create .raw, .sam, .rparam and .devo files
+    !Create .raw and .sam files.  .rparam and .devo files are created only at first save, so their existence indicates whether 
+    !resuming is allowed or not.
     if (run_params%verbose .ge. 1) write(*,*) 'Creating Diver output files at '//trim(path)//'.*'
     open(unit=rawlun, file=trim(path)//'.raw', iostat=filestatus, action='WRITE', status='REPLACE')
-    open(unit=devolun, file=trim(path)//'.devo', iostat=filestatus, action='WRITE', status='REPLACE')
-    open(unit=rparamlun, file=trim(path)//'.rparam', iostat=filestatus, action='WRITE', status='REPLACE')
     if ( (run_params%D_derived .ne. 0) .or. (size(run_params%discrete) .ne. 0) ) then
        open(unit=samlun, file=trim(path)//'.sam', iostat=filestatus, action='WRITE', status='REPLACE')
     end if
     if (filestatus .ne. 0) call quit_de(' Error creating output files. Quitting...')
     close(rawlun)
-    close(devolun)
-    close(rparamlun)
     if (run_params%D_derived .ne. 0) close(samlun)
   endif
 
@@ -107,9 +104,15 @@ subroutine save_run_params(path, run_params)
   character(len=*), intent(in) :: path
   type(codeparams), intent(in) :: run_params
   integer :: filestatus
+  logical :: exists
   character(len=12) :: formatstring
 
-  open(unit=rparamlun, file=trim(path)//'.rparam', iostat=filestatus, action='WRITE', status='OLD')
+  inquire(file=trim(path)//'.rparam',exist=exists)
+  if (exists) then 
+     open(unit=rparamlun, file=trim(path)//'.rparam', iostat=filestatus, action='WRITE', status='OLD')
+  else
+     open(unit=rparamlun, file=trim(path)//'.rparam', iostat=filestatus, action='WRITE', status='REPLACE')
+  endif
   if (filestatus .ne. 0) call quit_de(' Error opening rparam file.  Quitting...')
 
   write(rparamlun,'(I6)') 	run_params%DE%NP               			!population size
@@ -164,11 +167,17 @@ subroutine save_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_sa
   real(dp), intent(in) :: Z, Zmsq, Zerr, Zold
   type(codeparams), intent(in) :: run_params
   integer :: filestatus
+  logical :: exists
   character(len=14) :: formatstring
   type(population), intent(in) :: X, BF
   
   !Save restart info
-  open(unit=devolun, file=trim(path)//'.devo', iostat=filestatus, action='WRITE', status='OLD')
+  inquire(file=trim(path)//'.devo',exist=exists)
+  if (exists) then 
+     open(unit=devolun, file=trim(path)//'.devo', iostat=filestatus, action='WRITE', status='OLD')
+  else
+     open(unit=devolun, file=trim(path)//'.devo', iostat=filestatus, action='WRITE', status='REPLACE')
+  endif
   if (filestatus .ne. 0) call quit_de(' Error opening devo file.  Quitting...')
 
   write(devolun,'(2I10)') 	civ, gen					!current civilisation, generation
@@ -197,9 +206,9 @@ subroutine save_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_sa
   end if
 
   if (run_params%convergence_criterion == meanimprovement) then
-     write(devolun,'(E20.9)')    run_params%normeanlike                          !the normalized average fitness of the population for the last generation
+     write(devolun,'(E20.9)')    run_params%meanlike                            !the average fitness of the population for the last generation
      write(formatstring,'(A1,I4,A6)') '(',run_params%convsteps,'E20.9)'
-     write(devolun,formatstring) run_params%improvements                         !fractional diff in the mean, for convsteps most recent steps
+     write(devolun,formatstring) run_params%improvements                        !fractional diff in the mean, for convsteps most recent steps
   endif  
 
   close(devolun)
@@ -211,17 +220,27 @@ subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_sa
 
   real(dp), intent(out) :: Z, Zmsq, Zerr, Zold
   integer, intent(out) :: civ, gen, Nsamples, Nsamples_saved, fcall
-  integer :: filestatus
+  integer :: filestatus, inNP
+  logical :: exists
   character(len=*), intent(in) :: path
   character(len=14) :: formatstring
-  type(codeparams), intent(out) :: run_params
+  type(codeparams), intent(inout) :: run_params
   type(population), intent(inout) :: X, BF
   
-  !Read in run parameters  
+  !Read in run parameters
+  inquire(file=trim(path)//'.rparam',exist=exists)
+  if (.not. exists) call quit_de(trim(path)//'.rparam does not exist. Cannot resume Diver.')
   open(unit=rparamlun, file=trim(path)//'.rparam', iostat=filestatus, action='READ', status='OLD')
   if (filestatus .ne. 0) call quit_de(' Error opening rparam file.  Quitting...')
 
-  read(rparamlun,'(I6)') 	run_params%DE%NP               			!population size
+  read(rparamlun,'(I6)') 	inNP               			        !population size
+  if (run_params%DE%NP .ne. inNP) then
+     write(*,*) 'Error: NP differs in current and previous run. '
+     write(*,*) 'Current:  ',run_params%DE%NP
+     write(*,*) 'Previous: ',inNP
+     call quit_de('Please modify NP and try again.') 
+  endif
+  run_params%DE%NP = inNP
   read(rparamlun,'(L1)') 	run_params%DE%jDE            			!true: use jDE
   read(rparamlun,'(L1)') 	run_params%DE%lambdajDE            		!true: use jDE with self-adaptive lambda
   read(rparamlun,'(I4)')        run_params%DE%Fsize                             !number of mutation scale factors
@@ -268,6 +287,8 @@ subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_sa
   close(rparamlun)
 
   !Read in run status info
+  inquire(file=trim(path)//'.devo',exist=exists)
+  if (.not. exists) call quit_de(trim(path)//'.devo does not exist. Cannot resume Diver.')
   open(unit=devolun, file=trim(path)//'.devo', iostat=filestatus, action='READ', status='OLD')
   if (filestatus .ne. 0) call quit_de(' Error opening devo file.  Quitting...')
 
@@ -297,8 +318,9 @@ subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_sa
   end if
 
   if (run_params%convergence_criterion == meanimprovement) then
-     read(devolun,'(E20.9)')    run_params%normeanlike                          !the normalized average fitness of the population for the last generation
+     read(devolun,'(E20.9)')    run_params%meanlike                             !the average fitness of the population for the last generation
      write(formatstring,'(A1,I4,A6)') '(',run_params%convsteps,'E20.9)'
+     allocate(run_params%improvements(run_params%convsteps))
      read(devolun,formatstring) run_params%improvements                         !fractional diff in the mean, for convsteps most recent steps
   endif  
 
@@ -312,7 +334,7 @@ subroutine resume(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved,
 
   character(len=*), intent(in) :: path
   integer, intent(inout) :: civ, gen, Nsamples, Nsamples_saved, fcall
-  integer :: reclen, filestatus, i, j
+  integer :: reclen, filestatus, i, j, passoverlen
   real(dp), intent(inout) :: Z, Zmsq, Zerr, Zold
   procedure(PriorFunc), optional :: prior
   real(dp) :: Z_new, Zmsq_new, Zerr_new, Z_3, Zmsq_3, Zerr_3
@@ -327,7 +349,15 @@ subroutine resume(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved,
   if (run_params%verbose .ge. 1) write(*,*) 'Restoring from previous run...'  
 
   !Read the run state
+  run_params_restored%DE%NP = run_params%DE%NP
   call read_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params_restored, X, BF)
+  if (run_params_restored%convergence_criterion == meanimprovement) then
+    run_params%meanlike = run_params_restored%meanlike
+    allocate(run_params%improvements(run_params%convsteps)) 
+    passoverlen = min(run_params%convsteps,run_params_restored%convsteps)
+    run_params%improvements(1:passoverlen) = run_params_restored%improvements(1:passoverlen)
+    if (passoverlen .lt. run_params%convsteps) run_params%improvements(passoverlen+1:) = 1.0_dp
+  endif
 
   !Do some error-checking on overrides/disagreements between run_params
   if (run_params%D .ne. run_params_restored%D) &
