@@ -332,6 +332,7 @@ contains
     end if
 
     !Clean up and shut down.
+    if (allocated(run_params%improvements)   deallocate(run_params%improvements)
     if (allocated(X%FjDE))                   deallocate(X%FjDE)
     if (allocated(X%CrjDE))                  deallocate(X%CrjDE)
     if (allocated(X%lambdajDE))              deallocate(X%lambdajDE)
