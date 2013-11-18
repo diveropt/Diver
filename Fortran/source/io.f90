@@ -353,7 +353,6 @@ subroutine resume(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved,
   call read_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params_restored, X, BF)
   if (run_params_restored%convergence_criterion == meanimprovement) then
     run_params%meanlike = run_params_restored%meanlike
-    allocate(run_params%improvements(run_params%convsteps)) 
     passoverlen = min(run_params%convsteps,run_params_restored%convsteps)
     run_params%improvements(1:passoverlen) = run_params_restored%improvements(1:passoverlen)
     if (passoverlen .lt. run_params%convsteps) run_params%improvements(passoverlen+1:) = 1.0_dp

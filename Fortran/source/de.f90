@@ -73,11 +73,6 @@ contains
     integer :: n, nsub                                          !current member of population being evolved (same as m unless using MPI), subpop version
     integer :: civstart=1, genstart=1                           !starting values of civ, gen
 
-    real(dp), dimension(size(lowerbounds)) :: bestvector        !for calculating final best fit
-    real(dp) :: bestvalue
-    real(dp), allocatable :: bestvecderived(:)
-    integer :: bestloc(1)
-
     real(dp) :: Z=0., Zmsq=0., Zerr=0., Zold=0.                 !evidence
     integer :: Nsamples = 0                                     !number of statistically independent samples from posterior
     integer :: Nsamples_saved = 0                               !number of samples saved to .sam file so far
@@ -143,8 +138,7 @@ contains
     endif
     
     !Allocate best-fit containers
-    allocate(BF%vectors(1, run_params%D), BF%vectors_and_derived(1, run_params%D+run_params%D_derived))
-    allocate(BF%values(1), bestvecderived(run_params%D+run_params%D_derived))
+    allocate(BF%vectors(1, run_params%D), BF%vectors_and_derived(1, run_params%D+run_params%D_derived), BF%values(1))
     
     !If required, initialise the linked tree used for estimating the evidence and posterior
     if (run_params%calcZ) call iniTree(lowerbounds,upperbounds,run_params%maxNodePop)
@@ -194,6 +188,8 @@ contains
             call initialize(X, Xnew, run_params, func, fcall, quit)
             !Don't use initial generation for estimating evidence, as it biases the BSP
             if ((civ .eq. 1) .and. (run_params%mpirank .eq. 0)) call save_run_params(path, run_params)
+            !Update best fits
+            call newBFs(X,BF)
             
           else
              
@@ -242,6 +238,9 @@ contains
 
              if (run_params%verbose .ge. 3) write (*,*) '  Acceptance rate: ', totaccept/real(run_params%DE%NP)
 
+             !Update best fits
+             call newBFs(X,BF)
+
              !Update the evidence calculation
              if (run_params%calcZ) call updateEvidence(X, Z, Zmsq, Zerr, prior, run_params%context, Nsamples)
 
@@ -266,19 +265,9 @@ contains
        end do genloop
        
        genstart = 1
-
-       !best fit for this civilization
-       bestloc = minloc(X%values)
-       bestvector = X%vectors(bestloc(1),:)
-       bestvecderived = X%vectors_and_derived(bestloc(1),:)
-       bestvalue = minval(X%values)
           
-       !Update current best fit
-       if (bestvalue .le. BF%values(1)) then
-          BF%values(1) = bestvalue
-          BF%vectors(1,:) = bestvector
-          BF%vectors_and_derived(1,:) = bestvecderived
-       endif
+       !Update best fits
+       call newBFs(X,BF)
 
        !get the total number of function calls
 #ifdef MPI
@@ -293,8 +282,8 @@ contains
        end if
        if (run_params%verbose .ge. 2) then
           write (*,*) '  Number of generations in this civilisation: ', min(gen,run_params%numgen)
-          write (*,*) '  Best final vector in this civilisation: ', roundvector(bestvector, run_params)
-          write (*,*) '  Value at best final vector in this civilisation: ', bestvalue
+          write (*,*) '  Best final vector in this civilisation: ', roundvector(BF%vectors(1,:), run_params)
+          write (*,*) '  Value at best final vector in this civilisation: ', BF%values(1)
           write (*,*) '  Cumulative function calls: ', totfcall
        end if
 

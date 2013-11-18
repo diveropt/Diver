@@ -5,7 +5,7 @@ use detypes
 implicit none
 
 private
-public int_to_string, quit_de, roundvector
+public int_to_string, quit_de, roundvector, newBFs
 
 contains
 
@@ -47,5 +47,22 @@ contains
 
   end function roundvector
 
+
+  !Updates current best fit
+  subroutine newBFs(X,BF)
+    type(population), intent(in) :: X     !population of vectors
+    type(population), intent(inout) :: BF !best-fit vector
+    integer :: bestloc(1)
+    real(dp) :: bestvalue
+
+    bestloc = minloc(X%values)
+    bestvalue = X%values(bestloc(1))
+    if (bestvalue .le. BF%values(1)) then
+      BF%values(1) = bestvalue
+      BF%vectors(1,:) = X%vectors(bestloc(1),:)
+      BF%vectors_and_derived(1,:) = X%vectors_and_derived(bestloc(1),:)
+    endif
+
+  end subroutine newBFs
 
 end module deutils
