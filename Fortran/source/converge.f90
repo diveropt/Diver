@@ -4,13 +4,12 @@ use detypes
 
 implicit none
 
-logical, parameter :: meanimprovement = .true. !whether to use the mean improvement convergence criteria (currently only option)
+integer, parameter :: meanimprovement = 0      !indices for convergence criteria (currently only option is mean improvement)
 logical, parameter :: checkpopres = .false.    !check that the population resolution is ok at all steps. 
                                                !Useful when dealing with duplicates caused *very* small population variance
 
-
 private
-public converged, evidenceDone
+public converged, evidenceDone, meanimprovement
 
 contains
 
@@ -27,15 +26,16 @@ contains
   logical function converged(X, gen, run_params)                     
     type(population), intent(in) :: X
     integer, intent(in) :: gen
-    type(codeparams), intent(in) :: run_params
+    type(codeparams), intent(inout) :: run_params
 
     if (run_params%verbose .ge. 3) write(*,*) '  Checking convergence...'
 
-    if (meanimprovement) then                    !FIXME: make choice of convergence criteria part of run_params
-       converged = check_SFIM(X, gen, run_params)
-    else                                         !FIXME implement other convergence criteria options
-       converged = .false.                       !no convergence criteria used
-    end if
+    select case (run_params%convergence_criterion)
+       case (meanimprovement) 
+          converged = check_SFIM(X, gen, run_params)
+       case default                                 !FIXME implement other convergence criteria options
+          converged = .false.                       !no convergence criteria used
+    end select
 
     if (converged) then
        if (run_params%verbose .ge. 3) write (*,*) '  Converged.'
@@ -54,20 +54,17 @@ contains
 
     type(population), intent(in) :: X
     integer, intent(in) :: gen
-    type(codeparams), intent(in) :: run_params
+    type(codeparams), intent(inout) :: run_params
 
-    real(dp), save :: oldval, curval       !the normalized average fitness of the population for most recent and previous generation
-    real(dp) :: fracdiff                   !the fractional difference between this and the previous generation's mean value
-    real(dp), allocatable, dimension(:), save :: improvements  !fracdiff stored for run_params%convsteps most recent steps (to be smoothed over)
-    real(dp) :: sfim                       !the smoothed fractional improvement in the mean
+    real(dp) :: curval         !the average fitness of the population for the current generation
+    real(dp) :: fracdiff       !the fractional difference between this and the previous generation's mean value
+    real(dp) :: sfim           !the smoothed fractional improvement in the mean
 
     if (gen .eq. 1) then
        !initialize
-       allocate(improvements(run_params%convsteps))
-       improvements = 1.0_dp
-       oldval = huge(1.0_dp)
-    else                                                                                     
-       oldval = curval
+       allocate(run_params%improvements(run_params%convsteps))
+       run_params%normeanlike = huge(1.0_dp)
+       run_params%improvements = 1.0_dp
     end if
 
     !set the current value to the average of the current population
@@ -78,18 +75,21 @@ contains
     if (curval .gt. 1.e10) then           !FIXME: is 1e10 a good threshold value?
        fracdiff = 1.0_dp
     else
-       fracdiff = 1.0_dp - curval/oldval  !the fractional improvement between this generation and last generation
+       fracdiff = 1.0_dp - curval/run_params%normeanlike  !the fractional improvement between this generation and last generation
     end if
 
-    improvements = eoshift(improvements, shift=-1, boundary=fracdiff)   !store new improvement, discard oldest improvement
-    sfim = sum(improvements)/real(run_params%convsteps, kind=dp)        !average over the generations stored
+    !set the most recent value of the average fitness to curval
+    run_params%normeanlike = curval
+
+    run_params%improvements = eoshift(run_params%improvements, shift=-1, boundary=fracdiff)   !store new improvement, discard oldest improvement
+    sfim = sum(run_params%improvements)/real(run_params%convsteps, kind=dp)                   !average over the generations stored
     
     if (run_params%verbose .ge. 3) write (*,*) '  Smoothed fractional improvement of the mean =', sfim
     
     !compare to threshold value
     if (sfim .lt. run_params%convthresh) then 
        isConverged = .true.
-       deallocate(improvements)
+       deallocate(run_params%improvements)
     else
        isConverged = .false.
     end if

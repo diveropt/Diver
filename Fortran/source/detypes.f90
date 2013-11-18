@@ -4,7 +4,6 @@ use iso_c_binding, only: c_ptr
 
 implicit none
 
-!FIXME: make sure fortran types will play nicely with c/c++ ints and doubles
 integer, parameter, public :: dp = kind(1.0d0)          !definition of 'double precision' used throughout
 !integer, parameter, public :: dp = kind(1.0)
 
@@ -46,6 +45,10 @@ type codeparams                 			!code parameters (remember to expand io::save
    integer :: mpipopchunk				!number of vectors for each process to work on (NP if no MPI)
    type(c_ptr) :: context				!context pointer
    integer :: verbose                                   !level of verbosity: 0=quiet, 1=basic, 2=civ-level info, 3=verbose, negative for mpirank!=0
+   integer :: convergence_criterion                     !indicates which convergence criterion has been selected (see convergence.f90 for codes)
+   real(dp) :: normeanlike                              !the normalized average fitness of the population for the last generation
+   real(dp), allocatable, dimension(:) :: improvements  !fracdiff stored for convsteps most recent steps (to be smoothed over)
+    
 end type codeparams
 
 type population

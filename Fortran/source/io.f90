@@ -3,6 +3,7 @@ module io
 use detypes
 use deutils
 use evidence
+use converge
 
 implicit none
 
@@ -149,6 +150,7 @@ subroutine save_run_params(path, run_params)
   write(rparamlun,'(I6)') 	run_params%savefreq				!frequency with which to save progress
   write(rparamlun,'(L1)') 	run_params%DE%removeDuplicates         		!true: remove duplicate vectors in a generation
   write(rparamlun,'(I6)')       run_params%verbose                              !amount of output to print to the screen
+  write(rparamlun,'(I6)')       run_params%convergence_criterion                !indicates which convergence criterion has been selected (see convergence.f90 for codes)
 
   close(rparamlun)
 
@@ -170,7 +172,7 @@ subroutine save_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_sa
   if (filestatus .ne. 0) call quit_de(' Error opening devo file.  Quitting...')
 
   write(devolun,'(2I10)') 	civ, gen					!current civilisation, generation
-  write(devolun,'(3E20.9)') 	Z, Zmsq, Zerr, Zold				!current evidence, mean square, stat. uncertainty, approx Z if Z=corrected
+  write(devolun,'(4E20.9)') 	Z, Zmsq, Zerr, Zold				!current evidence, mean square, stat. uncertainty, approx Z if Z=corrected
   write(devolun,'(3I10)') 	Nsamples, Nsamples_saved, fcall			!total number of independent samples so far, num saved, num function calls
 
   write(devolun,'(E20.9)') 	BF%values(1) 					!current best-fit
@@ -185,6 +187,7 @@ subroutine save_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_sa
   write(devolun,formatstring)	X%vectors					!currect population
   write(formatstring,'(A1,I6,A6)') '(',run_params%DE%NP*(run_params%D+run_params%D_derived),'E20.9)'
   write(devolun,formatstring)	X%vectors_and_derived				!current reprocessed vector and derived values
+
   if (run_params%DE%jDE) then                      				!for self-adaptive F, Cr, optional lambda
     write(devolun,formatstring)	X%FjDE						!current population F values
     write(devolun,formatstring)	X%CrjDE						!current population Cr values
@@ -192,6 +195,12 @@ subroutine save_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_sa
        write(devolun, formatstring) X%lambdajDE                                 !current population lambda values
     end if
   end if
+
+  if (run_params%convergence_criterion == meanimprovement) then
+     write(devolun,'(E20.9)')    run_params%normeanlike                          !the normalized average fitness of the population for the last generation
+     write(formatstring,'(A1,I4,A6)') '(',run_params%convsteps,'E20.9)'
+     write(devolun,formatstring) run_params%improvements                         !fractional diff in the mean, for convsteps most recent steps
+  endif  
 
   close(devolun)
 
@@ -254,6 +263,7 @@ subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_sa
   read(rparamlun,'(I6)') 	run_params%savefreq				!frequency with which to save progress
   read(rparamlun,'(L1)')  	run_params%DE%removeDuplicates			!true: remove duplicate vectors in a generation
   read(rparamlun,'(I6)')        run_params%verbose                              !amount of output to print to the screen
+  read(rparamlun,'(I6)')        run_params%convergence_criterion                !indicates which convergence criterion has been selected (see convergence.f90 for codes)
 
   close(rparamlun)
 
@@ -262,7 +272,7 @@ subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_sa
   if (filestatus .ne. 0) call quit_de(' Error opening devo file.  Quitting...')
 
   read(devolun,'(2I10)') 	civ, gen					!current civilisation, generation
-  read(devolun,'(3E20.9)') 	Z, Zmsq, Zerr, Zold				!current evidence, mean square, stat. uncertainty, approx Z if Z=corrected
+  read(devolun,'(4E20.9)') 	Z, Zmsq, Zerr, Zold				!current evidence, mean square, stat. uncertainty, approx Z if Z=corrected
   read(devolun,'(3I10)') 	Nsamples, Nsamples_saved, fcall			!total number of independent samples so far, num saved, num function calls
 
   read(devolun,'(E20.9)') 	BF%values(1) 					!current best-fit 
@@ -285,6 +295,12 @@ subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_sa
        read(devolun, formatstring) X%lambdajDE                                  !current population lambda values
     end if
   end if
+
+  if (run_params%convergence_criterion == meanimprovement) then
+     read(devolun,'(E20.9)')    run_params%normeanlike                          !the normalized average fitness of the population for the last generation
+     write(formatstring,'(A1,I4,A6)') '(',run_params%convsteps,'E20.9)'
+     read(devolun,formatstring) run_params%improvements                         !fractional diff in the mean, for convsteps most recent steps
+  endif  
 
   close(devolun)
 
@@ -361,7 +377,7 @@ subroutine resume(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved,
     call quit_de('Error: resumed run does not contain only full generations - file likely corrupted.')
   endif
   if (Nsamples .ne. Nsamples_saved) then
-     if (run_params%verbose .ge. 1) then
+     if (run_params%verbose .ge. 1 .and. run_params%calcZ) then
         write(*,*) 'WARNING: running evidence from restored chain will differ to saved value, '
         write(*,*) 'as not all points used for the previous error calculation were saved.'
      end if
