@@ -4,8 +4,12 @@ use detypes
 
 implicit none
 
+#ifdef MPI
+  include 'mpif.h'
+#endif
+
 private
-public int_to_string, quit_de, roundvector, newBFs
+public int_to_string, quit_de, quit_all_processes, roundvector, newBFs
 
 contains
 
@@ -33,6 +37,19 @@ contains
     stop
 
   end subroutine quit_de
+
+
+  subroutine quit_all_processes(error_message)
+    character(LEN=*), intent(in), optional :: error_message
+    integer ierror, errorcode
+
+    if (present(error_message)) write (*,*) error_message
+#ifdef MPI
+    errorcode = 1
+    call MPI_Abort(MPI_COMM_WORLD, errorcode, ierror)
+#endif
+    stop
+  end subroutine quit_all_processes
 
 
   !rounds vectors to nearest discrete values for all dimensions listed in run_params%discrete

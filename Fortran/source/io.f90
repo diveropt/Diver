@@ -41,7 +41,7 @@ subroutine io_begin(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_save
     if ( (run_params%D_derived .ne. 0) .or. (size(run_params%discrete) .ne. 0) ) then
        open(unit=samlun, file=trim(path)//'.sam', iostat=filestatus, action='WRITE', status='REPLACE')
     end if
-    if (filestatus .ne. 0) call quit_de(' Error creating output files. Quitting...')
+    if (filestatus .ne. 0) call quit_all_processes(' Error creating output files. Quitting...')
     close(rawlun)
     if (run_params%D_derived .ne. 0) close(samlun)
   endif
@@ -79,7 +79,7 @@ subroutine save_samples(X, path, civ, gen, run_params)
   character(len=28) :: formatstring_sam 
 
   open(unit=rawlun, file=trim(path)//'.raw', iostat=filestatus, action='WRITE', status='OLD', POSITION='APPEND')
-  if (filestatus .ne. 0) call quit_de(' Error opening raw file.  Quitting...')
+  if (filestatus .ne. 0) call quit_all_processes(' Error opening raw file.  Quitting...')
   write(formatstring_raw,'(A18,I4,A6)') '(2E20.9,2x,2I6,2x,', run_params%D, 'E20.9)'
   do i = 1, size(X%weights)
     write(rawlun,formatstring_raw) X%multiplicities(i), X%values(i), civ, gen, X%vectors(i,:)
@@ -88,7 +88,7 @@ subroutine save_samples(X, path, civ, gen, run_params)
 
   if ( (run_params%D_derived .ne. 0) .or. (size(run_params%discrete) .ne. 0) ) then
     open(unit=samlun, file=trim(path)//'.sam', iostat=filestatus, action='WRITE', status='OLD', POSITION='APPEND')
-    if (filestatus .ne. 0) call quit_de(' Error opening sam file.  Quitting...')
+    if (filestatus .ne. 0) call quit_all_processes(' Error opening sam file.  Quitting...')
     write(formatstring_sam,'(A18,I4,A6)') '(2E20.9,2x,2I6,2x,', run_params%D+run_params%D_derived, 'E20.9)'
     do i = 1, size(X%weights)
       write(samlun,formatstring_sam) X%multiplicities(i), X%values(i), civ, gen, X%vectors_and_derived(i,:)
@@ -113,7 +113,7 @@ subroutine save_run_params(path, run_params)
   else
      open(unit=rparamlun, file=trim(path)//'.rparam', iostat=filestatus, action='WRITE', status='REPLACE')
   endif
-  if (filestatus .ne. 0) call quit_de(' Error opening rparam file.  Quitting...')
+  if (filestatus .ne. 0) call quit_all_processes(' Error opening rparam file.  Quitting...')
 
   write(rparamlun,'(I6)') 	run_params%DE%NP               			!population size
   write(rparamlun,'(L1)') 	run_params%DE%jDE            			!true: use jDE
@@ -178,7 +178,7 @@ subroutine save_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_sa
   else
      open(unit=devolun, file=trim(path)//'.devo', iostat=filestatus, action='WRITE', status='REPLACE')
   endif
-  if (filestatus .ne. 0) call quit_de(' Error opening devo file.  Quitting...')
+  if (filestatus .ne. 0) call quit_all_processes(' Error opening devo file.  Quitting...')
 
   write(devolun,'(2I10)') 	civ, gen					!current civilisation, generation
   write(devolun,'(4E20.9)') 	Z, Zmsq, Zerr, Zold				!current evidence, mean square, stat. uncertainty, approx Z if Z=corrected
@@ -229,16 +229,16 @@ subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_sa
   
   !Read in run parameters
   inquire(file=trim(path)//'.rparam',exist=exists)
-  if (.not. exists) call quit_de(trim(path)//'.rparam does not exist. Cannot resume Diver.')
+  if (.not. exists) call quit_all_processes(trim(path)//'.rparam does not exist. Cannot resume Diver.')
   open(unit=rparamlun, file=trim(path)//'.rparam', iostat=filestatus, action='READ', status='OLD')
-  if (filestatus .ne. 0) call quit_de(' Error opening rparam file.  Quitting...')
+  if (filestatus .ne. 0) call quit_all_processes(' Error opening rparam file.  Quitting...')
 
   read(rparamlun,'(I6)') 	inNP               			        !population size
   if (run_params%DE%NP .ne. inNP) then
      write(*,*) 'Error: NP differs in current and previous run. '
      write(*,*) 'Current:  ',run_params%DE%NP
      write(*,*) 'Previous: ',inNP
-     call quit_de('Please modify NP and try again.') 
+     call quit_all_processes('Please modify NP and try again.') 
   endif
   run_params%DE%NP = inNP
   read(rparamlun,'(L1)') 	run_params%DE%jDE            			!true: use jDE
@@ -288,9 +288,9 @@ subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_sa
 
   !Read in run status info
   inquire(file=trim(path)//'.devo',exist=exists)
-  if (.not. exists) call quit_de(trim(path)//'.devo does not exist. Cannot resume Diver.')
+  if (.not. exists) call quit_all_processes(trim(path)//'.devo does not exist. Cannot resume Diver.')
   open(unit=devolun, file=trim(path)//'.devo', iostat=filestatus, action='READ', status='OLD')
-  if (filestatus .ne. 0) call quit_de(' Error opening devo file.  Quitting...')
+  if (filestatus .ne. 0) call quit_all_processes(' Error opening devo file.  Quitting...')
 
   read(devolun,'(2I10)') 	civ, gen					!current civilisation, generation
   read(devolun,'(4E20.9)') 	Z, Zmsq, Zerr, Zold				!current evidence, mean square, stat. uncertainty, approx Z if Z=corrected
@@ -429,7 +429,7 @@ subroutine resume(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved,
   !open the chain file
   open(unit=rawlun, file=trim(path)//'.raw', &
    iostat=filestatus, status='OLD', access='DIRECT', action='READ', recl=reclen, form='FORMATTED')
-  if (filestatus .ne. 0) call quit_de(' Error opening .raw file. Quitting...')
+  if (filestatus .ne. 0) call quit_all_processes(' Error opening .raw file. Quitting...')
     
   Z_new = 0.0_dp
   Zmsq_new = 0.0_dp
