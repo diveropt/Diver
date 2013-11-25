@@ -32,7 +32,7 @@ contains
     subroutine cdiver(minusloglike_in, nPar, lowerbounds, upperbounds, path, nDerived, nDiscrete, discrete,  &
                       partitionDiscrete, maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon,              &
                       bndry, jDE, lambdajDE,  convthresh, convsteps, removeDuplicates, doBayesian, prior_in, &
-                      maxNodePop, Ztolerance, savecount, resume, context, verbose, skip_MPI_init) bind(c)
+                      maxNodePop, Ztolerance, savecount, resume, context, verbose) bind(c)
 
     use iso_c_binding, only: c_int, c_bool, c_double, c_char, c_funptr, c_ptr, C_NULL_CHAR
     use de, only: diver
@@ -41,7 +41,7 @@ contains
     type(c_ptr),     intent(inout)     :: context
     integer(c_int),  intent(in), value :: nPar, nDerived, nDiscrete, maxciv, maxgen, NP, nF, bndry, convsteps, savecount, verbose
     integer(c_int),  intent(in), target:: discrete(nDiscrete)
-    logical(c_bool), intent(in), value :: partitionDiscrete, current, expon, jDE, lambdajDE, removeDuplicates, doBayesian, resume, skip_MPI_init
+    logical(c_bool), intent(in), value :: partitionDiscrete, current, expon, jDE, lambdajDE, removeDuplicates, doBayesian, resume
     real(c_double),  intent(in), value :: Cr, lambda, convthresh, maxNodePop, Ztolerance
     real(c_double),  intent(in)        :: lowerbounds(nPar), upperbounds(nPar), F(nF)
     character(kind=c_char,len=1), dimension(1), intent(in) :: path
@@ -97,7 +97,7 @@ contains
                lambdajDE=logical(lambdajDE), convthresh=convthresh, convsteps=convsteps,                       &
                removeDuplicates=logical(removeDuplicates), doBayesian=logical(doBayesian), prior = priorPtr,   &
                maxNodePop=maxNodePop, Ztolerance=Ztolerance, savecount=savecount, resume=logical(resume),      &
-               context=context, verbose=verbose, skip_MPI_init=logical(skip_MPI_init))
+               context=context, verbose=verbose)
     
     end subroutine
 

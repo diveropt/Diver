@@ -381,7 +381,9 @@ subroutine resume(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved,
          (run_params%convsteps .ne. run_params_restored%convsteps))  .and. (run_params%verbose .ge. 1) ) then
        write(*,*) 'WARNING: changing the generation-level convergence parameters mid-run may make evidence inaccurate.'
     end if
-    if (run_params%MaxNodePop .ne. run_params_restored%MaxNodePop) call quit_de('Error: you cannot change MaxNodePopulation mid-run!')
+    if (run_params%MaxNodePop .ne. run_params_restored%MaxNodePop) then
+       call quit_de('Error: you cannot change MaxNodePopulation mid-run!')
+    end if
     if (.not. (run_params%DE%jDE       .or. run_params_restored%DE%jDE)) then
       if ((run_params%DE%Fsize .ne. run_params_restored%DE%Fsize) .and. (run_params%verbose .ge. 1)) then
         write(*,*) 'WARNING: changing the number of F parameters mid-run may make evidence inaccurate.'

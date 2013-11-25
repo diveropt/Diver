@@ -32,7 +32,6 @@ const double      Ztolerance          = 1.e-3;                        // Input t
 const int         savecount           = 100;                          // Save progress every savecount generations
 const bool        resume              = false;                        // Restart from a previous run
 const int         verbose             = 1;                            // Output verbosity: 0=only error messages, 1=basic info, 2=civ-level info, 3+=population info
-const bool        skip_MPI_init       = false;                        // Skip the initialisation of MPI, as it is done in the calling routine
 
 
 //Function to be minimized.  Corresponds to -ln(Likelihood).
@@ -54,6 +53,6 @@ int main(int argc, char** argv)
   cdiver(gauss, nPar, lowerbounds, upperbounds, path, nDerived, nDiscrete, discrete, partitionDiscrete, 
          maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh,
 	 convsteps, removeDuplicates, doBayesian, NULL, maxNodePop, Ztolerance, savecount, resume, 
-	 context, verbose, skip_MPI_init); 
+	 context, verbose); 
          //Note that prior, maxNodePop and Ztolerance are just ignored if doBayesian = false
 }
