@@ -67,7 +67,8 @@ contains
     mpirank = 0
 #endif
 
-    run_params%mpirank = mpirank    
+    run_params%mpiprocs = mpiprocs    
+    run_params%mpirank = mpirank
 
     !default level of output is to print errors, most warnings, info about the program & final results
     call setIfNonNegative_int('verbose', run_params%verbose, 1, invar=verbose)

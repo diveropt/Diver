@@ -42,6 +42,7 @@ type codeparams                 			!code parameters (remember to expand io::save
    logical :: calcZ      				!calculate evidence or not
    integer :: savefreq					!frequency with which to save progress
    integer :: mpirank					!rank of current process (0 if no MPI)
+   integer :: mpiprocs					!number of processes running (1 if no MPI)
    integer :: mpipopchunk				!number of vectors for each process to work on (NP if no MPI)
    type(c_ptr) :: context				!context pointer
    integer :: verbose                                   !level of verbosity: 0=quiet, 1=basic, 2=civ-level info, 3=verbose, negative for mpirank!=0

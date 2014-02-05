@@ -147,11 +147,20 @@ contains
     BF%values(1) = huge(BF%values(1))
 
     !Resume from saved run or initialise save files for a new one.
-    call io_begin(path, civstart, genstart, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, &
+    call io_begin(path, civstart, genstart, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, totfcall, &
                   run_params, X, BF, prior=prior, restart=resume)    
 
+    !Tidy a few things up if resuming.
     if (present(resume)) then
-       if (resume) genstart = genstart + 1
+       if (resume) then
+         genstart = genstart + 1
+         !Partition totfcall into fcall in each process.  This should always be an even split, but just in case...
+         if(run_params%mpirank .ne. 0) then
+           fcall = floor(float(totfcall/run_params%mpiprocs))
+         else
+           fcall = totfcall - (run_params%mpiprocs-1)*floor(float(totfcall/run_params%mpiprocs))
+         endif
+       endif
     endif
 
     !Run a number of sequential DE optimisations, exiting either after a set number of
@@ -313,7 +322,7 @@ contains
 
     !Do final save operation
     if (run_params%mpirank .eq. 0 ) then
-       call save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, &
+       call save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, totfcall, run_params, &
                      final = ( (mod(gen,run_params%savefreq) .eq. 0) .or. (civ .eq. civstart) ) )
     end if
 

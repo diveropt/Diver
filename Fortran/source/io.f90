@@ -258,6 +258,7 @@ subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_sa
   read(rparamlun,'(I6)')  	run_params%DE%bconstrain               		!boundary constraint to use
   read(rparamlun,'(2I6)') 	run_params%D, run_params%D_derived		!dim of parameter space (known from the bounds given); dim of derived space
   write(formatstring,'(A1,I4,A6)') '(',run_params%D,'E20.9)'
+  allocate(run_params%lowerbounds(run_params%D), run_params%upperbounds(run_params%D))
   read(rparamlun,formatstring)  run_params%lowerbounds                          !lower bounds of prior box
   read(rparamlun,formatstring)  run_params%upperbounds                          !upper bounds of prior box
   read(rparamlun,'(I6)') 	run_params%D_discrete				!dimension of discrete parameter space
