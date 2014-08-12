@@ -575,21 +575,15 @@ contains
     allocate(seed(n))
 
     if (mpirank .eq. 0) then                     !master process
-       allocate(rand(nprocs))
+       allocate(rand(nprocs*n))
        call random_number(rand)
        call system_clock(count=clock)
-       rand = clock*(1 + rand)
-
-       allseeds = spread(37*(/ (i - 1, i = 1, n) /), dim=2, ncopies=nprocs)
-       !equivalent to seed = 37 * (/ (i - 1, i = 1, n) /), but with nprocs copies (n x nprocs)
-
-       allseeds = allseeds + spread(int(rand), dim=1, ncopies=n)
-       !equivalent to seed = seed + rand, but rand is stretched to n x nprocs
-
+       rand = 0.5d0*clock*(1.d0 + rand)
+       allseeds = reshape(int(rand), (/n, nprocs/))
        deallocate(rand)
     end if
 
-    call MPI_SCATTER(allseeds, n, MPI_INTEGER, seed, n, MPI_INTEGER, 0, MPI_COMM_WORLD, ierror)
+    call MPI_Scatter(allseeds, n, MPI_INTEGER, seed, n, MPI_INTEGER, 0, MPI_COMM_WORLD, ierror)
 
     if (mpirank .ne. 0) call random_seed(put = seed)
 

@@ -127,10 +127,12 @@ contains
 #ifdef MPI
     !create mpi double precsision real which will be compatible with dp kind specified in detypes.f90
 
-    !CS changed
+    !FIXME with some sort of configure switch in future.  This should be  
     !call MPI_Type_create_f90_real(precision(1.0_dp), range(1.0_dp), mpi_dp, ierror)
     !call MPI_Allgather(transpose(Xnew%vectors), run_params%mpipopchunk*run_params%D, mpi_dp, trallvecs, &
     !                   run_params%mpipopchunk*run_params%D, mpi_dp, MPI_COMM_WORLD, ierror)
+    !but cannot due to an MPICH bug: http://trac.mpich.org/projects/mpich/ticket/1769
+
     call MPI_Allgather(transpose(Xnew%vectors), run_params%mpipopchunk*run_params%D, mpi_double_precision, trallvecs, &
                        run_params%mpipopchunk*run_params%D, mpi_double_precision, MPI_COMM_WORLD, ierror)
     allvecs = transpose(trallvecs) 
@@ -217,9 +219,7 @@ contains
           !if  (run_params%mpirank .eq. 0) write (*,*) 'WARNING: Possible match for', k
           
           findmatch: do kmatch=k+1, run_params%DE%NP                            !loop over subpopulation to find the matching vector(s)
-             if ( all(allvecs(k,:) .eq. allvecs(kmatch,:)) ) then               !we've found a duplicate vector 
-                !FIXME:switch all() to any() above to avoid duplicates in single dimensions? 
-                !Would also need to check all dimensions (not just first)
+             if ( all(allvecs(k,:) .eq. allvecs(kmatch,:)) ) then               !found a duplicate vector (do all()-->any() to prevent dupes in single dimensions)  
                 if (run_params%verbose .ge. 3) write (*,*) '  Duplicate vectors:', k, kmatch
                 
                 !Now, compare their counterparts in the previous generation to decide which vector will be kept, which will be reverted
@@ -347,11 +347,14 @@ contains
     else
 #ifdef MPI
        !root process shares newly-created vector with other processes
-!Cs change 
-!PS FIXME we need to repair this 
+
+       !FIXME with some sort of configure switch in future.  This should be  
        !call MPI_Type_create_f90_real(precision(1.0_dp), range(1.0_dp), mpi_dp, ierror)
        !call MPI_Bcast(newvector, run_params%D, mpi_dp, root, MPI_COMM_WORLD, ierror)
+       !but cannot due to an MPICH bug: http://trac.mpich.org/projects/mpich/ticket/1769
+
        call MPI_Bcast(newvector, run_params%D, mpi_double_precision, root, MPI_COMM_WORLD, ierror) 
+       call MPI_Barrier(MPI_COMM_WORLD,ierror) 
        allvecs(n,:) = newvector
 #else
        !only one process, so just replace value in allvecs with newly-created vector
