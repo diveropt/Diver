@@ -29,6 +29,9 @@ Fortran/example_cpp/output/example.raw
 Fortran/example_cpp/output/example.rparam
 Fortran/devopack_f
 Fortran/devo.example_f
+Fortran/diver.example_f
+Fortran/diver.example_c
+Fortran/diver.example_cpp
 Fortran/example_f/output/example.devo
 Fortran/example_f/output/example.raw
 Fortran/example_f/output/example.rparam

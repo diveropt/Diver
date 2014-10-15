@@ -315,7 +315,7 @@ contains
        else                                                      !randomly generate a new vector
           do i = 1, run_params%D
              !Keep the old values for partitioned discrete parameters
-             if (run_params%partitionDiscrete .and. any(run_params%discrete .eq. i)) exit
+             if (run_params%partitionDiscrete .and. any(run_params%discrete .eq. i)) cycle
              call random_number(rand)
              Xnew%vectors(m,i) = rand*(run_params%upperbounds(i) - run_params%lowerbounds(i)) + run_params%lowerbounds(i)
           enddo
