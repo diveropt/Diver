@@ -32,22 +32,25 @@ LIB = ${DIVER_ROOT}/lib
 
 export FF FOPT CC COPT CPPOPT MIXOPT_C MIXOPT_CPP LIBNAME PREFIX LIB INC
 
-SOURCEFILES = detypes deutils mutation crossover selection init converge posterior evidence io de cwrapper
+TYPESOURCE = detypes
+TYPEOBJ = $(TYPESOURCE:%=$(BUILD)/%.o)
+TYPEF90 = $(TYPESOURCE:%=$(SOURCE)/%.f90)
+SOURCEFILES = deutils mutation crossover selection init converge posterior evidence io de cwrapper
 OBJ = $(SOURCEFILES:%=$(BUILD)/%.o)
 
 all: libdiver.a $(EXAMPLENAMES)
 
-libdiver.a: makefile $(OBJ)
-	$(AR) $(LIB)/$@ $(OBJ)
+libdiver.a: makefile $(TYPEOBJ) $(OBJ)
+	$(AR) $(LIB)/$@ $(TYPEOBJ) $(OBJ)
 
-libdiver.so: makefile $(OBJ) 
-	$(SHAR) -o $(LIB)/$@ $(OBJ)  
+libdiver.so: makefile $(TYPEOBJ) $(OBJ) 
+	$(SHAR) -o $(LIB)/$@ $(TYPEOBJ) $(OBJ)  
  
-$(BUILD)/%.o: $(SOURCE)/%.f90
+$(BUILD)/%.o: $(SOURCE)/%.f90 $(TYPEF90)
 	cd $(BUILD); \
 	$(FF) -c $(FOPT) -I$(INC) $(MODULE) $(INC) $<
 
-$(BUILD)/%.o: $(SOURCE)/%.F90
+$(BUILD)/%.o: $(SOURCE)/%.F90 $(TYPEF90)
 	cd $(BUILD); \
 	$(FF) -c $(FOPT) -I$(INC) $(MODULE) $(INC) $<
 
