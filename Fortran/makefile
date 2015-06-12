@@ -13,18 +13,18 @@
 #
 # Some typical examples are
 #  Without MPI:
-#    GNU:   make DIVER_FF=gfortran DIVER_CC=gcc DIVER_MODULE=-J DIVER_FOPT="-ffree-line-length-none -ffixed-line-length-none -cpp"
-#    intel: make DIVER_FF=ifort DIVER_CC=icc DIVER_MODULE=-module DIVER_FOPT=-extend_source DIVER_MIXOPT_C=-nofor-main DIVER_MIXOPT_C=-nofor-main
+#    GNU:   make DIVER_FF=gfortran DIVER_CC=gcc DIVER_MODULE=J DIVER_FOPT="-ffree-line-length-none -ffixed-line-length-none -cpp"
+#    intel: make DIVER_FF=ifort DIVER_CC=icc DIVER_MODULE=module DIVER_FOPT=-extend_source DIVER_MIXOPT_C=-nofor-main DIVER_MIXOPT_C=-nofor-main
 #  With MPI:
-#    GNU:   make DIVER_FF=mpif90 DIVER_CC=mpicc DIVER_MODULE=-J DIVER_FOPT="-ffree-line-length-none -ffixed-line-length-none -cpp -DMPI" DIVER_COPT=-DMPI
-#    intel: make DIVER_FF=mpif90 DIVER_CC=mpicc DIVER_MODULE=-module DIVER_FOPT="-extend_source -DMPI -fpp" DIVER_COPT=-DMPI DIVER_MIXOPT_C=-nofor-main DIVER_MIXOPT_C=-nofor-main
+#    GNU:   make DIVER_FF=mpif90 DIVER_CC=mpicc DIVER_MODULE=J DIVER_FOPT="-ffree-line-length-none -ffixed-line-length-none -cpp -DMPI" DIVER_COPT=-DMPI
+#    intel: make DIVER_FF=mpif90 DIVER_CC=mpicc DIVER_MODULE=module DIVER_FOPT="-extend_source -DMPI -fpp" DIVER_COPT=-DMPI DIVER_MIXOPT_C=-nofor-main DIVER_MIXOPT_C=-nofor-main
 #
 #============================================
 
 # Define fortran compiler and options
 FF=mpif90
 FOPT=-extend_source -DMPI -warn all -check all -check noarg-temp_created -fpp
-MODULE=-module
+MODULE=module
 
 # Define C/C++ compilers and options
 CC=mpicc
@@ -49,7 +49,7 @@ LIB = ${DIVER_ROOT}/lib
 
 # Set internal compile commands
 FF=$(DIVER_FF)
-FOPT=$(DIVER_FOPT) -O3 -fPIC -I$(INC) $(DIVER_MODULE) $(BUILD)
+FOPT=$(DIVER_FOPT) -O3 -fPIC -I$(INC) -$(DIVER_MODULE) $(BUILD)
 CC=$(DIVER_CC)
 COPT=$(DIVER_COPT) -O3 -fPIC -I$(INC)
 CPPOPT=$(DIVER_CPPOPT) -lstdc++
