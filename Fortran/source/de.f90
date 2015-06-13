@@ -26,37 +26,38 @@ contains
   subroutine diver(func, lowerbounds, upperbounds, path, nDerived, discrete, partitionDiscrete,            &
                    maxciv, maxgen, NP, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE,               &
                    convthresh, convsteps, removeDuplicates, doBayesian, prior, maxNodePop, Ztolerance,     &
-                   savecount, resume, context, verbose)
+                   savecount, resume, outputSamples, context, verbose)
 
     use iso_c_binding, only: c_ptr
 
     procedure(MinusLogLikeFunc)      :: func                    !the likelihood function to be minimised -- assumed to be -ln(likelihood)
     real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds !boundaries of parameter space
-    character(len=*), intent(in)     :: path			!path to save samples, resume files, etc  
-    integer, intent(in), optional    :: nDerived	 	!input number of derived quantities to output
+    character(len=*), intent(in)     :: path                    !path to save samples, resume files, etc  
+    integer, intent(in), optional    :: nDerived                !input number of derived quantities to output
     integer, dimension(:), intent(in), optional :: discrete     !a vector listing all discrete dimensions of parameter space
     logical, intent(in), optional    :: partitionDiscrete       !split the population evenly amongst discrete parameters and evolve separately
-    integer, intent(in), optional    :: maxciv 			!maximum number of civilisations
-    integer, intent(in), optional    :: maxgen 			!maximum number of generations per civilisation
-    integer, intent(in), optional    :: NP 			!population size (individuals per generation)
-    real(dp), dimension(:), intent(in), optional :: F		!scale factor(s).  Note that this must be entered as an array.
-    real(dp), intent(in), optional   :: Cr 			!crossover factor
-    real(dp), intent(in), optional   :: lambda 			!mixing factor between best and rand/current
-    logical, intent(in), optional    :: current 		!use current vector for mutation
-    logical, intent(in), optional    :: expon			!use exponential crossover
-    integer, intent(in), optional    :: bndry			!boundary constraint: 1 -> brick wall, 2 -> random re-initialization, 3 -> reflection
-    logical, intent(in), optional    :: jDE			!use self-adaptive choices for rand/1/bin parameters as described in Brest et al 2006
-    logical, intent(in), optional    :: lambdajDE		!use self-adaptive choices for rand-to-best/1/bin parameters; based on Brest et al 2006
+    integer, intent(in), optional    :: maxciv                  !maximum number of civilisations
+    integer, intent(in), optional    :: maxgen                  !maximum number of generations per civilisation
+    integer, intent(in), optional    :: NP                      !population size (individuals per generation)
+    real(dp), dimension(:), intent(in), optional :: F           !scale factor(s).  Note that this must be entered as an array.
+    real(dp), intent(in), optional   :: Cr                      !crossover factor
+    real(dp), intent(in), optional   :: lambda                  !mixing factor between best and rand/current
+    logical, intent(in), optional    :: current                 !use current vector for mutation
+    logical, intent(in), optional    :: expon                   !use exponential crossover
+    integer, intent(in), optional    :: bndry                   !boundary constraint: 1 -> brick wall, 2 -> random re-initialization, 3 -> reflection
+    logical, intent(in), optional    :: jDE                     !use self-adaptive choices for rand/1/bin parameters as described in Brest et al 2006
+    logical, intent(in), optional    :: lambdajDE               !use self-adaptive choices for rand-to-best/1/bin parameters; based on Brest et al 2006
     real(dp), intent(in), optional   :: convthresh              !threshold for generation-level convergence
     integer, intent(in), optional    :: convsteps               !number of steps to smooth over when checking convergence
-    logical, intent(in), optional    :: removeDuplicates	!weed out duplicate vectors within a single generation
-    logical, intent(in), optional    :: doBayesian		!calculate log evidence and posterior weightings
+    logical, intent(in), optional    :: removeDuplicates        !weed out duplicate vectors within a single generation
+    logical, intent(in), optional    :: doBayesian              !calculate log evidence and posterior weightings
     procedure(PriorFunc), optional   :: prior                   !the prior function
-    real(dp), intent(in), optional   :: maxNodePop		!population at which node is partitioned in binary space partitioning for posterior
-    real(dp), intent(in), optional   :: Ztolerance		!input tolerance in log-evidence
-    integer, intent(in), optional    :: savecount		!save progress every savecount generations
-    logical, intent(in), optional    :: resume			!restart from a previous run
-    type(c_ptr), intent(inout), optional :: context		!context pointer, used for passing info from the caller to likelihood/prior 
+    real(dp), intent(in), optional   :: maxNodePop              !population at which node is partitioned in binary space partitioning for posterior
+    real(dp), intent(in), optional   :: Ztolerance              !input tolerance in log-evidence
+    integer, intent(in), optional    :: savecount               !save progress every savecount generations
+    logical, intent(in), optional    :: resume                  !restart from a previous run
+    logical, intent(in), optional    :: outputSamples           !write samples as output
+    type(c_ptr), intent(inout), optional :: context             !context pointer, used for passing info from the caller to likelihood/prior 
     integer, intent(in), optional    :: verbose                 !output verbosity: 0=only error messages, 1=basic info, 2=civ-level info, 3+=population info
      
     type(codeparams) :: run_params                              !carries the code parameters 
@@ -75,9 +76,9 @@ contains
     real(dp) :: Z=0., Zmsq=0., Zerr=0., Zold=0.                 !evidence
     integer :: Nsamples = 0                                     !number of statistically independent samples from posterior
     integer :: Nsamples_saved = 0                               !number of samples saved to .sam file so far
-    logical :: quit						!flag passed from user function to indicate need to stop 
+    logical :: quit                                             !flag passed from user function to indicate need to stop 
 
-    integer :: ierror		                                !MPI error code
+    integer :: ierror                                           !MPI error code
     logical :: mpi_already_init                                 !MPI initialization
     real(dp) :: t1, t2                                          !for timing
 
@@ -99,7 +100,7 @@ contains
                       lambdajDE=lambdajDE, convthresh=convthresh, convsteps=convsteps,               &
                       removeDuplicates=removeDuplicates, doBayesian=doBayesian,                      &
                       maxNodePop=maxNodePop, Ztolerance=Ztolerance, savecount=savecount,             &
-                      context=context, verbose=verbose)
+                      outputSamples=outputSamples, context=context, verbose=verbose)
 
     if (run_params%calcZ .and. .not. present(prior)) then
        call quit_de('Error: evidence calculation requested without specifying a prior.')

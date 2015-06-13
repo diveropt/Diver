@@ -13,10 +13,10 @@
 #
 # Some typical examples are
 #  Without MPI:
-#    GNU:   make DIVER_FF=gfortran DIVER_CC=gcc DIVER_MODULE=J DIVER_FOPT="-ffree-line-length-none -ffixed-line-length-none -cpp"
+#    GNU:   make DIVER_FF=gfortran DIVER_CC=gcc DIVER_MODULE=J DIVER_FOPT="-ffixed-line-length-none -cpp"
 #    intel: make DIVER_FF=ifort DIVER_CC=icc DIVER_MODULE=module DIVER_FOPT=-extend_source DIVER_MIXOPT_C=-nofor-main DIVER_MIXOPT_C=-nofor-main
 #  With MPI:
-#    GNU:   make DIVER_FF=mpif90 DIVER_CC=mpicc DIVER_MODULE=J DIVER_FOPT="-ffree-line-length-none -ffixed-line-length-none -cpp -DMPI" DIVER_COPT=-DMPI
+#    GNU:   make DIVER_FF=mpif90 DIVER_CC=mpicc DIVER_MODULE=J DIVER_FOPT="-ffixed-line-length-none -DMPI -cpp" DIVER_COPT=-DMPI
 #    intel: make DIVER_FF=mpif90 DIVER_CC=mpicc DIVER_MODULE=module DIVER_FOPT="-extend_source -DMPI -fpp" DIVER_COPT=-DMPI DIVER_MIXOPT_C=-nofor-main DIVER_MIXOPT_C=-nofor-main
 #
 #============================================

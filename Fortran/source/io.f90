@@ -34,16 +34,18 @@ subroutine io_begin(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_save
       call resume(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF)
     endif
   else if (run_params%mpirank .eq. 0) then
-    !Create .raw and .sam files.  .rparam and .devo files are created only at first save, so their existence indicates whether 
-    !resuming is allowed or not.
-    if (run_params%verbose .ge. 1) write(*,*) 'Creating Diver output files at '//trim(path)//'.*'
-    open(unit=rawlun, file=trim(path)//'.raw', iostat=filestatus, action='WRITE', status='REPLACE')
-    if ( (run_params%D_derived .ne. 0) .or. (size(run_params%discrete) .ne. 0) ) then
-       open(unit=samlun, file=trim(path)//'.sam', iostat=filestatus, action='WRITE', status='REPLACE')
-    end if
-    if (filestatus .ne. 0) call quit_all_processes(' Error creating output files. Quitting...')
-    close(rawlun)
-    if (run_params%D_derived .ne. 0) close(samlun)
+    if (run_params%outputSamples) then
+      !Create .raw and .sam files.  .rparam and .devo files are created only at first save, so their existence indicates whether 
+      !resuming is allowed or not.
+      if (run_params%verbose .ge. 1) write(*,*) 'Creating Diver output files at '//trim(path)//'.*'
+      open(unit=rawlun, file=trim(path)//'.raw', iostat=filestatus, action='WRITE', status='REPLACE')
+      if ( (run_params%D_derived .ne. 0) .or. (size(run_params%discrete) .ne. 0) ) then
+         open(unit=samlun, file=trim(path)//'.sam', iostat=filestatus, action='WRITE', status='REPLACE')
+      end if
+      if (filestatus .ne. 0) call quit_all_processes(' Error creating output files. Quitting...')
+      close(rawlun)
+      if (run_params%D_derived .ne. 0) close(samlun)
+    endif
   endif
 
 end subroutine io_begin
@@ -77,6 +79,8 @@ subroutine save_samples(X, path, civ, gen, run_params)
   integer :: filestatus, i
   character(len=28) :: formatstring_raw 
   character(len=28) :: formatstring_sam 
+
+  if (.not. run_params%outputSamples) return
 
   open(unit=rawlun, file=trim(path)//'.raw', iostat=filestatus, action='WRITE', status='OLD', POSITION='APPEND')
   if (filestatus .ne. 0) call quit_all_processes(' Error opening raw file.  Quitting...')
@@ -115,45 +119,46 @@ subroutine save_run_params(path, run_params)
   endif
   if (filestatus .ne. 0) call quit_all_processes(' Error opening rparam file.  Quitting...')
 
-  write(rparamlun,'(I6)') 	run_params%DE%NP               			!population size
-  write(rparamlun,'(L1)') 	run_params%DE%jDE            			!true: use jDE
-  write(rparamlun,'(L1)') 	run_params%DE%lambdajDE            		!true: use jDE with self-adaptive lambda parameter
-  write(rparamlun,'(I4)')       run_params%DE%Fsize                             !number of mutation scale factors
+  write(rparamlun,'(I6)')     run_params%DE%NP                          !population size
+  write(rparamlun,'(L1)')     run_params%DE%jDE                         !true: use jDE
+  write(rparamlun,'(L1)')     run_params%DE%lambdajDE                   !true: use jDE with self-adaptive lambda parameter
+  write(rparamlun,'(I4)')     run_params%DE%Fsize                       !number of mutation scale factors
 
   if (run_params%DE%Fsize .ne. 0) then
     write(formatstring,'(A1,I4,A6)') '(',run_params%DE%Fsize,'E20.9)'
-    write(rparamlun,formatstring) run_params%DE%F			 	!mutation scale factors
+    write(rparamlun,formatstring) run_params%DE%F                       !mutation scale factors
   endif 
 
-  write(rparamlun,'(E20.9)') 	run_params%DE%lambda        			!mutation scale factor for best-to-rand/current
-  write(rparamlun,'(L1)') 	run_params%DE%current            		!true: use current/best-to-current mutation
-  write(rparamlun,'(E20.9)') 	run_params%DE%Cr            			!crossover rate
-  write(rparamlun,'(L1)')  	run_params%DE%expon               		!when true, use exponential crossover (else use binomial)
-  write(rparamlun,'(I6)')  	run_params%DE%bconstrain               		!boundary constraint to use
-  write(rparamlun,'(2I6)') 	run_params%D, run_params%D_derived		!dim of parameter space (known from the bounds given); dim of derived space
+  write(rparamlun,'(E20.9)')  run_params%DE%lambda                      !mutation scale factor for best-to-rand/current
+  write(rparamlun,'(L1)')     run_params%DE%current                     !true: use current/best-to-current mutation
+  write(rparamlun,'(E20.9)')  run_params%DE%Cr                          !crossover rate
+  write(rparamlun,'(L1)')     run_params%DE%expon                       !when true, use exponential crossover (else use binomial)
+  write(rparamlun,'(I6)')     run_params%DE%bconstrain                  !boundary constraint to use
+  write(rparamlun,'(2I6)')    run_params%D, run_params%D_derived        !dim of parameter space (known from the bounds given); dim of derived space
   write(formatstring,'(A1,I4,A6)') '(',run_params%D,'E20.9)'
-  write(rparamlun,formatstring) run_params%lowerbounds                          !lower bounds of prior box
-  write(rparamlun,formatstring) run_params%upperbounds                          !upper bounds of prior box
-  write(rparamlun,'(I6)')	run_params%D_discrete                           !dimenension of discrete parameter space
+  write(rparamlun,formatstring) run_params%lowerbounds                  !lower bounds of prior box
+  write(rparamlun,formatstring) run_params%upperbounds                  !upper bounds of prior box
+  write(rparamlun,'(I6)')     run_params%D_discrete                     !dimenension of discrete parameter space
   if (run_params%D_discrete .ne. 0) then
      write(formatstring,'(A1,I4,A3)') '(',run_params%D_discrete,'I6)'
-     write(rparamlun,formatstring) run_params%discrete			 	!discrete dimensions
-     write(rparamlun,'(L1)') 	run_params%partitionDiscrete                    !split the population amongst discrete parameters and evolve separately
+     write(rparamlun,formatstring) run_params%discrete                  !discrete dimensions
+     write(rparamlun,'(L1)')  run_params%partitionDiscrete              !split the population amongst discrete parameters and evolve separately
      if (run_params%partitionDiscrete) then
-        write(rparamlun,formatstring) run_params%repeat_scales                  !scales on which partitioned parameters repeat 
-        write(rparamlun,'(I6)')	run_params%subpopNP                             !subpopulation NP for partitioned parameters
+        write(rparamlun,formatstring) run_params%repeat_scales          !scales on which partitioned parameters repeat 
+        write(rparamlun,'(I6)') run_params%subpopNP                     !subpopulation NP for partitioned parameters
      endif
   endif
-  write(rparamlun,'(2I6)') 	run_params%numciv, run_params%numgen		!maximum number of civilizations, generations
-  write(rparamlun,'(E20.9)') 	run_params%convthresh                           !threshold for gen-level convergence
-  write(rparamlun,'(I6)')       run_params%convsteps                            !number of steps to smooth over when checking convergence
-  write(rparamlun,'(E20.9)') 	run_params%tol					!tolerance in log-evidence
-  write(rparamlun,'(E20.9)') 	run_params%maxNodePop				!maximum population to allow in a cell before partitioning it
-  write(rparamlun,'(L1)') 	run_params%calcZ				!calculate evidence or not
-  write(rparamlun,'(I6)') 	run_params%savefreq				!frequency with which to save progress
-  write(rparamlun,'(L1)') 	run_params%DE%removeDuplicates         		!true: remove duplicate vectors in a generation
-  write(rparamlun,'(I6)')       run_params%verbose                              !amount of output to print to the screen
-  write(rparamlun,'(I6)')       run_params%convergence_criterion                !indicates which convergence criterion has been selected (see convergence.f90 for codes)
+  write(rparamlun,'(2I6)')    run_params%numciv, run_params%numgen      !maximum number of civilizations, generations
+  write(rparamlun,'(E20.9)')  run_params%convthresh                     !threshold for gen-level convergence
+  write(rparamlun,'(I6)')     run_params%convsteps                      !number of steps to smooth over when checking convergence
+  write(rparamlun,'(E20.9)')  run_params%tol                            !tolerance in log-evidence
+  write(rparamlun,'(E20.9)')  run_params%maxNodePop                     !maximum population to allow in a cell before partitioning it
+  write(rparamlun,'(L1)')     run_params%calcZ                          !calculate evidence or not
+  write(rparamlun,'(L1)')     run_params%outputSamples                  !output parameter samples or not
+  write(rparamlun,'(I6)')     run_params%savefreq                       !frequency with which to save progress
+  write(rparamlun,'(L1)')     run_params%DE%removeDuplicates            !true: remove duplicate vectors in a generation
+  write(rparamlun,'(I6)')     run_params%verbose                        !amount of output to print to the screen
+  write(rparamlun,'(I6)')     run_params%convergence_criterion          !indicates which convergence criterion has been selected (see convergence.f90 for codes)
 
   close(rparamlun)
 
@@ -180,35 +185,35 @@ subroutine save_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_sa
   endif
   if (filestatus .ne. 0) call quit_all_processes(' Error opening devo file.  Quitting...')
 
-  write(devolun,'(2I10)') 	civ, gen					!current civilisation, generation
-  write(devolun,'(4E20.9)') 	Z, Zmsq, Zerr, Zold				!current evidence, mean square, stat. uncertainty, approx Z if Z=corrected
-  write(devolun,'(3I10)') 	Nsamples, Nsamples_saved, fcall			!total number of independent samples so far, num saved, num function calls
+  write(devolun,'(2I10)')     civ, gen                                  !current civilisation, generation
+  write(devolun,'(4E20.9)')   Z, Zmsq, Zerr, Zold                       !current evidence, mean square, stat. uncertainty, approx Z if Z=corrected
+  write(devolun,'(3I10)')     Nsamples, Nsamples_saved, fcall           !total number of independent samples so far, num saved, num function calls
 
-  write(devolun,'(E20.9)') 	BF%values(1) 					!current best-fit
-  write(formatstring,'(A1,I4,A6)') '(',run_params%D,'E20.9)'			
-  write(devolun,formatstring)	BF%vectors(1,:)					!current best-fit vector
+  write(devolun,'(E20.9)')    BF%values(1)                              !current best-fit
+  write(formatstring,'(A1,I4,A6)') '(',run_params%D,'E20.9)'            
+  write(devolun,formatstring) BF%vectors(1,:)                           !current best-fit vector
   write(formatstring,'(A1,I4,A6)') '(',run_params%D+run_params%D_derived,'E20.9)'
-  write(devolun,formatstring)	BF%vectors_and_derived(1,:) 			!reprocessed vector and derived parameters at current best fit
+  write(devolun,formatstring) BF%vectors_and_derived(1,:)               !reprocessed vector and derived parameters at current best fit
 
   write(formatstring,'(A1,I6,A6)') '(',run_params%DE%NP,'E20.9)'
-  write(devolun,formatstring)	X%values					!current population fitnesses
+  write(devolun,formatstring) X%values                                  !current population fitnesses
   write(formatstring,'(A1,I6,A6)') '(',run_params%DE%NP*run_params%D,'E20.9)'
-  write(devolun,formatstring)	X%vectors					!currect population
+  write(devolun,formatstring) X%vectors                                 !currect population
   write(formatstring,'(A1,I6,A6)') '(',run_params%DE%NP*(run_params%D+run_params%D_derived),'E20.9)'
-  write(devolun,formatstring)	X%vectors_and_derived				!current reprocessed vector and derived values
+  write(devolun,formatstring) X%vectors_and_derived                     !current reprocessed vector and derived values
 
-  if (run_params%DE%jDE) then                      				!for self-adaptive F, Cr, optional lambda
-    write(devolun,formatstring)	X%FjDE						!current population F values
-    write(devolun,formatstring)	X%CrjDE						!current population Cr values
+  if (run_params%DE%jDE) then                                           !for self-adaptive F, Cr, optional lambda
+    write(devolun,formatstring) X%FjDE                                  !current population F values
+    write(devolun,formatstring) X%CrjDE                                 !current population Cr values
     if (run_params%DE%lambdajDE) then 
-       write(devolun, formatstring) X%lambdajDE                                 !current population lambda values
+       write(devolun, formatstring) X%lambdajDE                         !current population lambda values
     end if
   end if
 
   if (run_params%convergence_criterion == meanimprovement) then
-     write(devolun,'(E20.9)')    run_params%meanlike                            !the average fitness of the population for the last generation
+     write(devolun,'(E20.9)')    run_params%meanlike                    !the average fitness of the population for the last generation
      write(formatstring,'(A1,I4,A6)') '(',run_params%convsteps,'E20.9)'
-     write(devolun,formatstring) run_params%improvements                        !fractional diff in the mean, for convsteps most recent steps
+     write(devolun,formatstring) run_params%improvements                !fractional diff in the mean, for convsteps most recent steps
   endif  
 
   close(devolun)
@@ -233,7 +238,7 @@ subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_sa
   open(unit=rparamlun, file=trim(path)//'.rparam', iostat=filestatus, action='READ', status='OLD')
   if (filestatus .ne. 0) call quit_all_processes(' Error opening rparam file.  Quitting...')
 
-  read(rparamlun,'(I6)') 	inNP               			        !population size
+  read(rparamlun,'(I6)')     inNP                                       !population size
   if (run_params%DE%NP .ne. inNP) then
      write(*,*) 'Error: NP differs in current and previous run. '
      write(*,*) 'Current:  ',run_params%DE%NP
@@ -241,49 +246,50 @@ subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_sa
      call quit_all_processes('Please modify NP and try again.') 
   endif
   run_params%DE%NP = inNP
-  read(rparamlun,'(L1)') 	run_params%DE%jDE            			!true: use jDE
-  read(rparamlun,'(L1)') 	run_params%DE%lambdajDE            		!true: use jDE with self-adaptive lambda
-  read(rparamlun,'(I4)')        run_params%DE%Fsize                             !number of mutation scale factors
+  read(rparamlun,'(L1)')     run_params%DE%jDE                          !true: use jDE
+  read(rparamlun,'(L1)')     run_params%DE%lambdajDE                    !true: use jDE with self-adaptive lambda
+  read(rparamlun,'(I4)')     run_params%DE%Fsize                        !number of mutation scale factors
 
   if (run_params%DE%Fsize .ne. 0) then
     allocate(run_params%DE%F(run_params%DE%Fsize))
     write(formatstring,'(A1,I4,A6)') '(',run_params%DE%Fsize,'E20.9)'
-    read(rparamlun,formatstring) run_params%DE%F		 		!mutation scale factors
+    read(rparamlun,formatstring) run_params%DE%F                        !mutation scale factors
   endif 
 
-  read(rparamlun,'(E20.9)') 	run_params%DE%lambda        			!mutation scale factor for best-to-rand/current
-  read(rparamlun,'(L1)') 	run_params%DE%current            		!true: use current/best-to-current mutation
-  read(rparamlun,'(E20.9)') 	run_params%DE%Cr            			!crossover rate
-  read(rparamlun,'(L1)')  	run_params%DE%expon               		!when true, use exponential crossover (else use binomial)
-  read(rparamlun,'(I6)')  	run_params%DE%bconstrain               		!boundary constraint to use
-  read(rparamlun,'(2I6)') 	run_params%D, run_params%D_derived		!dim of parameter space (known from the bounds given); dim of derived space
+  read(rparamlun,'(E20.9)')  run_params%DE%lambda                       !mutation scale factor for best-to-rand/current
+  read(rparamlun,'(L1)')     run_params%DE%current                      !true: use current/best-to-current mutation
+  read(rparamlun,'(E20.9)')  run_params%DE%Cr                           !crossover rate
+  read(rparamlun,'(L1)')     run_params%DE%expon                        !when true, use exponential crossover (else use binomial)
+  read(rparamlun,'(I6)')     run_params%DE%bconstrain                   !boundary constraint to use
+  read(rparamlun,'(2I6)')    run_params%D, run_params%D_derived         !dim of parameter space (known from the bounds given); dim of derived space
   write(formatstring,'(A1,I4,A6)') '(',run_params%D,'E20.9)'
   allocate(run_params%lowerbounds(run_params%D), run_params%upperbounds(run_params%D))
-  read(rparamlun,formatstring)  run_params%lowerbounds                          !lower bounds of prior box
-  read(rparamlun,formatstring)  run_params%upperbounds                          !upper bounds of prior box
-  read(rparamlun,'(I6)') 	run_params%D_discrete				!dimension of discrete parameter space
+  read(rparamlun,formatstring) run_params%lowerbounds                   !lower bounds of prior box
+  read(rparamlun,formatstring) run_params%upperbounds                   !upper bounds of prior box
+  read(rparamlun,'(I6)')     run_params%D_discrete                      !dimension of discrete parameter space
   if (run_params%D_discrete .gt. 0) then
      allocate(run_params%discrete(run_params%D_discrete))
      write(formatstring,'(A1,I4,A6)') '(',run_params%D_discrete,'I6)'
-     read(rparamlun,formatstring) run_params%discrete		 		!discrete dimensions in parameter sapce
-     read(rparamlun,'(L1)') 	run_params%partitionDiscrete                    !split the population amongst discrete parameters and evolve separately
+     read(rparamlun,formatstring) run_params%discrete                   !discrete dimensions in parameter sapce
+     read(rparamlun,'(L1)')  run_params%partitionDiscrete               !split the population amongst discrete parameters and evolve separately
      if (run_params%partitionDiscrete) then
-        read(rparamlun,formatstring) run_params%repeat_scales                   !scales on which partitioned parameters repeat 
-        read(rparamlun,'(I6)')	run_params%subpopNP                             !subpopulation NP for partitioned parameters
+        read(rparamlun,formatstring) run_params%repeat_scales           !scales on which partitioned parameters repeat 
+        read(rparamlun,'(I6)') run_params%subpopNP                      !subpopulation NP for partitioned parameters
     endif
   else
      allocate(run_params%discrete(0))
   endif
-  read(rparamlun,'(2I6)') 	run_params%numciv, run_params%numgen		!maximum number of civilizations, generations
-  read(rparamlun,'(E20.9)') 	run_params%convthresh                           !threshold for gen-level convergence
-  read(rparamlun,'(I6)')        run_params%convsteps                            !number of steps to smooth over when checking convergence
-  read(rparamlun,'(E20.9)') 	run_params%tol					!tolerance in log-evidence
-  read(rparamlun,'(E20.9)') 	run_params%maxNodePop				!maximum population to allow in a cell before partitioning it
-  read(rparamlun,'(L1)') 	run_params%calcZ				!calculate evidence or not
-  read(rparamlun,'(I6)') 	run_params%savefreq				!frequency with which to save progress
-  read(rparamlun,'(L1)')  	run_params%DE%removeDuplicates			!true: remove duplicate vectors in a generation
-  read(rparamlun,'(I6)')        run_params%verbose                              !amount of output to print to the screen
-  read(rparamlun,'(I6)')        run_params%convergence_criterion                !indicates which convergence criterion has been selected (see convergence.f90 for codes)
+  read(rparamlun,'(2I6)')    run_params%numciv, run_params%numgen       !maximum number of civilizations, generations
+  read(rparamlun,'(E20.9)')  run_params%convthresh                      !threshold for gen-level convergence
+  read(rparamlun,'(I6)')     run_params%convsteps                       !number of steps to smooth over when checking convergence
+  read(rparamlun,'(E20.9)')  run_params%tol                             !tolerance in log-evidence
+  read(rparamlun,'(E20.9)')  run_params%maxNodePop                      !maximum population to allow in a cell before partitioning it
+  read(rparamlun,'(L1)')     run_params%calcZ                           !calculate evidence or not
+  read(rparamlun,'(L1)')     run_params%outputSamples                   !output parameter samples or not  
+  read(rparamlun,'(I6)')     run_params%savefreq                        !frequency with which to save progress
+  read(rparamlun,'(L1)')     run_params%DE%removeDuplicates             !true: remove duplicate vectors in a generation
+  read(rparamlun,'(I6)')     run_params%verbose                         !amount of output to print to the screen
+  read(rparamlun,'(I6)')     run_params%convergence_criterion           !indicates which convergence criterion has been selected (see convergence.f90 for codes)
 
   close(rparamlun)
 
@@ -293,36 +299,36 @@ subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_sa
   open(unit=devolun, file=trim(path)//'.devo', iostat=filestatus, action='READ', status='OLD')
   if (filestatus .ne. 0) call quit_all_processes(' Error opening devo file.  Quitting...')
 
-  read(devolun,'(2I10)') 	civ, gen					!current civilisation, generation
-  read(devolun,'(4E20.9)') 	Z, Zmsq, Zerr, Zold				!current evidence, mean square, stat. uncertainty, approx Z if Z=corrected
-  read(devolun,'(3I10)') 	Nsamples, Nsamples_saved, fcall			!total number of independent samples so far, num saved, num function calls
+  read(devolun,'(2I10)')     civ, gen                                   !current civilisation, generation
+  read(devolun,'(4E20.9)')   Z, Zmsq, Zerr, Zold                        !current evidence, mean square, stat. uncertainty, approx Z if Z=corrected
+  read(devolun,'(3I10)')     Nsamples, Nsamples_saved, fcall            !total number of independent samples so far, num saved, num function calls
 
-  read(devolun,'(E20.9)') 	BF%values(1) 					!current best-fit 
-  write(formatstring,'(A1,I4,A6)') '(',run_params%D,'E20.9)'			
-  read(devolun,formatstring)	BF%vectors(1,:)					!current best-fit vector
+  read(devolun,'(E20.9)')    BF%values(1)                               !current best-fit 
+  write(formatstring,'(A1,I4,A6)') '(',run_params%D,'E20.9)'            
+  read(devolun,formatstring) BF%vectors(1,:)                            !current best-fit vector
   write(formatstring,'(A1,I4,A6)') '(',run_params%D+run_params%D_derived,'E20.9)'
-  read(devolun,formatstring)	BF%vectors_and_derived(1,:) 			!reprocessed vector and derived parameters at current best fit
+  read(devolun,formatstring) BF%vectors_and_derived(1,:)                !reprocessed vector and derived parameters at current best fit
 
   write(formatstring,'(A1,I6,A6)') '(',run_params%DE%NP,'E20.9)'
-  read(devolun,formatstring)	X%values					!current population fitnesses
+  read(devolun,formatstring) X%values                                   !current population fitnesses
   write(formatstring,'(A1,I6,A6)') '(',run_params%DE%NP*run_params%D,'E20.9)'
-  read(devolun,formatstring)	X%vectors					!current population
+  read(devolun,formatstring) X%vectors                                  !current population
   write(formatstring,'(A1,I6,A6)') '(',run_params%DE%NP*(run_params%D+run_params%D_derived),'E20.9)'
-  read(devolun,formatstring)	X%vectors_and_derived				!current reprocessed vector and derived values
+  read(devolun,formatstring) X%vectors_and_derived                      !current reprocessed vector and derived values
 
   if (run_params%DE%jDE) then
-    read(devolun,formatstring)	X%FjDE						!current population F values
-    read(devolun,formatstring)	X%CrjDE						!current population Cr values
+    read(devolun,formatstring) X%FjDE                                   !current population F values
+    read(devolun,formatstring) X%CrjDE                                  !current population Cr values
     if (run_params%DE%lambdajDE) then 
-       read(devolun, formatstring) X%lambdajDE                                  !current population lambda values
+       read(devolun, formatstring) X%lambdajDE                          !current population lambda values
     end if
   end if
 
   if (run_params%convergence_criterion == meanimprovement) then
-     read(devolun,'(E20.9)')    run_params%meanlike                             !the average fitness of the population for the last generation
+     read(devolun,'(E20.9)') run_params%meanlike                        !the average fitness of the population for the last generation
      write(formatstring,'(A1,I4,A6)') '(',run_params%convsteps,'E20.9)'
      allocate(run_params%improvements(run_params%convsteps))
-     read(devolun,formatstring) run_params%improvements                         !fractional diff in the mean, for convsteps most recent steps
+     read(devolun,formatstring) run_params%improvements                 !fractional diff in the mean, for convsteps most recent steps
   endif  
 
   close(devolun)
@@ -370,6 +376,7 @@ subroutine resume(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved,
    call quit_de('Restored and new runs have different discrete parameters.')
     
   if (run_params%calcZ) then
+    if (.not. run_params_restored%outputSamples) call quit_de('Error: cannot resume in Bayesian mode if samples were not output.')
     if (.not. run_params_restored%calcZ) call quit_de('Error: cannot resume in Bayesian mode from non-Bayesian run.')
     if (.not. present(prior)) call quit_de('Error: evidence calculation requested without specifying a prior.')
     if (any(abs(run_params%upperbounds-run_params_restored%upperbounds)/run_params%upperbounds .ge. &

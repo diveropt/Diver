@@ -31,6 +31,7 @@ const double      maxNodePop          = 1.9;                          // Populat
 const double      Ztolerance          = 1.e-3;                        // Input tolerance in log-evidence
 const int         savecount           = 100;                          // Save progress every savecount generations
 const bool        resume              = false;                        // Restart from a previous run
+const bool        outputSamples       = false;                        // Write output .raw and .sam (if nDerived != 0) files
 const int         verbose             = 1;                            // Output verbosity: 0=only error messages, 1=basic info, 2=civ-level info, 3+=population info
 
 
@@ -52,7 +53,7 @@ int main(int argc, char** argv)
   void* context = &gauss; //Not actually used in this example.
   cdiver(gauss, nPar, lowerbounds, upperbounds, path, nDerived, nDiscrete, discrete, partitionDiscrete, 
          maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh,
-	 convsteps, removeDuplicates, doBayesian, NULL, maxNodePop, Ztolerance, savecount, resume, 
-	 context, verbose); 
+         convsteps, removeDuplicates, doBayesian, NULL, maxNodePop, Ztolerance, savecount, resume, 
+         outputSamples, context, verbose); 
          //Note that prior, maxNodePop and Ztolerance are just ignored if doBayesian = false
 }

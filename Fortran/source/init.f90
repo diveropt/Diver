@@ -23,38 +23,39 @@ contains
 
   subroutine param_assign(run_params, lowerbounds, upperbounds, nDerived, discrete, partitionDiscrete, maxciv,     &
                           maxgen, NP, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh, convsteps, &
-                          removeDuplicates, doBayesian, maxNodePop, Ztolerance, savecount, context, verbose)
+                          removeDuplicates, doBayesian, maxNodePop, Ztolerance, savecount, outputSamples, context, verbose)
 
     use iso_c_binding, only: C_NULL_PTR, c_ptr
 
     type(codeparams), intent(out) :: run_params 
-    real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space 
-    integer, intent(in), optional  :: nDerived	 		!input number of derived quantities to output
-    integer, dimension(:), intent(in), optional :: discrete     !lists all discrete dimensions of parameter space
-    logical, intent(in), optional  :: partitionDiscrete         !split the population evenly amongst discrete parameters and evolve separately
-    integer, intent(in), optional  :: maxciv 			!maximum number of civilisations
-    integer, intent(in), optional  :: maxgen 			!maximum number of generations per civilisation
-    integer, intent(in), optional  :: NP 			!population size (individuals per generation)
-    real(dp), dimension(:), intent(in), optional :: F		!scale factor(s).  Note that this must be entered as an array.
-    real(dp), intent(in), optional :: Cr 			!crossover factor
-    real(dp), intent(in), optional :: lambda 			!mixing factor between best and rand/current
-    logical, intent(in), optional  :: current 			!use current vector for mutation
-    logical, intent(in), optional  :: expon 			!use exponential crossover
-    integer, intent(in), optional  :: bndry                     !boundary constraint: 1 -> brick wall, 2 -> random re-initialization, 3 -> reflection
-    logical, intent(in), optional  :: jDE                       !use self-adaptive DE
-    logical, intent(in), optional  :: lambdajDE                 !use self-adaptive DE with rand-to-best mutation strategy
-    real(dp), intent(in), optional :: convthresh                !threshold for generation-level convergence
-    integer, intent(in), optional  :: convsteps                 !number of steps to smooth over when checking convergence
-    logical, intent(in), optional  :: removeDuplicates          !weed out duplicate vectors within a single generation
-    logical, intent(in), optional  :: doBayesian                !calculate log evidence and posterior weightings
-    real(dp), intent(in), optional :: maxNodePop                !population at which node is partitioned in binary space partitioning for posterior
-    real(dp), intent(in), optional :: Ztolerance		!input tolerance in log-evidence
-    integer, intent(in), optional  :: savecount			!save progress every savecount generations
-    type(c_ptr), intent(inout), optional  :: context		!context pointer/integer, used for passing info from the caller to likelihood/prior 
-    integer, intent(in), optional  :: verbose                   !how much info to print to screen: 0-quiet, 1-basic info, 2-civ info, 3+ everything
+    real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds      !boundaries of parameter space 
+    integer, intent(in), optional  :: nDerived                          !input number of derived quantities to output
+    integer, dimension(:), intent(in), optional :: discrete             !lists all discrete dimensions of parameter space
+    logical, intent(in), optional  :: partitionDiscrete                 !split the population evenly amongst discrete parameters and evolve separately
+    integer, intent(in), optional  :: maxciv                            !maximum number of civilisations
+    integer, intent(in), optional  :: maxgen                            !maximum number of generations per civilisation
+    integer, intent(in), optional  :: NP                                !population size (individuals per generation)
+    real(dp), dimension(:), intent(in), optional :: F                   !scale factor(s).  Note that this must be entered as an array.
+    real(dp), intent(in), optional :: Cr                                !crossover factor
+    real(dp), intent(in), optional :: lambda                            !mixing factor between best and rand/current
+    logical, intent(in), optional  :: current                           !use current vector for mutation
+    logical, intent(in), optional  :: expon                             !use exponential crossover
+    integer, intent(in), optional  :: bndry                             !boundary constraint: 1 -> brick wall, 2 -> random re-initialization, 3 -> reflection
+    logical, intent(in), optional  :: jDE                               !use self-adaptive DE
+    logical, intent(in), optional  :: lambdajDE                         !use self-adaptive DE with rand-to-best mutation strategy
+    real(dp), intent(in), optional :: convthresh                        !threshold for generation-level convergence
+    integer, intent(in), optional  :: convsteps                         !number of steps to smooth over when checking convergence
+    logical, intent(in), optional  :: removeDuplicates                  !weed out duplicate vectors within a single generation
+    logical, intent(in), optional  :: doBayesian                        !calculate log evidence and posterior weightings
+    real(dp), intent(in), optional :: maxNodePop                        !population at which node is partitioned in binary space partitioning for posterior
+    real(dp), intent(in), optional :: Ztolerance                        !input tolerance in log-evidence
+    integer, intent(in), optional  :: savecount                         !save progress every savecount generations
+    logical, intent(in), optional  :: outputSamples                     !write samples as output
+    type(c_ptr), intent(inout), optional  :: context                    !context pointer/integer, used for passing info from the caller to likelihood/prior 
+    integer, intent(in), optional  :: verbose                           !how much info to print to screen: 0-quiet, 1-basic info, 2-civ info, 3+ everything
 
-    integer :: mpiprocs, mpirank, ierror                        !number of processes running, rank of current process, error code
-    character (len=70) :: DEstrategy                    	!for printing mutation/crossover DE strategy
+    integer :: mpiprocs, mpirank, ierror                                !number of processes running, rank of current process, error code
+    character (len=70) :: DEstrategy                                    !for printing mutation/crossover DE strategy
 
     integer, allocatable :: num_discrete_vals(:)
     integer :: i, discrete_index
@@ -178,7 +179,7 @@ contains
           end if
           run_params%DE%lambda = lambda
        else
-          run_params%DE%lambda = 0.0_dp     			!default rand/1/bin
+          run_params%DE%lambda = 0.0_dp                 !default rand/1/bin
        end if
 
        ! Summarize mutation strategy: for printing to screen
@@ -206,7 +207,7 @@ contains
        else
           run_params%DE%Fsize = 1
           allocate(run_params%DE%F(run_params%DE%Fsize))
-          run_params%DE%F = (/0.7_dp/) 				!rule of thumb: 0.4<F<1.0
+          run_params%DE%F = (/0.7_dp/)                 !rule of thumb: 0.4<F<1.0
        end if
 
        if (present(Cr)) then  
@@ -230,7 +231,7 @@ contains
           end if
           run_params%DE%lambda = lambda
        else
-          run_params%DE%lambda = 0.0_dp     			!default rand/1/bin
+          run_params%DE%lambda = 0.0_dp                 !default rand/1/bin
        end if
 
 
@@ -240,7 +241,7 @@ contains
 
 
        !for printing the parameter choice, DE mutation/crossover strategy, and boundary constraints to screen
-       if (run_params%DE%lambda .eq. 0.0_dp) then  		!mutation strategy
+       if (run_params%DE%lambda .eq. 0.0_dp) then          !mutation strategy
           if (run_params%DE%current) then
              DEstrategy = 'current/'
           else
@@ -258,7 +259,7 @@ contains
 
        DEstrategy = trim(DEstrategy)//int_to_string(run_params%DE%Fsize)
        
-       if(run_params%DE%expon) then                  		!crossover strategy
+       if(run_params%DE%expon) then                          !crossover strategy
           DEstrategy = trim(DEstrategy)//'/exp'
        else
           DEstrategy = trim(DEstrategy)//'/bin'
@@ -364,6 +365,9 @@ contains
     else
        run_params%subpopNP = run_params%DE%NP !no partitioning, so the subpopulation is the same as the whole population
     endif
+
+    !Default is to output parameter samples.
+    call set_logical(run_params%outputSamples, .true., invar=outputSamples) 
 
     !Just set up a dummy null context pointer if it happens to be missing
     if (present(context)) then

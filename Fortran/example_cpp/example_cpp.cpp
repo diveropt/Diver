@@ -32,6 +32,7 @@ const double      maxNodePop          = 1.9;                          // Populat
 const double      Ztolerance          = 0.1;                          // Input tolerance in log-evidence
 const int         savecount           = 1;                            // Save progress every savecount generations
 const bool        resume              = false;                        // Restart from a previous run
+const bool        outputSamples       = true;                         // Write output .raw and .sam (if nDerived != 0) files
 const int         verbose             = 1;                            // Output verbosity: 0=only error messages, 1=basic info, 2=civ-level info, 3+=population info
 
 const double Pi = 3.14159265359;                                            // Tasty
@@ -110,6 +111,7 @@ int main(int argc, char** argv)
 
   cdiver(objective, nPar, lowerbounds, upperbounds, path, nDerived, nDiscrete, discrete, partitionDiscrete, 
          maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh, convsteps,
-         removeDuplicates, doBayesian, flatprior, maxNodePop, Ztolerance, savecount, resume, context, verbose); 
+         removeDuplicates, doBayesian, flatprior, maxNodePop, Ztolerance, savecount, resume, outputSamples, 
+         context, verbose); 
          //Note that prior, maxNodePop and Ztolerance are just ignored if doBayesian = false
 }
