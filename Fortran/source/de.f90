@@ -348,7 +348,7 @@ contains
     if (run_params%calcZ) call clearTree
 
 #ifdef MPI
-    call MPI_Finalize(ierror)
+    if (.not. mpi_already_init) call MPI_Finalize(ierror)
 #endif
 
     call cpu_time(t2)
