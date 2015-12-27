@@ -24,16 +24,17 @@
 # Define fortran compiler and options
 FF=mpif90
 # Intel
-#FOPT=-extend_source -DMPI -fpp -warn all -check all -check noarg-temp_created
+#FOPT=-extend_source -DMPI -fpp #-warn all -check all -check noarg-temp_created
 #MODULE=module
 # GNU
-FOPT=-ffixed-line-length-none -DMPI -cpp -Wall -fcheck=all
+FOPT=-ffixed-line-length-none -DMPI -cpp #-Wall -fcheck=all
 MODULE=J
 
 # Define C/C++ compilers and options
 CC=mpicc
 COPT=-DMPI
 CPPOPT=
+SO_LINK_FLAGS=
 # Intel
 #MIXOPT_C=-nofor-main
 #MIXOPT_CPP=-nofor-main
@@ -63,6 +64,7 @@ DIVER_COPT=$(COPT) -O3 -fPIC -I$(INC)
 DIVER_CPPOPT=$(CPPOPT) -lstdc++
 DIVER_MIXOPT_C=$(MIXOPT_C)
 DIVER_MIXOPT_CPP=$(MIXOPT_CPP) -lstdc++
+DIVER_SO_LINK_FLAGS=$(SO_LINK_FLAGS) -shared
 
 # Send compile commands over to example makefiles
 export DIVER_FF DIVER_FOPT DIVER_CC DIVER_COPT DIVER_CPPOPT DIVER_MIXOPT_C DIVER_MIXOPT_CPP LIBNAME PREFIX LIB INC
@@ -80,7 +82,7 @@ libdiver.a: makefile $(TYPEOBJ) $(OBJ)
 	$(AR) $(LIB)/$@ $(TYPEOBJ) $(OBJ)
 
 libdiver.so: makefile $(TYPEOBJ) $(OBJ) 
-	$(SHAR) -o $(LIB)/$@ $(TYPEOBJ) $(OBJ)  
+	$(DIVER_FF) $(DIVER_SO_LINK_FLAGS) -o $(LIB)/$@ $(TYPEOBJ) $(OBJ)  
  
 $(BUILD)/%.o: $(SOURCE)/%.f90 $(TYPEF90)
 	$(DIVER_FF) $(DIVER_FOPT) -c $< -o $@
