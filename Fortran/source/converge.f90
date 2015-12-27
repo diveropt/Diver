@@ -45,7 +45,7 @@ contains
     select case (run_params%convergence_criterion)
        case (meanimprovement) 
           converged = check_SFIM(X, run_params)
-       case default                                 !FIXME implement other convergence criteria options
+       case default                                 !TODO implement other convergence criteria options
           converged = .false.                       !no convergence criteria used
     end select
 

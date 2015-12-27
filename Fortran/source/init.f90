@@ -161,8 +161,8 @@ contains
        run_params%DE%current = .false.
        run_params%DE%expon = .false.
 
-       !FIXME: in io.f90, jDE is still assumed to have Fsize=0. Resolve differences.
-       run_params%DE%Fsize = 1                  !note that this now refers to size(population%FjDE)/NP, not size(run_params%DE%F)
+       !With jDE, Fsize becomes size(population%FjDE)/NP, not size(run_params%DE%F)
+       run_params%DE%Fsize = 1
        allocate(run_params%DE%F(run_params%DE%Fsize))
        run_params%DE%F = 0.
 
@@ -408,7 +408,7 @@ contains
   end subroutine param_assign
 
 
-!FIXME: add subroutine to set reals between bounds (inclusive) for Cr, lambda
+!TODO: add subroutine to set reals between bounds (inclusive) for Cr, lambda
 
   !check if parameter is present & set parameter only if value is positive (real parameter)
   subroutine setIfPositive_real(string, outvar, defaultvar, invar)
@@ -442,7 +442,6 @@ contains
     if (present(invar)) then
        if (invar .ne. 0) then
           call setIfPositive_int(string, outvar, defaultvar, invar=invar)
-          !FIXME: error message falsely says it must be >0
        else
           outvar = invar
        endif
@@ -461,7 +460,7 @@ contains
 
     if (present(invar)) then
        if (invar .le. 0) then
-          call quit_de('ERROR: '//string//' must be greater than zero.')
+          call quit_de('ERROR: '//string//' cannot be negative.')
        else
           outvar = invar
        endif

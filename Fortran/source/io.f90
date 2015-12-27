@@ -124,7 +124,7 @@ subroutine save_run_params(path, run_params)
   write(rparamlun,'(L1)')     run_params%DE%lambdajDE                   !true: use jDE with self-adaptive lambda parameter
   write(rparamlun,'(I4)')     run_params%DE%Fsize                       !number of mutation scale factors
 
-  if (run_params%DE%Fsize .ne. 0) then
+  if (run_params%DE%Fsize .ne. 0 .and. .not. run_params%DE%jDE) then
     write(formatstring,'(A1,I4,A6)') '(',run_params%DE%Fsize,'E20.9)'
     write(rparamlun,formatstring) run_params%DE%F                       !mutation scale factors
   endif 
@@ -195,15 +195,17 @@ subroutine save_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_sa
   write(formatstring,'(A1,I4,A6)') '(',run_params%D+run_params%D_derived,'E20.9)'
   write(devolun,formatstring) BF%vectors_and_derived(1,:)               !reprocessed vector and derived parameters at current best fit
 
-  write(formatstring,'(A1,I6,A6)') '(',run_params%DE%NP,'E20.9)'
+  write(formatstring,'(A1,I8,A6)') '(',run_params%DE%NP,'E20.9)'
   write(devolun,formatstring) X%values                                  !current population fitnesses
-  write(formatstring,'(A1,I6,A6)') '(',run_params%DE%NP*run_params%D,'E20.9)'
-  write(devolun,formatstring) X%vectors                                 !currect population
-  write(formatstring,'(A1,I6,A6)') '(',run_params%DE%NP*(run_params%D+run_params%D_derived),'E20.9)'
+  write(formatstring,'(A1,I12,A6)') '(',run_params%DE%NP*run_params%D,'E20.9)'
+  write(devolun,formatstring) X%vectors                                 !current population
+  write(formatstring,'(A1,I12,A6)') '(',run_params%DE%NP*(run_params%D+run_params%D_derived),'E20.9)'
   write(devolun,formatstring) X%vectors_and_derived                     !current reprocessed vector and derived values
 
   if (run_params%DE%jDE) then                                           !for self-adaptive F, Cr, optional lambda
+    write(formatstring,'(A1,I16,A6)') '(',run_params%DE%NP*(run_params%D+run_params%D_derived)*run_params%DE%Fsize,'E20.9)'
     write(devolun,formatstring) X%FjDE                                  !current population F values
+    write(formatstring,'(A1,I12,A6)') '(',run_params%DE%NP*(run_params%D+run_params%D_derived),'E20.9)'
     write(devolun,formatstring) X%CrjDE                                 !current population Cr values
     if (run_params%DE%lambdajDE) then 
        write(devolun, formatstring) X%lambdajDE                         !current population lambda values
@@ -250,7 +252,7 @@ subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_sa
   read(rparamlun,'(L1)')     run_params%DE%lambdajDE                    !true: use jDE with self-adaptive lambda
   read(rparamlun,'(I4)')     run_params%DE%Fsize                        !number of mutation scale factors
 
-  if (run_params%DE%Fsize .ne. 0) then
+  if (run_params%DE%Fsize .ne. 0 .and. .not. run_params%DE%jDE) then
     allocate(run_params%DE%F(run_params%DE%Fsize))
     write(formatstring,'(A1,I4,A6)') '(',run_params%DE%Fsize,'E20.9)'
     read(rparamlun,formatstring) run_params%DE%F                        !mutation scale factors
@@ -309,15 +311,17 @@ subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_sa
   write(formatstring,'(A1,I4,A6)') '(',run_params%D+run_params%D_derived,'E20.9)'
   read(devolun,formatstring) BF%vectors_and_derived(1,:)                !reprocessed vector and derived parameters at current best fit
 
-  write(formatstring,'(A1,I6,A6)') '(',run_params%DE%NP,'E20.9)'
+  write(formatstring,'(A1,I8,A6)') '(',run_params%DE%NP,'E20.9)'
   read(devolun,formatstring) X%values                                   !current population fitnesses
-  write(formatstring,'(A1,I6,A6)') '(',run_params%DE%NP*run_params%D,'E20.9)'
+  write(formatstring,'(A1,I12,A6)') '(',run_params%DE%NP*run_params%D,'E20.9)'
   read(devolun,formatstring) X%vectors                                  !current population
-  write(formatstring,'(A1,I6,A6)') '(',run_params%DE%NP*(run_params%D+run_params%D_derived),'E20.9)'
+  write(formatstring,'(A1,I12,A6)') '(',run_params%DE%NP*(run_params%D+run_params%D_derived),'E20.9)'
   read(devolun,formatstring) X%vectors_and_derived                      !current reprocessed vector and derived values
 
-  if (run_params%DE%jDE) then
+  if (run_params%DE%jDE) then                                           !for self-adaptive F, Cr, optional lambda
+    write(formatstring,'(A1,I16,A6)') '(',run_params%DE%NP*(run_params%D+run_params%D_derived)*run_params%DE%Fsize,'E20.9)'
     read(devolun,formatstring) X%FjDE                                   !current population F values
+    write(formatstring,'(A1,I12,A6)') '(',run_params%DE%NP*(run_params%D+run_params%D_derived),'E20.9)'
     read(devolun,formatstring) X%CrjDE                                  !current population Cr values
     if (run_params%DE%lambdajDE) then 
        read(devolun, formatstring) X%lambdajDE                          !current population lambda values
@@ -392,7 +396,7 @@ subroutine resume(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved,
     if (run_params%MaxNodePop .ne. run_params_restored%MaxNodePop) then
        call quit_de('Error: you cannot change MaxNodePopulation mid-run!')
     end if
-    if (.not. (run_params%DE%jDE       .or. run_params_restored%DE%jDE)) then
+    if (.not. (run_params%DE%jDE .or. run_params_restored%DE%jDE)) then
       if ((run_params%DE%Fsize .ne. run_params_restored%DE%Fsize) .and. (run_params%verbose .ge. 1)) then
         write(*,*) 'WARNING: changing the number of F parameters mid-run may make evidence inaccurate.'
       elseif (run_params%DE%Fsize .ne. 0) then

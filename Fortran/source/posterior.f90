@@ -133,7 +133,7 @@ contains
     if (debug) write(*,*) 'current number of cells: ',totalCells
     if (debug) write(*,*) 'about to climb'
 
-    !FIXME parallelise the following loop (maybe not so easy)
+    !TODO parallelise the following loop (maybe not so easy)
     do i = 1, NP
 
       !Sort each of the new points into the existing tree structure, saving each

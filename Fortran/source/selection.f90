@@ -125,13 +125,13 @@ contains
     
     !with MPI enabled, Xnew will only contain some elements of the new population. Create allvecs, allvals for duplicate-hunting
 #ifdef MPI
-    !create mpi double precsision real which will be compatible with dp kind specified in detypes.f90
-
-    !FIXME with some sort of configure switch in future.  This should be  
+    !TODO
+    !Create mpi double precision real, which will be compatible with dp kind specified in detypes.f90,
+    !with some sort of configure switch in future.  This should be  
     !call MPI_Type_create_f90_real(precision(1.0_dp), range(1.0_dp), mpi_dp, ierror)
     !call MPI_Allgather(transpose(Xnew%vectors), run_params%mpipopchunk*run_params%D, mpi_dp, trallvecs, &
     !                   run_params%mpipopchunk*run_params%D, mpi_dp, MPI_COMM_WORLD, ierror)
-    !but cannot due to an MPICH bug: http://trac.mpich.org/projects/mpich/ticket/1769
+    !This cannot be done currently, due to an MPICH bug: http://trac.mpich.org/projects/mpich/ticket/1769
 
     call MPI_Allgather(transpose(Xnew%vectors), run_params%mpipopchunk*run_params%D, mpi_double_precision, trallvecs, &
                        run_params%mpipopchunk*run_params%D, mpi_double_precision, MPI_COMM_WORLD, ierror)
@@ -348,10 +348,10 @@ contains
 #ifdef MPI
        !root process shares newly-created vector with other processes
 
-       !FIXME with some sort of configure switch in future.  This should be  
+       !TODO Implement some sort of configure switch in future.  This should be  
        !call MPI_Type_create_f90_real(precision(1.0_dp), range(1.0_dp), mpi_dp, ierror)
        !call MPI_Bcast(newvector, run_params%D, mpi_dp, root, MPI_COMM_WORLD, ierror)
-       !but cannot due to an MPICH bug: http://trac.mpich.org/projects/mpich/ticket/1769
+       !This cannot be done at present, due to an MPICH bug: http://trac.mpich.org/projects/mpich/ticket/1769
 
        call MPI_Bcast(newvector, run_params%D, mpi_double_precision, root, MPI_COMM_WORLD, ierror) 
        call MPI_Barrier(MPI_COMM_WORLD,ierror) 

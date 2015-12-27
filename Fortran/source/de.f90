@@ -92,7 +92,7 @@ contains
     !This will need to be changed to an input parameter if alternative covergence criteria are actually implemented
     run_params%convergence_criterion = meanimprovement
 
-    !FIXME: if doBayesian, check that prior, etc is present...
+    !TODO: if doBayesian, check that prior, etc is present...
     !Assign specified or default values to run_params and print out information to the screen
     call param_assign(run_params, lowerbounds, upperbounds, nDerived=nDerived, discrete=discrete,    &
                       partitionDiscrete=partitionDiscrete, maxciv=maxciv, maxgen=maxgen, NP=NP,      &
