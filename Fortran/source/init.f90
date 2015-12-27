@@ -563,8 +563,8 @@ contains
   subroutine init_all_random_seeds(nprocs, mpirank)
     integer, intent(in) :: nprocs         !number of processes that need seeds
     integer, intent(in) :: mpirank 
-    integer :: i, n, clock, ierror
-    real, dimension(:), allocatable :: rand
+    integer :: n, clock, ierror
+    real(dp), dimension(:), allocatable :: rand
     integer, dimension(:,:), allocatable :: allseeds
     integer, dimension(:), allocatable :: seed
 
@@ -581,7 +581,7 @@ contains
        allocate(rand(nprocs*n))
        call random_number(rand)
        call system_clock(count=clock)
-       rand = 0.5d0*clock*(1.d0 + rand)
+       rand = 0.5_dp*clock*(1_dp + rand)
        allseeds = reshape(int(rand), (/n, nprocs/))
        deallocate(rand)
     end if

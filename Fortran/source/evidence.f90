@@ -18,13 +18,13 @@ contains
   
     use iso_c_binding, only: c_ptr
 
-    type(population), intent(inout) :: X		!current generation
-    real(dp), intent(inout) :: Z, Zmsq, Zerr		!evidence, mean square of weights, error on evidence
+    type(population), intent(inout) :: X                !current generation
+    real(dp), intent(inout) :: Z, Zmsq, Zerr            !evidence, mean square of weights, error on evidence
     procedure(PriorFunc), optional :: prior             !prior function
     real(dp) :: sampleratio, totsamples                 !ratio of old samples to total samples, total samples
-    integer, intent(inout) :: oldsamples		!previous (running) number of samples
-    integer :: inttotsamples				!total number of samples (integer)
-    type(c_ptr), intent(inout) :: context		!context pointer
+    integer, intent(inout) :: oldsamples                !previous (running) number of samples
+    integer :: inttotsamples                            !total number of samples (integer)
+    type(c_ptr), intent(inout) :: context               !context pointer
     
     !Find weights for posterior pdf / evidence calculation
     call growTree(X,prior,context)

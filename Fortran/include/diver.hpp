@@ -3,3 +3,4 @@ extern "C" void cdiver(double (*)(double[], const int, int&, bool&, const bool, 
 		       const char[], int, int, const int[], bool, const int, const int, int, int, const double[], double, 
 		       double, bool, bool, int, bool, bool, double, int, bool, bool, double(*)(const double[], const int, void*&), 
 		       double, double, int, bool, bool, void*&, int);
+#define none 0

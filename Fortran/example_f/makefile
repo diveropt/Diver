@@ -7,10 +7,10 @@ HEADERFILES =
 all: $(EXAMPLENAME)
 
 %.o: %.f90
-	$(FF) -c $(FOPT) -I$(INC) $<
+	$(DIVER_FF) -c $(DIVER_FOPT) -I$(INC) $<
  
 $(EXAMPLENAME): $(OBJ)
-	$(FF) $(FOPT) $(OBJ) $(LIBS) -o $(NAME)
+	$(DIVER_FF) $(DIVER_FOPT) $(OBJ) $(LIBS) -o $(NAME)
 
 clean:
 	rm -f *.o *.mod $(NAME) 

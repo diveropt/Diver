@@ -37,10 +37,10 @@ type Duplicate
 end type
 type (Duplicate), pointer :: firstDuplicate => null(), lastDuplicate => null()
 
-real(dp), allocatable  :: ranges(:)		!Prior box side lengths
-integer :: D = 0				!Dimension of parameter space being scanned
-integer :: totalCells = 0			!Number of cells in binary space partitioning
-logical :: debug = .false.			!Debugging flag for posterior routines
+real(dp), allocatable  :: ranges(:)             !Prior box side lengths
+integer :: D = 0                                !Dimension of parameter space being scanned
+integer :: totalCells = 0                       !Number of cells in binary space partitioning
+logical :: debug = .false.                      !Debugging flag for posterior routines
 real(dp) :: maxNodePop                          !Population at which to divide cells
 real(dp), parameter :: duplicate_tol = 10.      !Scaling factor for epsilon in duplicate test
 
@@ -51,7 +51,7 @@ contains
 
   subroutine iniTree(lowerbounds,upperbounds,maxpop)
   !Initialises the root of the tree and the starting point of the list of tree nodes
-    real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds	!boundaries of parameter space 
+    real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds      !boundaries of parameter space 
     real(dp), intent(in) :: maxpop                                      !population at which to divide cells    
     totalCells = 1
     D = size(lowerbounds)
@@ -77,7 +77,7 @@ contains
 
     type(Node), pointer, intent(in) :: currentNode
 
-    if (currentNode%branchesDifferInDim .ne. 0) then	
+    if (currentNode%branchesDifferInDim .ne. 0) then
       !Node is not the tip of the tree, so has branches.  Get 'em.
       call burnTree(currentNode%branchA)
       call burnTree(currentNode%branchB)
@@ -120,12 +120,12 @@ contains
     type(population), target :: X                 !current generation of target vectors
     type(c_ptr), intent(inout) :: context         !context pointer 
     procedure(PriorFunc) :: prior                 !prior pdf function
-    type(Point), pointer :: individual	 	  !pointer to a holder for an individual point in parameter space
-    integer :: NP, i				  !size of generation, iteration variable
+    type(Point), pointer :: individual            !pointer to a holder for an individual point in parameter space
+    integer :: NP, i                              !size of generation, iteration variable
 
     nullify(individual)
 
-    NP = size(X%values)	
+    NP = size(X%values)
 
     currentListNode => firstListNode
     nullify(currentListNode%next)
@@ -290,7 +290,7 @@ contains
       onlyLooking = .false.
     endif
 
-    if (currentNode%branchesDifferInDim .eq. 0) then	
+    if (currentNode%branchesDifferInDim .eq. 0) then
     !Node is tip of the tree and has no branches, so...
 
       if (debug) write(*,*) 'this is the canopy!'

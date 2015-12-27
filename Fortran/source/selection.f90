@@ -289,7 +289,7 @@ contains
     real(dp), dimension(run_params%D) :: newvector               !alias for Xnew(m,:) for sharing between processes 
     real(dp), dimension(1) :: Fnew, lambdanew, Crnew
     real(dp) :: rand
-    integer :: ierror, mpi_dp, i
+    integer :: ierror, i !mpi_dp !TODO does not work atm due to an MPICH bug: http://trac.mpich.org/projects/mpich/ticket/1769 
 
 
     m = n - run_params%mpipopchunk*run_params%mpirank            !index of vector in Xnew (equal to n if no MPI)

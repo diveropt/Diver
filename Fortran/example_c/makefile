@@ -7,10 +7,10 @@ HEADERFILES = $(INC)/diver.h
 all: $(EXAMPLENAME)
 
 %.o: %.c
-	$(CC) -c $(COPT) -std=c99 -I$(INC) $<
+	$(DIVER_CC) -c $(DIVER_COPT) -std=c99 -I$(INC) $<
  
 $(EXAMPLENAME): $(OBJ) $(HEADERS)
-	$(FF) $(MIXOPT_C) $(OBJ) $(LIBS) -o $(NAME)
+	$(DIVER_FF) $(DIVER_MIXOPT_C) $(OBJ) $(LIBS) -o $(NAME)
 
 clean:
 	rm -f *.o *.mod $(NAME) 

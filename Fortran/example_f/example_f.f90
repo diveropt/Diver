@@ -10,10 +10,10 @@ implicit none
 
  integer, parameter :: NP=10, numgen=15, numciv=1, nDerived=0
  character (len=300) :: path='example_f/output/example'
- real(dp), parameter ::  Cr=0.9, tol = 1e-3, lambda=0.8					!0<=Cr<=1, 0<=lambda<=1
- real(dp), parameter, dimension(1) :: F=0.6						!recommend 0<F<1
- real(dp), parameter, dimension(param_dim) :: lowerbounds=-50.! (/-5.,-50.,1.,-50.,-1./) 	!boundaries of parameter space
- real(dp), parameter, dimension(param_dim) :: upperbounds=50.! (/-1.,50.,5.,50.,2./)
+ real(dp), parameter ::  Cr=0.9, tol = 1e-3, lambda=0.8        !0<=Cr<=1, 0<=lambda<=1
+ real(dp), parameter, dimension(1) :: F=0.6                    !recommend 0<F<1
+ real(dp), parameter, dimension(param_dim) :: lowerbounds=-50. ! (/-5.,-50.,1.,-50.,-1./) !boundaries of parameter space
+ real(dp), parameter, dimension(param_dim) :: upperbounds=50.  ! (/-1.,50.,5.,50.,2./)
  real(dp), parameter, dimension(param_dim) :: boundranges = upperbounds - lowerbounds
 
 contains
@@ -24,13 +24,16 @@ real(dp) function constant(params, fcall, quit, validvector, context)
   real(dp), dimension(:), intent(inout) :: params
   integer, intent(inout) :: fcall
   type(c_ptr), intent(inout) :: context
+  type(c_ptr) :: context_dummy
   logical, intent(out) :: quit
   logical, intent(in) :: validvector
+
+  context_dummy = context
 
   fcall = fcall + 1
   quit = .false.
   !-lnlike
-  constant = 0.0_dp 
+  constant = 0.0_dp * params(1)
   if (.not. validvector) constant=huge(1.0_dp)
   !derived quantities (other functions of the parameters)
   !params(size(lowerbounds)+1:) = [2.*params(1),params(1)+params(2)]
@@ -42,9 +45,12 @@ real(dp) function step(params, fcall, quit, validvector, context)
   real(dp), dimension(:), intent(inout) :: params
   integer, intent(inout) :: fcall
   type(c_ptr), intent(inout) :: context
+  type(c_ptr) :: context_dummy
   logical, intent(out) :: quit
   logical, intent(in) :: validvector
   
+  context_dummy = context
+
   fcall = fcall + 1
   quit = .false.
   if (.not. validvector) then 
@@ -63,9 +69,12 @@ real(dp) function linear(params, fcall, quit, validvector, context)
   real(dp), dimension(:), intent(inout) :: params
   integer, intent(inout) :: fcall
   type(c_ptr), intent(inout) :: context
+  type(c_ptr) :: context_dummy
   logical, intent(out) :: quit
   logical, intent(in) :: validvector
   
+  context_dummy = context
+
   fcall = fcall + 1
   quit = .false.
   if (.not. validvector) then 
@@ -86,9 +95,12 @@ real(dp) function gauss(params, fcall, quit, validvector, context)
   real(dp), dimension(:), intent(inout) :: params
   integer, intent(inout) :: fcall
   type(c_ptr), intent(inout) :: context
+  type(c_ptr) :: context_dummy
   logical, intent(out) :: quit
   logical, intent(in) :: validvector
   integer :: i
+
+  context_dummy = context
 
   fcall = fcall + 1
   quit = .false.
@@ -114,10 +126,13 @@ real(dp) function manygauss(params, fcall, quit, validvector, context)
   real(dp), dimension(:), intent(inout) :: params
   integer, intent(inout) :: fcall
   type(c_ptr), intent(inout) :: context
+  type(c_ptr) :: context_dummy
   logical, intent(out) :: quit
   logical, intent(in) :: validvector
   integer, parameter, dimension(3) :: discrete = (/1,3,5/)
   integer :: i
+
+  context_dummy = context
 
   fcall = fcall + 1
   quit = .false.
@@ -138,14 +153,16 @@ end function manygauss
 
 
 real(dp) function spikygauss(params, fcall, quit, validvector, context)
-  !real(dp), dimension(size(lowerbounds)+nDerived), intent(inout) :: params
   real(dp), dimension(:), intent(inout) :: params
   integer, intent(inout) :: fcall
   type(c_ptr), intent(inout) :: context
+  type(c_ptr) :: context_dummy
   logical, intent(out) :: quit
   logical, intent(in) :: validvector
   integer :: i
   real(dp) :: denominator
+
+  context_dummy = context
 
   fcall = fcall + 1
   quit = .false.
@@ -167,8 +184,11 @@ real(dp) function rosenbrock(params, fcall, quit, validvector, context)
   real(dp), dimension(:), intent(inout) :: params
   integer, intent(inout) :: fcall
   type(c_ptr), intent(inout) :: context
+  type(c_ptr) :: context_dummy
   logical, intent(out) :: quit
   logical, intent(in) :: validvector
+
+  context_dummy = context
 
   fcall = fcall + 1
   quit = .false.
@@ -187,10 +207,15 @@ real(dp) function rastrigin(params, fcall, quit, validvector, context)
   real(dp), dimension(:), intent(inout) :: params
   integer, intent(inout) :: fcall
   type(c_ptr), intent(inout) :: context
+  type(c_ptr) :: context_dummy
   logical, intent(out) :: quit
   logical, intent(in) :: validvector
+  logical :: dummy_validvector
   integer :: i
   real(dp), parameter :: pi = 4.0_dp*atan(1.0_dp)
+
+  dummy_validvector = validvector
+  context_dummy = context
 
   fcall = fcall + 1
   quit = .false.
@@ -215,8 +240,13 @@ real(dp) function eggcarton(params, fcall, quit, validvector, context)
   real(dp), dimension(:), intent(inout) :: params
   integer, intent(inout) :: fcall
   type(c_ptr), intent(inout) :: context
+  type(c_ptr) :: context_dummy
   logical, intent(out) :: quit
   logical, intent(in) :: validvector
+  logical :: dummy_validvector
+
+  dummy_validvector = validvector
+  context_dummy = context
 
   fcall = fcall + 1
   quit = .false.
@@ -240,11 +270,16 @@ end function eggcarton
 real(dp) function flatprior(X, context)
 
   type(c_ptr), intent(inout) :: context
+  type(c_ptr) :: context_dummy
   !real(dp), dimension(size(lowerbounds)), intent(in) :: X
   real(dp), dimension(:), intent(in) :: X
+  real(dp) :: X_dummy
+  context_dummy = context
+  X_dummy = X(1)
   flatprior = 1.0_dp / product(boundranges)
-
+  
 end function flatprior
+
 
 end module examples
 
