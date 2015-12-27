@@ -109,7 +109,7 @@ subroutine save_run_params(path, run_params)
   type(codeparams), intent(in) :: run_params
   integer :: filestatus
   logical :: exists
-  character(len=12) :: formatstring
+  character(len=31) :: formatstring
 
   inquire(file=trim(path)//'.rparam',exist=exists)
   if (exists) then 
@@ -173,7 +173,7 @@ subroutine save_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_sa
   type(codeparams), intent(in) :: run_params
   integer :: filestatus
   logical :: exists
-  character(len=14) :: formatstring
+  character(len=31) :: formatstring
   type(population), intent(in) :: X, BF
   
   !Save restart info
@@ -230,7 +230,7 @@ subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_sa
   integer :: filestatus, inNP
   logical :: exists
   character(len=*), intent(in) :: path
-  character(len=14) :: formatstring
+  character(len=31) :: formatstring
   type(codeparams), intent(inout) :: run_params
   type(population), intent(inout) :: X, BF
   

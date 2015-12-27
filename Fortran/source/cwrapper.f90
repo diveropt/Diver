@@ -37,6 +37,8 @@ contains
     use iso_c_binding, only: c_int, c_bool, c_double, c_char, c_funptr, c_ptr, C_NULL_CHAR
     use de, only: diver
 
+    integer, parameter :: maxpathlen = 300
+
     type(c_funptr),  intent(in), value :: minusloglike_in, prior_in
     type(c_ptr),     intent(inout)     :: context
     integer(c_int),  intent(in), value :: nPar, nDerived, nDiscrete, maxciv, maxgen, NP, nF, bndry, convsteps, savecount, verbose
@@ -45,23 +47,12 @@ contains
     logical(c_bool), intent(in), value :: outputSamples
     real(c_double),  intent(in), value :: Cr, lambda, convthresh, maxNodePop, Ztolerance
     real(c_double),  intent(in)        :: lowerbounds(nPar), upperbounds(nPar), F(nF)
-    character(kind=c_char,len=1), dimension(1), intent(in) :: path
+    character(kind=c_char,len=1), dimension(maxpathlen), intent(in) :: path
 
     integer :: i
     integer, target :: discrete_empty(0)
     integer, pointer :: discrete_f(:)
-    integer, parameter :: maxpathlen = 300
     character(len=maxpathlen) :: path_f
-    interface
-      real(dp) function prior_f_proto(X, context)
-        use iso_c_binding, only: c_ptr
-        use detypes, only: dp
-        implicit none
-        real(dp), dimension(:), intent(in) :: X
-        type(c_ptr), intent(inout) :: context
-      end function prior_f_proto
-    end interface
-    procedure(prior_f_proto), pointer :: priorPtr
 
     ! Set the pointers to the likelihood and prior functions
     minusloglike = minusloglike_in
@@ -86,19 +77,29 @@ contains
 
     ! Choose a null pointer for the prior function if it isn't needed 
     if (doBayesian) then
-      priorPtr => prior_f
+
+      ! Call the actual fortran differential evolution function
+      call diver(minusloglike_f, lowerbounds, upperbounds, path_f, nDerived=nDerived, discrete=discrete_f,       &
+                 partitionDiscrete=logical(partitionDiscrete), maxciv=maxciv, maxgen=maxgen, NP=NP, F=F, Cr=Cr,  &
+                 lambda=lambda, current=logical(current), expon=logical(expon), bndry=bndry, jDE=logical(jDE),   &
+                 lambdajDE=logical(lambdajDE), convthresh=convthresh, convsteps=convsteps,                       &
+                 removeDuplicates=logical(removeDuplicates), doBayesian=logical(doBayesian), prior = prior_f,    &
+                 maxNodePop=maxNodePop, Ztolerance=Ztolerance, savecount=savecount, resume=logical(resume),      &
+                 outputSamples=logical(outputSamples), context=context, verbose=verbose)
+
     else
-      priorPtr => NULL()
+
+      ! Call the actual fortran differential evolution function
+      call diver(minusloglike_f, lowerbounds, upperbounds, path_f, nDerived=nDerived, discrete=discrete_f,       &
+                 partitionDiscrete=logical(partitionDiscrete), maxciv=maxciv, maxgen=maxgen, NP=NP, F=F, Cr=Cr,  &
+                 lambda=lambda, current=logical(current), expon=logical(expon), bndry=bndry, jDE=logical(jDE),   &
+                 lambdajDE=logical(lambdajDE), convthresh=convthresh, convsteps=convsteps,                       &
+                 removeDuplicates=logical(removeDuplicates), doBayesian=logical(doBayesian),                     &
+                 maxNodePop=maxNodePop, Ztolerance=Ztolerance, savecount=savecount, resume=logical(resume),      &
+                 outputSamples=logical(outputSamples), context=context, verbose=verbose)
+
     endif
  
-    ! Call the actual fortran differential evolution function
-    call diver(minusloglike_f, lowerbounds, upperbounds, path_f, nDerived=nDerived, discrete=discrete_f,       &
-               partitionDiscrete=logical(partitionDiscrete), maxciv=maxciv, maxgen=maxgen, NP=NP, F=F, Cr=Cr,  &
-               lambda=lambda, current=logical(current), expon=logical(expon), bndry=bndry, jDE=logical(jDE),   &
-               lambdajDE=logical(lambdajDE), convthresh=convthresh, convsteps=convsteps,                       &
-               removeDuplicates=logical(removeDuplicates), doBayesian=logical(doBayesian), prior = priorPtr,   &
-               maxNodePop=maxNodePop, Ztolerance=Ztolerance, savecount=savecount, resume=logical(resume),      &
-               outputSamples=logical(outputSamples), context=context, verbose=verbose)
     
     end subroutine
 

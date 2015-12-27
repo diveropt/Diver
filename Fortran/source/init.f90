@@ -311,6 +311,11 @@ contains
        run_params%DE%NP = run_params%DE%NP - mod(run_params%DE%NP, mpiprocs) + mpiprocs
     end if
 
+    !Max sure we don't saturate the print statements
+    if (run_params%DE%NP .gt. 99999999)  &
+      call quit_de('ERROR: NP cannot be greater than 99999999.  Your requested run requires NP = ' &
+                   //trim(int_to_string(run_params%DE%NP))//'.  Please modify NP in your call to run_de.')
+
     !split up work over multiple processes for MPI (if no mpi, single process does all the work)
     run_params%mpipopchunk = run_params%DE%NP/mpiprocs
 
