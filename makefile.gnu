@@ -24,7 +24,7 @@ EXAMPLECLEAN = $(EXAMPLENAMES:%=%$(CLEAN))
 PREFIX = diver
 
 DIVER_ROOT = $(PWD)
-SOURCE = ${DIVER_ROOT}/source
+SOURCE = ${DIVER_ROOT}/src
 INC = ${DIVER_ROOT}/include
 BUILD = ${DIVER_ROOT}/build
 LIB = ${DIVER_ROOT}/lib
