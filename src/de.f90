@@ -353,8 +353,8 @@ contains
 
     call cpu_time(t2)
 
-    if (run_params%verbose .ge. 1) then
-       write (*,'(A23,I4,A2,F7.2)') 'Total time for process ', run_params%mpirank, ': ', t2-t1
+    if (abs(run_params%verbose) .ge. 1) then
+       write (*,'(A31,I4,A2,F12.2)') 'Total time in Diver for process ', run_params%mpirank, ': ', t2-t1
     end if
 
   end subroutine diver
