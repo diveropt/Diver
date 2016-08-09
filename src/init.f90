@@ -23,7 +23,9 @@ contains
 
   subroutine param_assign(run_params, lowerbounds, upperbounds, nDerived, discrete, partitionDiscrete, maxciv,     &
                           maxgen, NP, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh, convsteps, &
-                          removeDuplicates, doBayesian, maxNodePop, Ztolerance, savecount, outputSamples, context, verbose)
+                          removeDuplicates, doBayesian, maxNodePop, Ztolerance, savecount, outputSamples,          &
+                          init_population_strategy, max_initialisation_attempts, max_acceptable_value, context,    &
+                          verbose)
 
     use iso_c_binding, only: C_NULL_PTR, c_ptr
 
@@ -51,6 +53,9 @@ contains
     real(dp), intent(in), optional :: Ztolerance                        !input tolerance in log-evidence
     integer, intent(in), optional  :: savecount                         !save progress every savecount generations
     logical, intent(in), optional  :: outputSamples                     !write samples as output
+    integer, intent(in), optional  :: init_population_strategy          !initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found. 
+    integer, intent(in), optional  :: max_initialisation_attempts       !maximum number of times to try to find a valid vector for each slot in the initial population.
+    real(dp), intent(in), optional :: max_acceptable_value              !maximum fitness to accept for the initial generation if init_population_strategy > 0.
     type(c_ptr), intent(inout), optional  :: context                    !context pointer/integer, used for passing info from the caller to likelihood/prior 
     integer, intent(in), optional  :: verbose                           !how much info to print to screen: 0-quiet, 1-basic info, 2-civ info, 3+ everything
 
@@ -108,6 +113,8 @@ contains
     endif 
 
     call setIfPositive_int('convsteps', run_params%convsteps, 10, invar=convsteps)
+    allocate(run_params%improvements(run_params%convsteps))
+
     call set_logical(run_params%calcZ, .false., invar=doBayesian)                  !default is not to do Bayesian stuff
 
     if (run_params%calcZ) then
@@ -381,6 +388,15 @@ contains
       run_params%context = C_NULL_PTR
     endif
 
+    !Default is not to demand valid points in the initial generation.
+    call setIfNonNegative_int("init_population_strategy", run_params%init_population_strategy, 0, invar=init_population_strategy)
+
+    !Default is to allow 10,000 initialisation attempts in cases where valid points are preferred for the initial generation.
+    call setIfPositive_int("max_initialisation_attempts", run_params%max_initialisation_attempts, 10000, &
+     invar=max_initialisation_attempts)
+    
+    !Default is to consider points with fitnesses less than 1e6 valid when preferring valid points for initial generation.
+    call setIfPositive_real("max_acceptable_value", run_params%max_acceptable_value, 1d6, invar=max_acceptable_value)
 
     !Parameters have all been set. Now print feedback about strategy choice, values of parameters to the screen
     if (run_params%verbose .ge. 1) then
@@ -408,6 +424,20 @@ contains
        case (3)
           write (*,*) 'Reflective boundary constraints'
        end select
+
+       select case (run_params%init_population_strategy)     !initialisation strategy
+       case (0)
+          write (*,*) 'Validity of initial generation will not be enforced.'
+       case (1)
+          write (*,*) 'Will make', run_params%max_initialisation_attempts, 'attempts to find a point with value below', &
+           run_params%max_acceptable_value
+          write (*,*) 'when generating the initialial population.  After this, invalid points will be permitted.' 
+       case (2)
+          write (*,*) 'Will get', run_params%max_initialisation_attempts, 'attempts to find a point with value below', &
+           run_params%max_acceptable_value
+          write (*,*) 'before accepting any individual for the initial generation; will halt if unsuccessful.' 
+       end select
+
     end if
 
   end subroutine param_assign
@@ -489,7 +519,7 @@ contains
 
 
   !initializes first generation of target vectors
-  subroutine initialize(X, Xnew, run_params, func, fcall, quit) 
+  subroutine initialize(X, Xnew, run_params, func, fcall, quit, accept) 
 
     type(population), intent(inout) :: X
     type(population), intent(inout) :: Xnew
@@ -497,7 +527,9 @@ contains
     integer, intent(inout) :: fcall
     logical, intent(inout) :: quit
     procedure(MinusLogLikeFunc) :: func
-    integer :: n, m, i, discrete_index, accept=0
+    integer :: n, m, i, discrete_index, attempt_count, max_attempts, accept, fcall_this_gen
+
+    fcall_this_gen = 0 !Initialise to zero so as not to mess up acceptance in subsequent civilisations.
 
     X%multiplicities = 1.0_dp !Initialise to 1 in case posteriors are not calculated
 
@@ -510,9 +542,14 @@ contains
     end if
 
     !loop over the vectors belonging to each population chunk
-       do m=1,run_params%mpipopchunk
+    do m=1,run_params%mpipopchunk
 
-          n = run_params%mpipopchunk*run_params%mpirank + m !true population index (equal to m if no mpi)
+       n = run_params%mpipopchunk*run_params%mpirank + m !true population index (equal to m if no mpi)
+       
+       !if init_population_strategy is not 0, try to find a valid individual to put in the initial population.
+       attempt_count = 0
+       max_attempts = merge(1, run_params%max_initialisation_attempts, run_params%init_population_strategy .eq. 0)
+       do while (attempt_count .lt. max_attempts)
 
           call random_number(Xnew%vectors(m,:))
 
@@ -543,22 +580,36 @@ contains
 
           Xnew%vectors_and_derived(m,:run_params%D) = roundvector(Xnew%vectors(m,:), run_params)
 
-          Xnew%values(m) = func(Xnew%vectors_and_derived(m,:), fcall, quit, .true., run_params%context)
+          Xnew%values(m) = func(Xnew%vectors_and_derived(m,:), fcall_this_gen, quit, .true., run_params%context)
 
-          if (abs(run_params%verbose) .ge. 3) then
-             if (run_params%DE%lambdajDE) then
-                write (*,*) n, Xnew%vectors_and_derived(m,:), '->', Xnew%values(m), '|', &
-                               Xnew%lambdajDE(m), Xnew%FjDE(m), Xnew%CrjDE(m)
-             else if (run_params%DE%jDE) then
-                write (*,*) n, Xnew%vectors_and_derived(m,:), '->', Xnew%values(m), '|', Xnew%FjDE(m), Xnew%CrjDE(m)
-             else
-                write (*,*) n, Xnew%vectors_and_derived(m,:), '->', Xnew%values(m)
-             end if
+          if (Xnew%values(m) .lt. run_params%max_acceptable_value .or. run_params%init_population_strategy .eq. 0) exit
+
+          attempt_count = attempt_count + 1
+
+       enddo
+
+       !crash if valid vectors have been demanded in the initial population but could not be found.
+       if (run_params%init_population_strategy .ge. 2 .and. attempt_count .eq. max_attempts) then
+         call quit_de('ERROR: init_population_strategy = 2 but could not find valid points within max_initialisation_attempts!')
+       endif
+
+       if (abs(run_params%verbose) .ge. 3) then
+          if (run_params%DE%lambdajDE) then
+             write (*,*) n, Xnew%vectors_and_derived(m,:), '->', Xnew%values(m), '|', &
+                            Xnew%lambdajDE(m), Xnew%FjDE(m), Xnew%CrjDE(m)
+          else if (run_params%DE%jDE) then
+             write (*,*) n, Xnew%vectors_and_derived(m,:), '->', Xnew%values(m), '|', Xnew%FjDE(m), Xnew%CrjDE(m)
+          else
+             write (*,*) n, Xnew%vectors_and_derived(m,:), '->', Xnew%values(m)
           end if
+       end if
 
-       end do
+    end do
 
-       call replace_generation(X, Xnew, run_params, func, fcall, quit, accept, init=.true.)
+    accept = run_params%mpipopchunk * run_params%mpipopchunk / fcall_this_gen
+    fcall = fcall + fcall_this_gen
+
+    call replace_generation(X, Xnew, run_params, func, fcall, quit, accept, init=.true.)
     
   end subroutine initialize
 

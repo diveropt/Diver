@@ -9,7 +9,7 @@ implicit none
 #endif
 
 private
-public int_to_string, quit_de, quit_all_processes, roundvector, newBFs
+public int_to_string, quit_de, quit_all_processes, roundvector, newBFs, update_acceptance, sync
 
 contains
 
@@ -81,5 +81,39 @@ contains
     endif
 
   end subroutine newBFs
+
+
+  !Works out the current acceptance rate, and the total number of function calls.
+  subroutine update_acceptance(accept, fcall, totaccept, totfcall, verbose, NP)
+    logical, intent(IN) :: verbose
+    integer, intent(IN) :: accept, fcall, NP
+    integer, intent(OUT) :: totaccept, totfcall
+    integer :: ierror
+   
+#ifdef MPI
+    call MPI_Allreduce(accept, totaccept, 1, MPI_integer, MPI_sum, MPI_COMM_WORLD, ierror)
+    call MPI_Allreduce(fcall, totfcall, 1, MPI_integer, MPI_sum, MPI_COMM_WORLD, ierror)
+#else
+    totaccept = accept
+    totfcall = fcall
+#endif
+
+    if (verbose) write (*,*) '  Acceptance rate: ', totaccept/real(NP)
+
+  end subroutine update_acceptance
+
+
+  !Syncs the value of a flag between MPI processes, taking logical OR across all processes.
+  logical function sync(flag)
+    logical, intent(INOUT) :: flag
+    integer :: ierror
+    
+    sync = flag
+#ifdef MPI
+    call MPI_AllReduce(flag, sync, 1, MPI_LOGICAL, MPI_LOR, MPI_COMM_WORLD, ierror)
+#endif
+
+  end function sync
+
 
 end module deutils

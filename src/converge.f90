@@ -18,7 +18,6 @@ contains
     type(codeparams), intent(inout) :: run_params
 
     if (run_params%convergence_criterion == meanimprovement) then
-       allocate(run_params%improvements(run_params%convsteps))
        run_params%meanlike = huge(1.0_dp)
        run_params%improvements = 1.0_dp
     endif

@@ -33,6 +33,9 @@ const double      Ztolerance          = 0.1;                          // Input t
 const int         savecount           = 1;                            // Save progress every savecount generations
 const bool        resume              = false;                        // Restart from a previous run
 const bool        outputSamples       = true;                         // Write output .raw and .sam (if nDerived != 0) files
+const int         init_pop_strategy   = 2;                            // Initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found. 
+const int         max_init_attempts   = 10000;                        // Maximum number of times to try to find a valid vector for each slot in the initial population.
+const double      max_acceptable_val  = 1e6;                          // Maximum fitness to accept for the initial generation if init_population_strategy > 0.
 const int         verbose             = 1;                            // Output verbosity: 0=only error messages, 1=basic info, 2=civ-level info, 3+=population info
 
 const double Pi = 3.14159265359;                                            // Tasty
@@ -112,6 +115,6 @@ int main(int argc, char** argv)
   cdiver(objective, nPar, lowerbounds, upperbounds, path, nDerived, nDiscrete, discrete, partitionDiscrete, 
          maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh, convsteps,
          removeDuplicates, doBayesian, flatprior, maxNodePop, Ztolerance, savecount, resume, outputSamples, 
-         context, verbose); 
+         init_pop_strategy, max_init_attempts, max_acceptable_val, context, verbose); 
          //Note that prior, maxNodePop and Ztolerance are just ignored if doBayesian = false
 }

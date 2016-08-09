@@ -26,7 +26,8 @@ contains
   subroutine diver(func, lowerbounds, upperbounds, path, nDerived, discrete, partitionDiscrete,            &
                    maxciv, maxgen, NP, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE,               &
                    convthresh, convsteps, removeDuplicates, doBayesian, prior, maxNodePop, Ztolerance,     &
-                   savecount, resume, outputSamples, context, verbose)
+                   savecount, resume, outputSamples, init_population_strategy, max_initialisation_attempts,&
+                   max_acceptable_value, context, verbose)
 
     use iso_c_binding, only: c_ptr
 
@@ -56,6 +57,9 @@ contains
     real(dp), intent(in), optional   :: Ztolerance              !input tolerance in log-evidence
     integer, intent(in), optional    :: savecount               !save progress every savecount generations
     logical, intent(in), optional    :: resume                  !restart from a previous run
+    integer, intent(in), optional    :: init_population_strategy!initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found. 
+    integer, intent(in), optional    :: max_initialisation_attempts !maximum number of times to try to find a valid vector for each slot in the initial population.
+    real(dp), intent(in), optional   :: max_acceptable_value    !maximum fitness to accept for the initial generation if init_population_strategy > 0.
     logical, intent(in), optional    :: outputSamples           !write samples as output
     type(c_ptr), intent(inout), optional :: context             !context pointer, used for passing info from the caller to likelihood/prior 
     integer, intent(in), optional    :: verbose                 !output verbosity: 0=only error messages, 1=basic info, 2=civ-level info, 3+=population info
@@ -76,7 +80,7 @@ contains
     real(dp) :: Z=0., Zmsq=0., Zerr=0., Zold=0.                 !evidence
     integer :: Nsamples = 0                                     !number of statistically independent samples from posterior
     integer :: Nsamples_saved = 0                               !number of samples saved to .sam file so far
-    logical :: quit                                             !flag passed from user function to indicate need to stop 
+    logical :: quit = .false.                                   !flag passed from user function to indicate need to stop 
 
     integer :: ierror                                           !MPI error code
     logical :: mpi_already_init                                 !MPI initialization
@@ -92,7 +96,6 @@ contains
     !This will need to be changed to an input parameter if alternative covergence criteria are actually implemented
     run_params%convergence_criterion = meanimprovement
 
-    !TODO: if doBayesian, check that prior, etc is present...
     !Assign specified or default values to run_params and print out information to the screen
     call param_assign(run_params, lowerbounds, upperbounds, nDerived=nDerived, discrete=discrete,    &
                       partitionDiscrete=partitionDiscrete, maxciv=maxciv, maxgen=maxgen, NP=NP,      &
@@ -100,7 +103,9 @@ contains
                       lambdajDE=lambdajDE, convthresh=convthresh, convsteps=convsteps,               &
                       removeDuplicates=removeDuplicates, doBayesian=doBayesian,                      &
                       maxNodePop=maxNodePop, Ztolerance=Ztolerance, savecount=savecount,             &
-                      outputSamples=outputSamples, context=context, verbose=verbose)
+                      outputSamples=outputSamples, init_population_strategy=init_population_strategy,&
+                      max_initialisation_attempts=max_initialisation_attempts,                       &
+                      max_acceptable_value=max_acceptable_value, context=context, verbose=verbose)
 
     if (run_params%calcZ .and. .not. present(prior)) then
        call quit_de('Error: evidence calculation requested without specifying a prior.')
@@ -141,9 +146,6 @@ contains
     !If required, initialise the linked tree used for estimating the evidence and posterior
     if (run_params%calcZ) call iniTree(lowerbounds,upperbounds,run_params%maxNodePop)
 
-    !Initialise the convergence criterion
-    call init_convergence(run_params)
-
     !Initialise internal variables
     BF%values(1) = huge(BF%values(1))
 
@@ -176,6 +178,9 @@ contains
           endif
        endif
 
+       !Split if the quit flag has been raised
+       if (quit) exit
+
        if (run_params%verbose .ge. 2) then
           write (*,*) '-----------------------------'
           write (*,*) 'Civilisation: ', civ
@@ -184,19 +189,37 @@ contains
        !Internal (normal) DE loop: calculates population for each generation
        genloop: do gen = genstart, run_params%numgen 
 
-          if (run_params%verbose .ge. 3) then
+          if (run_params%verbose .ge. 2) then
              write (*,*) '  -----------------------------'
              write (*,*) '  Generation: ', gen
           end if
      
           if (gen .eq. 1) then 
 
-            !Initialise the first generation
-            call initialize(X, Xnew, run_params, func, fcall, quit)
-            !Don't use initial generation for estimating evidence, as it biases the BSP
-            if ((civ .eq. 1) .and. (run_params%mpirank .eq. 0)) call save_run_params(path, run_params)
-            !Update best fits
-            call newBFs(X,BF)
+             !Initialise the convergence criterion
+             call init_convergence(run_params)
+
+             !initialise the first generation
+             call initialize(X, Xnew, run_params, func, fcall, quit, accept)
+
+             !sync quit flags
+             !quit = sync(quit)
+
+             !update accept and fcall
+             call update_acceptance(accept, fcall, totaccept, totfcall, run_params%verbose .ge. 2, run_params%DE%NP)
+
+             !update best fits
+             call newBFs(X,BF)
+
+             !don't use initial generation for estimating evidence, as it biases the BSP.  Therefore no call to updateEvidence.
+
+             !save things
+             if (run_params%mpirank .eq. 0) then
+                if (civ .eq. 1) call save_run_params(path, run_params)
+                if (run_params%savefreq .eq. 1) then
+                   call save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, huge(Z), Nsamples, Nsamples_saved, totfcall, run_params)
+                endif
+             endif
             
           else
              
@@ -231,19 +254,17 @@ contains
 
              end do poploop
 
+             !sync quit flags
+             quit = sync(quit)
+
              !replace old generation with newly calculated one
              call replace_generation(X, Xnew, run_params, func, fcall, quit, accept, init=.false.)
 
              !debugging code: choose random new population members uniformly from the allowed parameter ranges
              !call initialize(X, Xnew, run_params, func, fcall, quit)
 
-#ifdef MPI
-             call MPI_Allreduce(accept, totaccept, 1, MPI_integer, MPI_sum, MPI_COMM_WORLD, ierror)
-#else
-             totaccept = accept
-#endif
-
-             if (run_params%verbose .ge. 3) write (*,*) '  Acceptance rate: ', totaccept/real(run_params%DE%NP)
+             !update accept and fcall
+             call update_acceptance(accept, fcall, totaccept, totfcall, run_params%verbose .ge. 2, run_params%DE%NP)
 
              !Update best fits
              call newBFs(X,BF)
@@ -253,21 +274,19 @@ contains
 
              !Do periodic save
              if ((mod(gen,run_params%savefreq) .eq. 0) .and. (run_params%mpirank .eq. 0)) then
-                call save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, huge(Z), Nsamples, Nsamples_saved, fcall, run_params)
+                call save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, huge(Z), Nsamples, Nsamples_saved, totfcall, run_params)
              endif
 
           endif
 
-          if (quit) then
-             if (run_params%verbose .gt. 0) write(*,*) 'Quit requested by objective function - saving and exiting.'
-             if (run_params%mpirank .eq. 0) then 
-                call save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, huge(Z), Nsamples, Nsamples_saved, fcall, run_params, &
-                             final=(mod(gen,run_params%savefreq) .eq. 0) )
-             end if
-             call quit_de()
+          if (quit .and. run_params%mpirank .eq. 0) then
+             if (run_params%verbose .gt. 0) write(*,*) 'Quit requested by objective function - Diver will save and exit now.'
+             call save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, huge(Z), Nsamples, Nsamples_saved, totfcall, run_params, &
+                          final=(mod(gen,run_params%savefreq) .eq. 0) )
           endif
 
-          if (converged(X, run_params)) exit    !Check generation-level convergence: if satisfied, exit genloop
+          !Check generation-level convergence: if satisfied, or quit flag set, exit genloop
+          if (converged(X, run_params) .or. quit) exit
 
        end do genloop
        
@@ -275,13 +294,6 @@ contains
           
        !Update best fits
        call newBFs(X,BF)
-
-       !get the total number of function calls
-#ifdef MPI
-       call MPI_Allreduce(fcall, totfcall, 1, MPI_integer, MPI_sum, MPI_COMM_WORLD, ierror)
-#else
-       totfcall = fcall
-#endif
  
        if (run_params%verbose .ge. 3) then
           write (*,*)
@@ -347,15 +359,17 @@ contains
                                              deallocate(BF%vectors, BF%values, BF%vectors_and_derived)
     if (run_params%calcZ) call clearTree
 
+    call cpu_time(t2)
+
+    call MPI_Barrier(MPI_COMM_WORLD, ierror)
+    if (abs(run_params%verbose) .ge. 1) then
+       write (*,'(A26,I4,A2,F10.2)') ' Total seconds for process ', run_params%mpirank, ': ', t2-t1
+    end if
+    call MPI_Barrier(MPI_COMM_WORLD, ierror)
+
 #ifdef MPI
     if (.not. mpi_already_init) call MPI_Finalize(ierror)
 #endif
-
-    call cpu_time(t2)
-
-    if (abs(run_params%verbose) .ge. 1) then
-       write (*,'(A31,I4,A2,F12.2)') 'Total time in Diver for process ', run_params%mpirank, ': ', t2-t1
-    end if
 
   end subroutine diver
 
