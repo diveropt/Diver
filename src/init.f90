@@ -582,6 +582,8 @@ contains
 
           Xnew%values(m) = func(Xnew%vectors_and_derived(m,:), fcall_this_gen, quit, .true., run_params%context)
 
+          if (quit) call quit_de('ERROR: quit flag raised whilst initialising first generation.  Forcing hard quit.')
+
           if (Xnew%values(m) .lt. run_params%max_acceptable_value .or. run_params%init_population_strategy .eq. 0) exit
 
           attempt_count = attempt_count + 1

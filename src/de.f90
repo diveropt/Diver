@@ -203,7 +203,7 @@ contains
              call initialize(X, Xnew, run_params, func, fcall, quit, accept)
 
              !sync quit flags
-             !quit = sync(quit)
+             quit = sync(quit)
 
              !update accept and fcall
              call update_acceptance(accept, fcall, totaccept, totfcall, run_params%verbose .ge. 2, run_params%DE%NP)
@@ -361,11 +361,15 @@ contains
 
     call cpu_time(t2)
 
+#ifdef MPI
     call MPI_Barrier(MPI_COMM_WORLD, ierror)
+#endif
     if (abs(run_params%verbose) .ge. 1) then
        write (*,'(A26,I4,A2,F10.2)') ' Total seconds for process ', run_params%mpirank, ': ', t2-t1
     end if
+#ifdef MPI
     call MPI_Barrier(MPI_COMM_WORLD, ierror)
+#endif
 
 #ifdef MPI
     if (.not. mpi_already_init) call MPI_Finalize(ierror)
