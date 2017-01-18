@@ -17,7 +17,7 @@ public param_assign, initialize, init_all_random_seeds
 
 character (len=*), parameter :: version_number = "1.0.0"
 
-contains 
+contains
 
   !Assign parameter values (defaults if not specified) to run_params and print DE parameter values to screen
 
@@ -29,8 +29,8 @@ contains
 
     use iso_c_binding, only: C_NULL_PTR, c_ptr
 
-    type(codeparams), intent(out) :: run_params 
-    real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds      !boundaries of parameter space 
+    type(codeparams), intent(out) :: run_params
+    real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds      !boundaries of parameter space
     integer, intent(in), optional  :: nDerived                          !input number of derived quantities to output
     integer, dimension(:), intent(in), optional :: discrete             !lists all discrete dimensions of parameter space
     logical, intent(in), optional  :: partitionDiscrete                 !split the population evenly amongst discrete parameters and evolve separately
@@ -53,10 +53,10 @@ contains
     real(dp), intent(in), optional :: Ztolerance                        !input tolerance in log-evidence
     integer, intent(in), optional  :: savecount                         !save progress every savecount generations
     logical, intent(in), optional  :: outputSamples                     !write samples as output
-    integer, intent(in), optional  :: init_population_strategy          !initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found. 
+    integer, intent(in), optional  :: init_population_strategy          !initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found.
     integer, intent(in), optional  :: max_initialisation_attempts       !maximum number of times to try to find a valid vector for each slot in the initial population.
     real(dp), intent(in), optional :: max_acceptable_value              !maximum fitness to accept for the initial generation if init_population_strategy > 0.
-    type(c_ptr), intent(inout), optional  :: context                    !context pointer/integer, used for passing info from the caller to likelihood/prior 
+    type(c_ptr), intent(inout), optional  :: context                    !context pointer/integer, used for passing info from the caller to likelihood/prior
     integer, intent(in), optional  :: verbose                           !how much info to print to screen: 0-quiet, 1-basic info, 2-civ info, 3+ everything
 
     integer :: mpiprocs, mpirank, ierror                                !number of processes running, rank of current process, error code
@@ -73,7 +73,7 @@ contains
     mpirank = 0
 #endif
 
-    run_params%mpiprocs = mpiprocs    
+    run_params%mpiprocs = mpiprocs
     run_params%mpirank = mpirank
 
     !default level of output is to print errors, most warnings, info about the program & final results
@@ -86,13 +86,13 @@ contains
     end if
 
     if (run_params%verbose .ge. 1) then
-       write (*,*) 
+       write (*,*)
        write (*,*) '============================================='
        write (*,*) '************ Begin DE Sampling **************'
        write (*,*) 'Diver v'//trim(version_number)
        write (*,*) 'Copyright Elinore Roebber and Pat Scott, 2013'
        write (*,*) '============================================='
-       write (*,*) 
+       write (*,*)
     end if
 
     run_params%D=size(lowerbounds)
@@ -110,7 +110,7 @@ contains
 
     if (run_params%convthresh .ge. 1_dp) then                                      !fractional improvement always le 1
        call quit_de('ERROR: threshold for convergence (convthresh) must be < 1')
-    endif 
+    endif
 
     call setIfPositive_int('convsteps', run_params%convsteps, 10, invar=convsteps)
     allocate(run_params%improvements(run_params%convsteps))
@@ -127,13 +127,11 @@ contains
     endif
 
     call setIfPositive_int('savecount', run_params%savefreq, 1, invar=savecount)   !tolerance counter
-    call set_logical(run_params%DE%lambdajDE, .false., invar=lambdajDE)            !default is original DE or jDE
 
+    call set_logical(run_params%DE%lambdajDE, .true., invar=lambdajDE)             !default is to turn on lambdajDE
+    call set_logical(run_params%DE%jDE, .true., invar=jDE)                         !default is to turn on jDE
     if (run_params%DE%lambdajDE) then
-       call set_logical(run_params%DE%jDE, .true., invar=jDE)                      !don't need to specify jDE if lambdajDE=true
        if (.not. run_params%DE%jDE) call quit_de('ERROR: cannot have lambdajDE=true with jDE=false')
-    else
-       call set_logical(run_params%DE%jDE, .false., invar=jDE)                     !default is original DE
     end if
 
     call setIfNonNegative_int('bndry', run_params%DE%bconstrain, 1, invar=bndry)   !default brick wall boundary constraints
@@ -143,7 +141,7 @@ contains
              write (*,*) ' 0: Not enforced'
              write (*,*) ' 1: Brick wall'
              write (*,*) ' 2: Random re-initialization'
-             write (*,*) ' 3: Reflection'      
+             write (*,*) ' 3: Reflection'
           end if
           call quit_de('ERROR: Invalid value entered for bndry.')
        end if
@@ -155,7 +153,7 @@ contains
        if (run_params%verbose .ge. 1) then
           if (present(F)) write (*,*) 'WARNING: value set for F not used during jDE run'
           if (present(Cr)) write (*,*) 'WARNING: value set for Cr not used during jDE run'
-          !the {F_i} and {Cr_i} are kept as part of the population (X%FjDE and X%CrjDE) with single variables (trialF and trialCr) 
+          !the {F_i} and {Cr_i} are kept as part of the population (X%FjDE and X%CrjDE) with single variables (trialF and trialCr)
           !in the main subroutine of the program for the trial parameters.
           if (present(current)) then
              if (current) write (*,*) 'WARNING: current not used during jDE run'
@@ -217,7 +215,7 @@ contains
           run_params%DE%F = (/0.7_dp/)                 !rule of thumb: 0.4<F<1.0
        end if
 
-       if (present(Cr)) then  
+       if (present(Cr)) then
           if (Cr .lt. 0.0_dp) then
              if (run_params%verbose .ge. 1)  write (*,*) 'WARNING: Cr < 0. Using Cr = 0.' !although Cr<0 is functionally equivalent to Cr=0
              run_params%DE%Cr = 0.0_dp
@@ -228,7 +226,7 @@ contains
              run_params%DE%Cr = Cr
           end if
        else
-          run_params%DE%Cr = 0.9_dp 
+          run_params%DE%Cr = 0.9_dp
        end if
 
        if (present(lambda)) then
@@ -256,7 +254,7 @@ contains
           end if
        else if (run_params%DE%lambda .eq. 1.0_dp) then
           DEstrategy = 'best/'
-       else 
+       else
           if (run_params%DE%current) then
              DEstrategy = 'current-to-best/'
           else
@@ -265,7 +263,7 @@ contains
        end if
 
        DEstrategy = trim(DEstrategy)//int_to_string(run_params%DE%Fsize)
-       
+
        if(run_params%DE%expon) then                          !crossover strategy
           DEstrategy = trim(DEstrategy)//'/exp'
        else
@@ -283,10 +281,10 @@ contains
 
     !Set up array of discrete dimensions
     if (present(discrete)) then
-       if (any(discrete .gt. run_params%D) .or. any(discrete .lt. 1)) then     
+       if (any(discrete .gt. run_params%D) .or. any(discrete .lt. 1)) then
           call quit_de('ERROR: Discrete dimensions specified must not be < 1 or > '// &
                        trim(int_to_string(run_params%D)))
-       end if     
+       end if
        run_params%D_discrete = size(discrete)
        !Also check that discrete dimensions are not doubly-specified (will crash the partioned case if so, just sloppy otherwise.)
        do i = 1, run_params%D_discrete
@@ -304,12 +302,12 @@ contains
 
     !Setting NP: default is the larger of a conservative rule-of-thumb value or the minimum required for mutation
     call setIfPositive_int('NP', run_params%DE%NP, maxval((/10*run_params%D, 2*run_params%DE%Fsize + 3/)), invar=NP)
-    
+
     if (run_params%DE%NP .lt. (2*run_params%DE%Fsize + 3)) then
        if (run_params%verbose .ge. 1) write (*,*) 'WARNING: NP specified is too small. Using smallest permitted NP...'
        run_params%DE%NP = 2*run_params%DE%Fsize + 3  !required to pick unique vectors during mutation
     end if
-    
+
     !Check that population chunks are equally sized
     if (mod(run_params%DE%NP, mpiprocs) .ne. 0) then
        if (run_params%verbose .ge. 1) then
@@ -356,7 +354,7 @@ contains
                               trim(int_to_string(product(num_discrete_vals)))
              end if
              call quit_de('ERROR: partitionDiscrete = true requires that NP must divide up'// &
-                           ' evenly into the implied number of sub-populations.')      
+                           ' evenly into the implied number of sub-populations.')
           else
              !Work out how many individuals should be in each discrete partition of the population (ie each subpopulation)
              run_params%subpopNP = run_params%DE%NP / product(num_discrete_vals)
@@ -379,7 +377,7 @@ contains
     endif
 
     !Default is to output parameter samples.
-    call set_logical(run_params%outputSamples, .true., invar=outputSamples) 
+    call set_logical(run_params%outputSamples, .true., invar=outputSamples)
 
     !Just set up a dummy null context pointer if it happens to be missing
     if (present(context)) then
@@ -394,7 +392,7 @@ contains
     !Default is to allow 10,000 initialisation attempts in cases where valid points are preferred for the initial generation.
     call setIfPositive_int("max_initialisation_attempts", run_params%max_initialisation_attempts, 10000, &
      invar=max_initialisation_attempts)
-    
+
     !Default is to consider points with fitnesses less than 1e6 valid when preferring valid points for initial generation.
     call setIfPositive_real("max_acceptable_value", run_params%max_acceptable_value, 1d6, invar=max_acceptable_value)
 
@@ -405,10 +403,10 @@ contains
        write (*,*) 'Parameters:'
        write (*,*) ' NP = ', trim(int_to_string(run_params%DE%NP))
        if (.not. run_params%DE%lambdajDE) then               !print lambda to the screen when fixed, including to 0 and 1
-          write (*,'(A10, F6.4)') ' lambda = ', run_params%DE%lambda 
+          write (*,'(A10, F6.4)') ' lambda = ', run_params%DE%lambda
           if (.not. run_params%DE%jDE) then                  !print F and Cr to the screen when fixed
              write (*,'(A5, F6.4)') ' F = ', run_params%DE%F
-             write (*,'(A6, F6.4)') ' Cr = ', run_params%DE%Cr 
+             write (*,'(A6, F6.4)') ' Cr = ', run_params%DE%Cr
           endif
        end if
 
@@ -417,7 +415,7 @@ contains
        select case (run_params%DE%bconstrain)                !boundary constraint choice
        case (0)
           write (*,*) 'Boundary constraints not enforced'
-       case (1) 
+       case (1)
           write (*,*) 'Brick wall boundary constraints'
        case (2)
           write (*,*) 'Random re-initialization boundary constraints'
@@ -431,11 +429,11 @@ contains
        case (1)
           write (*,*) 'Will make', run_params%max_initialisation_attempts, 'attempts to find a point with value below', &
            run_params%max_acceptable_value
-          write (*,*) 'when generating the initialial population.  After this, invalid points will be permitted.' 
+          write (*,*) 'when generating the initialial population.  After this, invalid points will be permitted.'
        case (2)
           write (*,*) 'Will get', run_params%max_initialisation_attempts, 'attempts to find a point with value below', &
            run_params%max_acceptable_value
-          write (*,*) 'before accepting any individual for the initial generation; will halt if unsuccessful.' 
+          write (*,*) 'before accepting any individual for the initial generation; will halt if unsuccessful.'
        end select
 
     end if
@@ -519,7 +517,7 @@ contains
 
 
   !initializes first generation of target vectors
-  subroutine initialize(X, Xnew, run_params, func, fcall, quit, accept) 
+  subroutine initialize(X, Xnew, run_params, func, fcall, quit, accept)
 
     type(population), intent(inout) :: X
     type(population), intent(inout) :: Xnew
@@ -545,7 +543,7 @@ contains
     do m=1,run_params%mpipopchunk
 
        n = run_params%mpipopchunk*run_params%mpirank + m !true population index (equal to m if no mpi)
-       
+
        !if init_population_strategy is not 0, try to find a valid individual to put in the initial population.
        attempt_count = 0
        max_attempts = merge(1, run_params%max_initialisation_attempts, run_params%init_population_strategy .eq. 0)
@@ -612,7 +610,7 @@ contains
     fcall = fcall + fcall_this_gen
 
     call replace_generation(X, Xnew, run_params, func, fcall, quit, accept, init=.true.)
-    
+
   end subroutine initialize
 
 
@@ -620,7 +618,7 @@ contains
   !then (if using MPI) generates new seeds for secondary processes and distributes them
   subroutine init_all_random_seeds(nprocs, mpirank)
     integer, intent(in) :: nprocs         !number of processes that need seeds
-    integer, intent(in) :: mpirank 
+    integer, intent(in) :: mpirank
     integer :: n, clock, ierror
     real(dp), dimension(:), allocatable :: rand
     integer, dimension(:,:), allocatable :: allseeds
@@ -658,15 +656,15 @@ contains
   SUBROUTINE init_random_seed()
     INTEGER :: i, n, clock
     INTEGER, DIMENSION(:), ALLOCATABLE :: seed
-          
+
     CALL RANDOM_SEED(size = n)
     ALLOCATE(seed(n))
-          
+
     CALL SYSTEM_CLOCK(COUNT=clock)
     seed = clock + 37 * (/ (i - 1, i = 1, n) /)
 
     CALL RANDOM_SEED(PUT = seed)
-          
+
     DEALLOCATE(seed)
   END SUBROUTINE
 
