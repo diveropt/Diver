@@ -20,26 +20,29 @@ Compilation
 The Diver build system is not really complex enough to require autotools or cmake.  Just change [the makefile](makefile) by hand to suit your system, or call it from another makefile or the command line with overrides.
 
 To build Diver as a static library, and build all examples, do
-
+```
   make
+```
 
 To instead build Diver as a shared library, do
-
+```
   make libdiver.so
+```
 
 To build only the static library, do
-
+```
   make libdiver.a
-
+```
 
 Testing
 --
 
 To build only the Fortran, C and C++ examples, do
-
-  make example_f\s\s
-  make example_c\s\s
+```
+  make example_f
+  make example_c
   make example_cpp
+```
 
 The executables will appear in the Diver root directory. (You should run them.)
 
