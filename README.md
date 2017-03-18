@@ -37,8 +37,8 @@ Testing
 
 To build only the Fortran, C and C++ examples, do
 
-  make example_f
-  make example_c
+  make example_f\s\s
+  make example_c\s\s
   make example_cpp
 
 The executables will appear in the Diver root directory. (You should run them.)
