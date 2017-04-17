@@ -10,8 +10,7 @@ About
 Diver is written in Fortran2003.  We originally wrote it with applications in particle physics and astronomy in mind, but there is nothing to prevent its use in other fields.
 
 The code and its options are described in detail in the ScannerBit paper included in the distribution.  Any papers that use results or insights obtained with Diver should cite this paper:
-
-G Martinez, J McKay, B Farmer, P Scott, E Roebber, A Putze & J Conrad. Comparison of statistical sampling methods with ScannerBit, the GAMBIT scanning module, European Physical Journal C (2017).
+  1. Martinez, McKay, Farmer, Scott, Roebber, Putze & Conrad 2017, submitted to European Physical Journal C.
 
 
 Compilation
@@ -45,6 +44,14 @@ To build only the Fortran, C and C++ examples, do
 ```
 
 The executables will appear in the Diver root directory. (You should run them.)
+
+
+Licensing
+--
+
+The actual license is below.  In simple terms: Diver is free for academic use (no need to ask us), potentially free for other non-profit use (but you need to ask us explicitly), and not free for commercial use (you'll likely need to make some sort of contribution to our research budget or similar in that case).
+
+Contact: p.scott@imperial.ac.uk
 
 
 License
