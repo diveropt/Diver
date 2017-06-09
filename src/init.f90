@@ -15,7 +15,7 @@ implicit none
 private
 public param_assign, initialize, init_all_random_seeds
 
-character (len=*), parameter :: version_number = "1.0.0"
+character (len=*), parameter :: version_number = "1.0.1"
 
 contains
 
