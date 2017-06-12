@@ -102,7 +102,7 @@ $(BUILD)/deutils.o: $(SOURCE)/deutils.f90 $(BUILD)/detypes.o
 $(BUILD)/evidence.o: $(SOURCE)/evidence.f90 $(BUILD)/detypes.o $(BUILD)/deutils.o $(BUILD)/posterior.o
 	$(DIVER_FF) $(DIVER_FOPT) -c $< -o $@
 
-$(BUILD)/init.o: $(SOURCE)/init.f90 $(BUILD)/detypes.o $(BUILD)/deutils.o $(BUILD)/posterior.o
+$(BUILD)/init.o: $(SOURCE)/init.f90 $(BUILD)/detypes.o $(BUILD)/deutils.o $(BUILD)/mutation.o $(BUILD)/crossover.o $(BUILD)/selection.o
 	$(DIVER_FF) $(DIVER_FOPT) -c $< -o $@
 
 $(BUILD)/io.o: $(SOURCE)/io.f90 $(BUILD)/detypes.o $(BUILD)/deutils.o $(BUILD)/evidence.o $(BUILD)/converge.o
@@ -111,7 +111,7 @@ $(BUILD)/io.o: $(SOURCE)/io.f90 $(BUILD)/detypes.o $(BUILD)/deutils.o $(BUILD)/e
 $(BUILD)/mutation.o: $(SOURCE)/mutation.f90 $(BUILD)/detypes.o $(BUILD)/deutils.o
 	$(DIVER_FF) $(DIVER_FOPT) -c $< -o $@
 
-$(BUILD)/posterior.o: $(SOURCE)/posterior.f90 $(BUILD)/detypes.o $(BUILD)/deutils.o
+$(BUILD)/posterior.o: $(SOURCE)/posterior.f90 $(BUILD)/detypes.o
 	$(DIVER_FF) $(DIVER_FOPT) -c $< -o $@
 
 $(BUILD)/selection.o: $(SOURCE)/selection.f90 $(BUILD)/detypes.o $(BUILD)/deutils.o $(BUILD)/mutation.o $(BUILD)/crossover.o
