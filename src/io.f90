@@ -27,7 +27,12 @@ subroutine io_begin(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_save
   type(population), intent(inout) :: X, BF
   procedure(PriorFunc), optional :: prior
 
-  if (present(restart) .and. restart) then
+  logical           :: restart_
+
+  restart_ = .false.
+  if (present(restart)) restart_ = restart
+
+  if (restart_) then
     if (present(prior)) then
       call resume(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF, prior=prior)
     else
@@ -61,7 +66,12 @@ subroutine save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsampl
   type(codeparams), intent(in) :: run_params
   logical, intent(in), optional :: final
 
-  if (.not. present(final) .or. (present(final) .and. .not. final)) then
+  logical         :: final_
+
+  final_ = .false.
+  if (present(final)) final_ = final
+
+  if (.not. final_) then
     Nsamples_saved = Nsamples_saved + run_params%DE%NP
     call save_samples(X, path, civ, gen, run_params)
   endif
