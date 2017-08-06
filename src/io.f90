@@ -10,7 +10,7 @@ implicit none
 private
 public io_begin, save_all, save_run_params, resume
 
-integer, parameter :: rawlun=1, samlun = 2, devolun=3, rparamlun=4
+integer :: rawlun, samlun, devolun, rparamlun
 real(dp), parameter :: Ztolscale = 100., Ftolscale = 100., Bndtolscale = 100.
 
 contains
@@ -38,9 +38,9 @@ subroutine io_begin(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_save
       !Create .raw and .sam files.  .rparam and .devo files are created only at first save, so their existence indicates whether
       !resuming is allowed or not.
       if (run_params%verbose .ge. 1) write(*,*) 'Creating Diver output files at '//trim(path)//'.*'
-      open(unit=rawlun, file=trim(path)//'.raw', iostat=filestatus, action='WRITE', status='REPLACE')
+      open(newunit=rawlun, file=trim(path)//'.raw', iostat=filestatus, action='WRITE', status='REPLACE')
       if ( (run_params%D_derived .ne. 0) .or. (size(run_params%discrete) .ne. 0) ) then
-         open(unit=samlun, file=trim(path)//'.sam', iostat=filestatus, action='WRITE', status='REPLACE')
+         open(newunit=samlun, file=trim(path)//'.sam', iostat=filestatus, action='WRITE', status='REPLACE')
       end if
       if (filestatus .ne. 0) call quit_all_processes(' Error creating output files. Quitting...')
       close(rawlun)
@@ -82,7 +82,7 @@ subroutine save_samples(X, path, civ, gen, run_params)
 
   if (.not. run_params%outputSamples) return
 
-  open(unit=rawlun, file=trim(path)//'.raw', iostat=filestatus, action='WRITE', status='OLD', POSITION='APPEND')
+  open(newunit=rawlun, file=trim(path)//'.raw', iostat=filestatus, action='WRITE', status='OLD', POSITION='APPEND')
   if (filestatus .ne. 0) call quit_all_processes(' Error opening raw file.  Quitting...')
   write(formatstring_raw,'(A18,I4,A6)') '(2E20.9,2x,2I6,2x,', run_params%D, 'E20.9)'
   do i = 1, size(X%weights)
@@ -91,7 +91,7 @@ subroutine save_samples(X, path, civ, gen, run_params)
   close(rawlun)
 
   if ( (run_params%D_derived .ne. 0) .or. (size(run_params%discrete) .ne. 0) ) then
-    open(unit=samlun, file=trim(path)//'.sam', iostat=filestatus, action='WRITE', status='OLD', POSITION='APPEND')
+    open(newunit=samlun, file=trim(path)//'.sam', iostat=filestatus, action='WRITE', status='OLD', POSITION='APPEND')
     if (filestatus .ne. 0) call quit_all_processes(' Error opening sam file.  Quitting...')
     write(formatstring_sam,'(A18,I4,A6)') '(2E20.9,2x,2I6,2x,', run_params%D+run_params%D_derived, 'E20.9)'
     do i = 1, size(X%weights)
@@ -113,9 +113,9 @@ subroutine save_run_params(path, run_params)
 
   inquire(file=trim(path)//'.rparam',exist=exists)
   if (exists) then
-     open(unit=rparamlun, file=trim(path)//'.rparam', iostat=filestatus, action='WRITE', status='OLD')
+     open(newunit=rparamlun, file=trim(path)//'.rparam', iostat=filestatus, action='WRITE', status='OLD')
   else
-     open(unit=rparamlun, file=trim(path)//'.rparam', iostat=filestatus, action='WRITE', status='REPLACE')
+     open(newunit=rparamlun, file=trim(path)//'.rparam', iostat=filestatus, action='WRITE', status='REPLACE')
   endif
   if (filestatus .ne. 0) call quit_all_processes(' Error opening rparam file.  Quitting...')
 
@@ -179,9 +179,9 @@ subroutine save_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_sa
   !Save restart info
   inquire(file=trim(path)//'.devo',exist=exists)
   if (exists) then
-     open(unit=devolun, file=trim(path)//'.devo', iostat=filestatus, action='WRITE', status='OLD')
+     open(newunit=devolun, file=trim(path)//'.devo', iostat=filestatus, action='WRITE', status='OLD')
   else
-     open(unit=devolun, file=trim(path)//'.devo', iostat=filestatus, action='WRITE', status='REPLACE')
+     open(newunit=devolun, file=trim(path)//'.devo', iostat=filestatus, action='WRITE', status='REPLACE')
   endif
   if (filestatus .ne. 0) call quit_all_processes(' Error opening devo file.  Quitting...')
 
@@ -237,7 +237,7 @@ subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_sa
   !Read in run parameters
   inquire(file=trim(path)//'.rparam',exist=exists)
   if (.not. exists) call quit_all_processes(trim(path)//'.rparam does not exist. Cannot resume Diver.')
-  open(unit=rparamlun, file=trim(path)//'.rparam', iostat=filestatus, action='READ', status='OLD')
+  open(newunit=rparamlun, file=trim(path)//'.rparam', iostat=filestatus, action='READ', status='OLD')
   if (filestatus .ne. 0) call quit_all_processes(' Error opening rparam file.  Quitting...')
 
   read(rparamlun,'(I6)')     inNP                                       !population size
@@ -298,7 +298,7 @@ subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_sa
   !Read in run status info
   inquire(file=trim(path)//'.devo',exist=exists)
   if (.not. exists) call quit_all_processes(trim(path)//'.devo does not exist. Cannot resume Diver.')
-  open(unit=devolun, file=trim(path)//'.devo', iostat=filestatus, action='READ', status='OLD')
+  open(newunit=devolun, file=trim(path)//'.devo', iostat=filestatus, action='READ', status='OLD')
   if (filestatus .ne. 0) call quit_all_processes(' Error opening devo file.  Quitting...')
 
   read(devolun,'(2I10)')     civ, gen                                   !current civilisation, generation
@@ -439,7 +439,7 @@ subroutine resume(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved,
   reclen = 57 + 20*run_params%D
 
   !open the chain file
-  open(unit=rawlun, file=trim(path)//'.raw', &
+  open(newunit=rawlun, file=trim(path)//'.raw', &
    iostat=filestatus, status='OLD', access='DIRECT', action='READ', recl=reclen, form='FORMATTED')
   if (filestatus .ne. 0) call quit_all_processes(' Error opening .raw file. Quitting...')
 
