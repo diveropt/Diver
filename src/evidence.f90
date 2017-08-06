@@ -9,7 +9,7 @@ implicit none
 private
 public updateEvidence, polishEvidence
 
-integer, parameter :: rawlun=1, samlun = 2, devolun=3
+integer :: rawlun, samlun, devolun
 
 contains
 
@@ -81,11 +81,11 @@ contains
     endif
 
     !open the chain files
-    open(unit=rawlun, file=trim(path)//'.raw', &
+    open(newunit=rawlun, file=trim(path)//'.raw', &
      iostat=filestatus, status='OLD', access='DIRECT', recl=reclen_raw, form='FORMATTED')
     if (filestatus .ne. 0) call quit_all_processes(' Error opening .raw file. Quitting...')
     if (dosam) then
-      open(unit=samlun, file=trim(path)//'.sam', &
+      open(newunit=samlun, file=trim(path)//'.sam', &
        iostat=filestatus, status='OLD', access='DIRECT', recl=reclen_sam, form='FORMATTED')
       if (filestatus .ne. 0) call quit_all_processes(' Error opening .sam file. Quitting...')
     endif
