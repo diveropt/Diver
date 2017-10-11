@@ -10,7 +10,7 @@ integer, parameter, public :: dp = kind(1.0d0)          !definition of 'double p
 
 !type definitions
 
-type deparams                                           !differential evolution parameters 
+type deparams                                           !differential evolution parameters
                                                         ! (remember to expand io::save_run_params and io::read_state if you expand this type)
    integer NP                                           !population size
    real(dp), allocatable, dimension(:) ::  F            !mutation scale factors
@@ -32,7 +32,7 @@ type codeparams                                         !code parameters (rememb
    integer :: D, D_derived, D_discrete                  !dimension of parameter space; dimension of derived space, dimension of discrete parameter space
    integer, allocatable, dimension(:) :: discrete       !lists the discrete dimensions of parameter space (size D_discrete)
    logical :: partitionDiscrete                         !split the population evenly amongst discrete parameters and evolve separately
-   integer, allocatable, dimension(:) :: repeat_scales  !population scale on which partitioned parameters repeat when partitionDiscrete = true 
+   integer, allocatable, dimension(:) :: repeat_scales  !population scale on which partitioned parameters repeat when partitionDiscrete = true
    integer :: subpopNP                                  !subpopulation in each partition of the population when partitionDiscrete = true
    integer :: numciv, numgen                            !maximum number of civilizations, generations
    real(dp) :: convthresh                               !threshold for convergence (smoothed fractional improvement in the mean population value)
@@ -45,14 +45,15 @@ type codeparams                                         !code parameters (rememb
    integer :: mpirank                                   !rank of current process (0 if no MPI)
    integer :: mpiprocs                                  !number of processes running (1 if no MPI)
    integer :: mpipopchunk                               !number of vectors for each process to work on (NP if no MPI)
-   integer :: init_population_strategy                  !initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found. 
+   integer :: init_population_strategy                  !initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found.
    integer :: max_initialisation_attempts               !maximum number of times to try to find a valid vector for each slot in the initial population.
    real(dp) :: max_acceptable_value                     !maximum fitness to accept for the initial generation if init_population_strategy > 0.
    type(c_ptr) :: context                               !context pointer
    integer :: verbose                                   !level of verbosity: 0=quiet, 1=basic, 2=civ-level info, 3=verbose, negative for mpirank!=0
    integer :: convergence_criterion                     !indicates which convergence criterion has been selected (see convergence.f90 for codes)
+   integer :: seed                                      !base seed for random number generation; non-positive or absent means seed from the system clock
    real(dp) :: meanlike                                 !the normalized average fitness of the population for the last generation
-   real(dp), allocatable, dimension(:) :: improvements  !fracdiff stored for convsteps most recent steps (to be smoothed over)   
+   real(dp), allocatable, dimension(:) :: improvements  !fracdiff stored for convsteps most recent steps (to be smoothed over)
 end type codeparams
 
 type population
@@ -74,7 +75,7 @@ abstract interface
      import dp
      implicit none
      real(dp), dimension(:), intent(inout) :: params
-     integer, intent(inout) :: fcall 
+     integer, intent(inout) :: fcall
      logical, intent(out) :: quit
      logical, intent(in) :: validvector
      type(c_ptr), intent(inout) :: context

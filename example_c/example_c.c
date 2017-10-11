@@ -6,7 +6,7 @@
 const int         nPar                = 5;                            // Dimensionality of the parameter space
 const double      lowerbounds[]       = {-5.,-50.,-5.,-50.,-2.};      // Lower boundaries of parameter space
 const double      upperbounds[]       = { 5., 50., 5., 50., 2.};      // Upper boundaries of parameter space
-const char        path[]              = "example_c/output/example";   // Path to save samples, resume files, etc 
+const char        path[]              = "example_c/output/example";   // Path to save samples, resume files, etc
 const int         nDerived            = 0;                            // Number of derived quantities to output
 const int         nDiscrete           = 0;                            // Number of parameters that are to be treated as discrete
 const int         discrete[]          = {};                           // Indices of discrete parameters, Fortran style, i.e. starting at 1!!
@@ -32,9 +32,10 @@ const double      Ztolerance          = 1.e-3;                        // Input t
 const int         savecount           = 100;                          // Save progress every savecount generations
 const bool        resume              = false;                        // Restart from a previous run
 const bool        outputSamples       = false;                        // Write output .raw and .sam (if nDerived != 0) files
-const int         init_pop_strategy   = 0;                            // Initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found. 
+const int         init_pop_strategy   = 0;                            // Initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found.
 const int         max_init_attempts   = 10000;                        // Maximum number of times to try to find a valid vector for each slot in the initial population.
 const double      max_acceptable_val  = 1e6;                          // Maximum fitness to accept for the initial generation if init_population_strategy > 0.
+const int         seed                = 1234567;                      // base seed for random number generation; non-positive or absent means seed from the system clock
 const int         verbose             = 1;                            // Output verbosity: 0=only error messages, 1=basic info, 2=civ-level info, 3+=population info
 
 
@@ -54,9 +55,9 @@ double gauss(double params[], const int param_dim, int *fcall, bool *quit, const
 int main(int argc, char** argv)
 {
   void* context = &gauss; //Not actually used in this example.
-  cdiver(gauss, nPar, lowerbounds, upperbounds, path, nDerived, nDiscrete, discrete, partitionDiscrete, 
+  cdiver(gauss, nPar, lowerbounds, upperbounds, path, nDerived, nDiscrete, discrete, partitionDiscrete,
          maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh,
-         convsteps, removeDuplicates, doBayesian, NULL, maxNodePop, Ztolerance, savecount, resume, 
-         outputSamples, init_pop_strategy, max_init_attempts, max_acceptable_val, context, verbose); 
+         convsteps, removeDuplicates, doBayesian, NULL, maxNodePop, Ztolerance, savecount, resume,
+         outputSamples, init_pop_strategy, max_init_attempts, max_acceptable_val, seed, context, verbose);
          //Note that prior, maxNodePop and Ztolerance are just ignored if doBayesian = false
 }

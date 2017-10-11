@@ -19,21 +19,21 @@ implicit none
 
 public
 
-contains 
+contains
 
 
-  !Main differential evolution routine.  
+  !Main differential evolution routine.
   subroutine diver(func, lowerbounds, upperbounds, path, nDerived, discrete, partitionDiscrete,            &
                    maxciv, maxgen, NP, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE,               &
                    convthresh, convsteps, removeDuplicates, doBayesian, prior, maxNodePop, Ztolerance,     &
                    savecount, resume, outputSamples, init_population_strategy, max_initialisation_attempts,&
-                   max_acceptable_value, context, verbose)
+                   max_acceptable_value, seed, context, verbose)
 
     use iso_c_binding, only: c_ptr
 
     procedure(MinusLogLikeFunc)      :: func                    !the likelihood function to be minimised -- assumed to be -ln(likelihood)
     real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds !boundaries of parameter space
-    character(len=*), intent(in)     :: path                    !path to save samples, resume files, etc  
+    character(len=*), intent(in)     :: path                    !path to save samples, resume files, etc
     integer, intent(in), optional    :: nDerived                !input number of derived quantities to output
     integer, dimension(:), intent(in), optional :: discrete     !a vector listing all discrete dimensions of parameter space
     logical, intent(in), optional    :: partitionDiscrete       !split the population evenly amongst discrete parameters and evolve separately
@@ -57,14 +57,16 @@ contains
     real(dp), intent(in), optional   :: Ztolerance              !input tolerance in log-evidence
     integer, intent(in), optional    :: savecount               !save progress every savecount generations
     logical, intent(in), optional    :: resume                  !restart from a previous run
-    integer, intent(in), optional    :: init_population_strategy!initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found. 
+    integer, intent(in), optional    :: init_population_strategy!initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found.
     integer, intent(in), optional    :: max_initialisation_attempts !maximum number of times to try to find a valid vector for each slot in the initial population.
     real(dp), intent(in), optional   :: max_acceptable_value    !maximum fitness to accept for the initial generation if init_population_strategy > 0.
     logical, intent(in), optional    :: outputSamples           !write samples as output
-    type(c_ptr), intent(inout), optional :: context             !context pointer, used for passing info from the caller to likelihood/prior 
+    integer, intent(in), optional    :: seed                    !base seed for random number generation; non-positive or absent means seed from the system clock
+    type(c_ptr), intent(inout), optional :: context             !context pointer, used for passing info from the caller to likelihood/prior
+
     integer, intent(in), optional    :: verbose                 !output verbosity: 0=only error messages, 1=basic info, 2=civ-level info, 3+=population info
-     
-    type(codeparams) :: run_params                              !carries the code parameters 
+
+    type(codeparams) :: run_params                              !carries the code parameters
 
     type(population), target :: X, BF                           !population of target vectors, best-fit vector
     type(population) :: Xnew, Xsub                              !population for the next generation, partitioned subpopulation
@@ -80,7 +82,7 @@ contains
     real(dp) :: Z=0., Zmsq=0., Zerr=0., Zold=0.                 !evidence
     integer :: Nsamples = 0                                     !number of statistically independent samples from posterior
     integer :: Nsamples_saved = 0                               !number of samples saved to .sam file so far
-    logical :: quit = .false.                                   !flag passed from user function to indicate need to stop 
+    logical :: quit = .false.                                   !flag passed from user function to indicate need to stop
 
     integer :: ierror                                           !MPI error code
     logical :: mpi_already_init                                 !MPI initialization
@@ -99,20 +101,21 @@ contains
     !Assign specified or default values to run_params and print out information to the screen
     call param_assign(run_params, lowerbounds, upperbounds, nDerived=nDerived, discrete=discrete,    &
                       partitionDiscrete=partitionDiscrete, maxciv=maxciv, maxgen=maxgen, NP=NP,      &
-                      F=F, Cr=Cr, lambda=lambda, current=current, expon=expon, bndry=bndry, jDE=jDE, & 
+                      F=F, Cr=Cr, lambda=lambda, current=current, expon=expon, bndry=bndry, jDE=jDE, &
                       lambdajDE=lambdajDE, convthresh=convthresh, convsteps=convsteps,               &
                       removeDuplicates=removeDuplicates, doBayesian=doBayesian,                      &
                       maxNodePop=maxNodePop, Ztolerance=Ztolerance, savecount=savecount,             &
                       outputSamples=outputSamples, init_population_strategy=init_population_strategy,&
                       max_initialisation_attempts=max_initialisation_attempts,                       &
-                      max_acceptable_value=max_acceptable_value, context=context, verbose=verbose)
+                      max_acceptable_value=max_acceptable_value, seed=seed, context=context,         &
+                      verbose=verbose)
 
     if (run_params%calcZ .and. .not. present(prior)) then
        call quit_de('Error: evidence calculation requested without specifying a prior.')
     end if
 
     !seed the random number generator(s) from the system clock
-    call init_all_random_seeds(run_params%DE%NP/run_params%mpipopchunk, run_params%mpirank)
+    call init_all_random_seeds(run_params%DE%NP/run_params%mpipopchunk, run_params%mpirank, run_params%seed)
 
     !Allocate vector population: X is the full population, Xnew is the size of the population each process handles
     !Xsub is a subset of the population that has the same values of discrete parameters when partitionDiscrete is used.
@@ -139,10 +142,10 @@ contains
           allocate(Xnew%lambdajDE(run_params%mpipopchunk))
        end if
     endif
-    
+
     !Allocate best-fit containers
     allocate(BF%vectors(1, run_params%D), BF%vectors_and_derived(1, run_params%D+run_params%D_derived), BF%values(1))
-    
+
     !If required, initialise the linked tree used for estimating the evidence and posterior
     if (run_params%calcZ) call iniTree(lowerbounds,upperbounds,run_params%maxNodePop)
 
@@ -151,7 +154,7 @@ contains
 
     !Resume from saved run or initialise save files for a new one.
     call io_begin(path, civstart, genstart, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, totfcall, &
-                  run_params, X, BF, prior=prior, restart=resume)    
+                  run_params, X, BF, prior=prior, restart=resume)
 
     !Tidy a few things up if resuming.
     if (present(resume)) then
@@ -185,16 +188,16 @@ contains
           write (*,*) '-----------------------------'
           write (*,*) 'Civilisation: ', civ
        end if
-       
+
        !Internal (normal) DE loop: calculates population for each generation
-       genloop: do gen = genstart, run_params%numgen 
+       genloop: do gen = genstart, run_params%numgen
 
           if (run_params%verbose .ge. 2) then
              write (*,*) '  -----------------------------'
              write (*,*) '  Generation: ', gen
           end if
-     
-          if (gen .eq. 1) then 
+
+          if (gen .eq. 1) then
 
              !Initialise the convergence criterion
              call init_convergence(run_params)
@@ -220,9 +223,9 @@ contains
                    call save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, huge(Z), Nsamples, Nsamples_saved, totfcall, run_params)
                 endif
              endif
-            
+
           else
-             
+
              accept = 0
 
              poploop: do m=1, run_params%mpipopchunk                       !evolves individual members of the population
@@ -235,17 +238,17 @@ contains
                 else
                    call mutate(X, V, n, run_params, trialF, triallambda)   !create new donor vector V
                 endif
-               
-                call gencrossover(X, V, U, n, run_params, trialCr)         !trial vectors 
-    
-                !choose next generation          
+
+                call gencrossover(X, V, U, n, run_params, trialCr)         !trial vectors
+
+                !choose next generation
                 call selector(X, Xnew, U, trialF, triallambda, trialCr, m, n, run_params, func, fcall, quit, accept)
 
                 if (abs(run_params%verbose) .ge. 3) then
                    if (run_params%DE%lambdajDE) then
                       write (*,*) n, Xnew%vectors_and_derived(m, :), '->', Xnew%values(m), '|', &
                                   Xnew%lambdajDE(m), Xnew%FjDE(m), Xnew%CrjDE(m)
-                   else if (run_params%DE%jDE) then 
+                   else if (run_params%DE%jDE) then
                       write (*,*) n, Xnew%vectors_and_derived(m, :), '->', Xnew%values(m), '|', Xnew%FjDE(m), Xnew%CrjDE(m)
                    else
                       write (*,*) n, Xnew%vectors_and_derived(m, :), '->', Xnew%values(m)
@@ -289,12 +292,12 @@ contains
           if (converged(X, run_params) .or. quit) exit
 
        end do genloop
-       
+
        genstart = 1
-          
+
        !Update best fits
        call newBFs(X,BF)
- 
+
        if (run_params%verbose .ge. 3) then
           write (*,*)
           write (*,*) '  ============================='
@@ -325,7 +328,7 @@ contains
     !Polish the evidence
     if (run_params%calcZ .and. run_params%mpirank .eq. 0 .and. Nsamples_saved .gt. 0) then
       Zold = Z
-      call polishEvidence(Z, Zmsq, Zerr, prior, run_params%context, Nsamples_saved, path, run_params, .true.)   
+      call polishEvidence(Z, Zmsq, Zerr, prior, run_params%context, Nsamples_saved, path, run_params, .true.)
       if (run_params%verbose .ge. 1) then
          write (*,'(A25,E13.6)') ' corrected ln(Evidence): ', log(Z)
          write (*,'(A25,E13.6,A6)') '                     +/- ', abs(log(Z/Zold)), ' (sys)'

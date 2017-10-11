@@ -48,20 +48,20 @@ real(dp) function step(params, fcall, quit, validvector, context)
   type(c_ptr) :: context_dummy
   logical, intent(out) :: quit
   logical, intent(in) :: validvector
-  
+
   context_dummy = context
 
   fcall = fcall + 1
   quit = .false.
-  if (.not. validvector) then 
+  if (.not. validvector) then
      step = huge(1.0_dp)
   else if (params(1) .gt. 0.0_dp) then
-    step = 0.0_dp 
-  else 
+    step = 0.0_dp
+  else
     step = 1.0_dp
   endif
   !params(size(lowerbounds)+1:) = [2.0_dp*params(1),params(1)+params(2)]
-  
+
 end function step
 
 
@@ -72,21 +72,21 @@ real(dp) function linear(params, fcall, quit, validvector, context)
   type(c_ptr) :: context_dummy
   logical, intent(out) :: quit
   logical, intent(in) :: validvector
-  
+
   context_dummy = context
 
   fcall = fcall + 1
   quit = .false.
-  if (.not. validvector) then 
+  if (.not. validvector) then
      linear = huge(1.0_dp)
   else if (params(1) .gt. 0.0_dp) then
-    linear = params(1) 
-  else 
+    linear = params(1)
+  else
     linear = 0.0_dp
   endif
 
   !params(size(lowerbounds)+1:) = [2.0_dp*params(1),params(1)+params(2)]
-  
+
 end function linear
 
 
@@ -192,7 +192,7 @@ real(dp) function rosenbrock(params, fcall, quit, validvector, context)
 
   fcall = fcall + 1
   quit = .false.
-  
+
   rosenbrock = (1 - params(1))**2 + 100*(params(2) - params(1)**2)**2 + 1
   if (.not. validvector) rosenbrock = huge(1.0_dp)
 
@@ -220,7 +220,7 @@ real(dp) function rastrigin(params, fcall, quit, validvector, context)
   fcall = fcall + 1
   quit = .false.
 
-  rastrigin = size(lowerbounds)*10 
+  rastrigin = size(lowerbounds)*10
 
   do i=1, size(lowerbounds)
      rastrigin = rastrigin + params(i)**2 - 10*cos(2*pi*params(i))
@@ -277,7 +277,7 @@ real(dp) function flatprior(X, context)
   context_dummy = context
   X_dummy = X(1)
   flatprior = 1.0_dp / product(boundranges)
-  
+
 end function flatprior
 
 
@@ -285,7 +285,7 @@ end module examples
 
 
 !Tester for general differential evolution
-program example_f 
+program example_f
 
   use examples
 

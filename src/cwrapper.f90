@@ -2,10 +2,10 @@
 !
 ! Allows one to call Diver using the C/C++ prototypes
 !
-! void cdiver(double (*minusloglike)(double[], const int, int&, bool&, bool, void*&), 
-!             int nPar, const double lowerbounds[], const double upperbounds[], const char path[], int nDerived, 
-!             int nDiscrete, const int discrete[], bool partitionDiscrete, int maxciv, int maxgen, int NP, int nF, 
-!             const double F[], double Cr, double lambda, bool current, bool expon, int bndry, bool jDE, bool lambdajDE, 
+! void cdiver(double (*minusloglike)(double[], const int, int&, bool&, bool, void*&),
+!             int nPar, const double lowerbounds[], const double upperbounds[], const char path[], int nDerived,
+!             int nDiscrete, const int discrete[], bool partitionDiscrete, int maxciv, int maxgen, int NP, int nF,
+!             const double F[], double Cr, double lambda, bool current, bool expon, int bndry, bool jDE, bool lambdajDE,
 !             double convthresh, int convsteps, bool removeDuplicates, bool doBayesian, double(*prior)(const double[], const int, void*&),
 !             double maxNodePop, double Ztolerance, int savecount, bool resume, bool outputSamples, int init_population_strategy,
 !             int max_initialisation_attempts, double max_acceptable_value, void*& context, int verbose)
@@ -29,12 +29,12 @@ public cdiver
 type(c_funptr) :: minusloglike, prior
 
 contains
-	
+
     subroutine cdiver(minusloglike_in, nPar, lowerbounds, upperbounds, path, nDerived, nDiscrete, discrete,  &
                       partitionDiscrete, maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon,              &
                       bndry, jDE, lambdajDE,  convthresh, convsteps, removeDuplicates, doBayesian, prior_in, &
                       maxNodePop, Ztolerance, savecount, resume, outputSamples, init_population_strategy,    &
-                      max_initialisation_attempts, max_acceptable_value, context, verbose) bind(c)
+                      max_initialisation_attempts, max_acceptable_value, seed, context, verbose) bind(c)
 
     use iso_c_binding, only: c_int, c_bool, c_double, c_char, c_funptr, c_ptr, C_NULL_CHAR
     use de, only: diver
@@ -44,11 +44,11 @@ contains
     type(c_funptr),  intent(in), value :: minusloglike_in, prior_in
     type(c_ptr),     intent(inout)     :: context
     integer(c_int),  intent(in), value :: nPar, nDerived, nDiscrete, maxciv, maxgen, NP, nF, bndry, convsteps, savecount, verbose
-    integer(c_int),  intent(in), value :: init_population_strategy, max_initialisation_attempts
+    integer(c_int),  intent(in), value :: init_population_strategy, max_initialisation_attempts, seed
     integer(c_int),  intent(in), target:: discrete(nDiscrete)
     logical(c_bool), intent(in), value :: partitionDiscrete, current, expon, jDE, lambdajDE, removeDuplicates, doBayesian, resume
     logical(c_bool), intent(in), value :: outputSamples
-    real(c_double),  intent(in), value :: Cr, lambda, convthresh, maxNodePop, Ztolerance, max_acceptable_value 
+    real(c_double),  intent(in), value :: Cr, lambda, convthresh, maxNodePop, Ztolerance, max_acceptable_value
     real(c_double),  intent(in)        :: lowerbounds(nPar), upperbounds(nPar), F(nF)
     character(kind=c_char,len=1), dimension(maxpathlen), intent(in) :: path
 
@@ -71,14 +71,14 @@ contains
        end if
     end do
 
-    ! Fix up the potential null pointer passed in instead of an illegal zero-element C array if nDiscrete = 0 
+    ! Fix up the potential null pointer passed in instead of an illegal zero-element C array if nDiscrete = 0
     if (nDiscrete .eq. 0) then
       discrete_f => discrete_empty
-    else 
+    else
       discrete_f => discrete
     endif
 
-    ! Choose a null pointer for the prior function if it isn't needed 
+    ! Choose a null pointer for the prior function if it isn't needed
     if (doBayesian) then
 
       ! Call the actual fortran differential evolution function
@@ -90,7 +90,7 @@ contains
                  maxNodePop=maxNodePop, Ztolerance=Ztolerance, savecount=savecount, resume=logical(resume),      &
                  outputSamples=logical(outputSamples), init_population_strategy=init_population_strategy,        &
                  max_initialisation_attempts=max_initialisation_attempts,                                        &
-                 max_acceptable_value=max_acceptable_value, context=context, verbose=verbose)
+                 max_acceptable_value=max_acceptable_value, seed=seed, context=context, verbose=verbose)
 
     else
 
@@ -103,11 +103,11 @@ contains
                  maxNodePop=maxNodePop, Ztolerance=Ztolerance, savecount=savecount, resume=logical(resume),      &
                  outputSamples=logical(outputSamples), init_population_strategy=init_population_strategy,        &
                  max_initialisation_attempts=max_initialisation_attempts,                                        &
-                 max_acceptable_value=max_acceptable_value, context=context, verbose=verbose)
+                 max_acceptable_value=max_acceptable_value, seed=seed, context=context, verbose=verbose)
 
     endif
- 
-    
+
+
     end subroutine
 
 
@@ -115,7 +115,7 @@ contains
     real(dp) function minusloglike_f(params, fcall, quit, validvector, context)
     use iso_c_binding, only: c_f_procpointer, c_ptr, c_bool
     use detypes, only: dp
-  
+
     real(dp),    intent(inout) :: params(:)
     integer,     intent(inout) :: fcall
     logical,     intent(out)   :: quit
@@ -141,7 +141,7 @@ contains
        ! Cast c_funptr minusloglike to a pointer with signature minusloglike_proto, and assign the result to minusloglike_c
        call c_f_procpointer(minusloglike,minusloglike_c)
 
-       validvector_c = validvector  ! Do boolen type conversion default logical --> c_bool 
+       validvector_c = validvector  ! Do boolen type conversion default logical --> c_bool
        minusloglike_f = minusloglike_c(params, size(params), fcall, quit_c, validvector_c, context)
        quit = quit_c                ! Do boolen type conversion c_bool --> default logical
 
@@ -155,7 +155,7 @@ contains
 
     real(dp),    intent(in)    :: true_params(:)
     type(c_ptr), intent(inout) :: context
-    
+
     interface
        real(c_double) function prior_proto(true_params, true_param_dim, context) bind(c)
           use iso_c_binding, only: c_double, c_int, c_ptr

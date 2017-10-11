@@ -15,7 +15,7 @@ implicit none
 private
 public param_assign, initialize, init_all_random_seeds
 
-character (len=*), parameter :: version_number = "1.0.2"
+character (len=*), parameter :: version_number = "1.0.3"
 
 contains
 
@@ -24,8 +24,8 @@ contains
   subroutine param_assign(run_params, lowerbounds, upperbounds, nDerived, discrete, partitionDiscrete, maxciv,     &
                           maxgen, NP, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh, convsteps, &
                           removeDuplicates, doBayesian, maxNodePop, Ztolerance, savecount, outputSamples,          &
-                          init_population_strategy, max_initialisation_attempts, max_acceptable_value, context,    &
-                          verbose)
+                          init_population_strategy, max_initialisation_attempts, max_acceptable_value, seed,       &
+                          context, verbose)
 
     use iso_c_binding, only: C_NULL_PTR, c_ptr
 
@@ -56,6 +56,7 @@ contains
     integer, intent(in), optional  :: init_population_strategy          !initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found.
     integer, intent(in), optional  :: max_initialisation_attempts       !maximum number of times to try to find a valid vector for each slot in the initial population.
     real(dp), intent(in), optional :: max_acceptable_value              !maximum fitness to accept for the initial generation if init_population_strategy > 0.
+    integer, intent(in), optional  :: seed                              !base seed for random number generation; non-positive or absent means seed from the system clock
     type(c_ptr), intent(inout), optional  :: context                    !context pointer/integer, used for passing info from the caller to likelihood/prior
     integer, intent(in), optional  :: verbose                           !how much info to print to screen: 0-quiet, 1-basic info, 2-civ info, 3+ everything
 
@@ -75,6 +76,17 @@ contains
 
     run_params%mpiprocs = mpiprocs
     run_params%mpirank = mpirank
+
+    !save the seed for the random number generator
+    if (present(seed)) then
+       if (seed .le. 0) then
+         run_params%seed = -1
+       else
+         run_params%seed = seed
+       endif
+    else
+       run_params%seed = -1
+    endif
 
     !default level of output is to print errors, most warnings, info about the program & final results
     call setIfNonNegative_int('verbose', run_params%verbose, 1, invar=verbose)
@@ -614,30 +626,50 @@ contains
   end subroutine initialize
 
 
-  !based on init_random_seed below. Calls init_random_seed for master process,
-  !then (if using MPI) generates new seeds for secondary processes and distributes them
-  subroutine init_all_random_seeds(nprocs, mpirank)
+  !Generates a seed for master process, then (if using MPI) generates new seeds
+  !for secondary processes and distributes them
+  subroutine init_all_random_seeds(nprocs, mpirank, input_seed)
     integer, intent(in) :: nprocs         !number of processes that need seeds
     integer, intent(in) :: mpirank
-    integer :: n, clock, ierror
+    integer, intent(in) :: input_seed
+    integer :: i, n, clock, ierror
     real(dp), dimension(:), allocatable :: rand
     integer, dimension(:,:), allocatable :: allseeds
     integer, dimension(:), allocatable :: seed
 
-    !initialize master seed
-    if (mpirank .eq. 0) call init_random_seed()
-
-    !initialize random seeds for secondary processes
-#ifdef MPI
     call random_seed(size = n)
-    allocate(allseeds(n, nprocs))
     allocate(seed(n))
+
+    !initialize master seed
+    if (mpirank .eq. 0) then
+
+      if (input_seed .gt. 0) then
+        clock = input_seed
+      else
+        call system_clock(count=clock)
+      endif
+
+      !yanked from the gfortran documentation
+      seed = clock + 37 * (/ (i - 1, i = 1, n) /)
+      call random_seed(put = seed)
+
+    endif
+
+#ifdef MPI
+    !initialize random seeds for secondary processes
+    allocate(allseeds(n, nprocs))
 
     if (mpirank .eq. 0) then                     !master process
        allocate(rand(nprocs*n))
-       call random_number(rand)
-       call system_clock(count=clock)
-       rand = 0.5_dp*clock*(1_dp + rand)
+
+       if (input_seed .gt. 0) then
+         rand = input_seed + 13 * (/ (i, i = 1, nprocs*n) /)
+       else
+         call random_number(rand)
+         call system_clock(count=clock)
+         rand = 0.5_dp*clock*(1_dp + rand)
+       endif
+
        allseeds = reshape(int(rand), (/n, nprocs/))
        deallocate(rand)
     end if
@@ -649,24 +681,8 @@ contains
     deallocate(seed, allseeds)
 #endif
 
+
   end subroutine init_all_random_seeds
-
-
-  !Yanked from the gfortran documentation
-  SUBROUTINE init_random_seed()
-    INTEGER :: i, n, clock
-    INTEGER, DIMENSION(:), ALLOCATABLE :: seed
-
-    CALL RANDOM_SEED(size = n)
-    ALLOCATE(seed(n))
-
-    CALL SYSTEM_CLOCK(COUNT=clock)
-    seed = clock + 37 * (/ (i - 1, i = 1, n) /)
-
-    CALL RANDOM_SEED(PUT = seed)
-
-    DEALLOCATE(seed)
-  END SUBROUTINE
 
 
 end module init
