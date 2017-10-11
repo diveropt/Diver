@@ -1,3 +1,6 @@
+1.0.3 -- Sep 2017
+Added argument to allow random number generator to be seeded when calling Diver.
+
 1.0.2 -- June 2017
 Another fix to dependencies in makefile for parallel building.
 
