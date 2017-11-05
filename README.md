@@ -10,7 +10,7 @@ About
 Diver is written in Fortran2003.  We originally wrote it with applications in particle physics and astronomy in mind, but there is nothing to prevent its use in other fields.
 
 The code and its options are described in detail in the ScannerBit paper included in the distribution.  Any papers that use results or insights obtained with Diver should cite this paper:
-  1. Martinez, McKay, Farmer, Scott, Roebber, Putze & Conrad 2017, submitted to European Physical Journal C, [arXiv:1705.07959](https://arxiv.org/abs/1705.07959)
+  1. Martinez, McKay, Farmer, Scott, Roebber, Putze & Conrad 2017, European Physical Journal C in press, [arXiv:1705.07959](https://arxiv.org/abs/1705.07959)
 
 
 Compilation

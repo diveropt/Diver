@@ -1,3 +1,6 @@
+1.0.4 -- Nov 2017
+Made workaround for compatibility with intel 2018 compilers
+
 1.0.3 -- Sep 2017
 Added argument to allow random number generator to be seeded when calling Diver.
 
