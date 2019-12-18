@@ -26,8 +26,8 @@ contains
   subroutine diver(func, lowerbounds, upperbounds, path, nDerived, discrete, partitionDiscrete,            &
                    maxciv, maxgen, NP, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE,               &
                    convthresh, convsteps, removeDuplicates, doBayesian, prior, maxNodePop, Ztolerance,     &
-                   savecount, resume, outputSamples, init_population_strategy, max_initialisation_attempts,&
-                   max_acceptable_value, seed, context, verbose)
+                   savecount, resume, outputSamples, init_population_strategy, discard_unfit_points,       &
+                   max_initialisation_attempts, max_acceptable_value, seed, context, verbose)
 
     use iso_c_binding, only: c_ptr
 
@@ -58,8 +58,9 @@ contains
     integer, intent(in), optional    :: savecount               !save progress every savecount generations
     logical, intent(in), optional    :: resume                  !restart from a previous run
     integer, intent(in), optional    :: init_population_strategy!initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found.
+    logical, intent(in), optional    :: discard_unfit_points    !recalculate any trial vector whose fitness is above max_acceptable_value if .true.
     integer, intent(in), optional    :: max_initialisation_attempts !maximum number of times to try to find a valid vector for each slot in the initial population.
-    real(dp), intent(in), optional   :: max_acceptable_value    !maximum fitness to accept for the initial generation if init_population_strategy > 0.
+    real(dp), intent(in), optional   :: max_acceptable_value    !maximum fitness to accept for the initial generation if init_population_strategy > 0. Also applies to later generations if discard_unfit_points = .true.
     logical, intent(in), optional    :: outputSamples           !write samples as output
     integer, intent(in), optional    :: seed                    !base seed for random number generation; non-positive or absent means seed from the system clock
     type(c_ptr), intent(inout), optional :: context             !context pointer, used for passing info from the caller to likelihood/prior
@@ -83,6 +84,7 @@ contains
     integer :: Nsamples = 0                                     !number of statistically independent samples from posterior
     integer :: Nsamples_saved = 0                               !number of samples saved to .sam file so far
     logical :: quit = .false.                                   !flag passed from user function to indicate need to stop
+    logical :: acceptable_trial_vector                          !dictates the calculation/recalculation of trial vectors
 
     integer :: ierror                                           !MPI error code
     logical :: mpi_already_init                                 !MPI initialization
@@ -106,6 +108,7 @@ contains
                       removeDuplicates=removeDuplicates, doBayesian=doBayesian,                      &
                       maxNodePop=maxNodePop, Ztolerance=Ztolerance, savecount=savecount,             &
                       outputSamples=outputSamples, init_population_strategy=init_population_strategy,&
+                      discard_unfit_points=discard_unfit_points,                                     &
                       max_initialisation_attempts=max_initialisation_attempts,                       &
                       max_acceptable_value=max_acceptable_value, seed=seed, context=context,         &
                       verbose=verbose)
@@ -232,17 +235,24 @@ contains
 
                 n = run_params%mpipopchunk*run_params%mpirank + m          !current member of the population (same as m if no MPI)
 
-                if (run_params%partitionDiscrete) then
-                   call getSubpopulation(X, Xsub, n, nsub, run_params)     !restrict donor pool to this member's subpopulation
-                   call mutate(Xsub, V, nsub, run_params, trialF, triallambda) !create new donor vector V
-                else
-                   call mutate(X, V, n, run_params, trialF, triallambda)   !create new donor vector V
-                endif
+                !keep making trial vectors until one has a fitness less than max_acceptable_value, if discard_unfit_points = .true.
+                do
+                   if (run_params%partitionDiscrete) then
+                      call getSubpopulation(X, Xsub, n, nsub, run_params)     !restrict donor pool to this member's subpopulation
+                      call mutate(Xsub, V, nsub, run_params, trialF, triallambda) !create new donor vector V
+                   else
+                      call mutate(X, V, n, run_params, trialF, triallambda)   !create new donor vector V
+                   endif
 
-                call gencrossover(X, V, U, n, run_params, trialCr)         !trial vectors
+                   call gencrossover(X, V, U, n, run_params, trialCr)         !trial vectors
 
-                !choose next generation
-                call selector(X, Xnew, U, trialF, triallambda, trialCr, m, n, run_params, func, fcall, quit, accept)
+                   !choose next generation
+                   call selector(X, Xnew, U, trialF, triallambda, trialCr, m, n, run_params, func, fcall, quit, &
+                        accept, discard_unfit_points, max_acceptable_value, acceptable_trial_vector)
+
+                   if (acceptable_trial_vector) exit
+
+                end do
 
                 if (abs(run_params%verbose) .ge. 3) then
                    if (run_params%DE%lambdajDE) then

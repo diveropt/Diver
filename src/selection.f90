@@ -16,22 +16,25 @@ public selector, replace_generation, roundvector
 
 contains 
 
-  subroutine selector(X, Xnew, U, trialF, triallambda, trialCr, m, n, run_params, func, fcall, quit, accept)
+  subroutine selector(X, Xnew, U, trialF, triallambda, trialCr, m, n, run_params, func, fcall, quit, &
+       accept, discard_unfit_points, max_acceptable_value, acceptable_trial_vector)
 
     type(population), intent(in) :: X
     type(population), intent(inout) :: Xnew
     integer, intent(inout) :: fcall, accept
     real(dp), dimension(:), intent(in) :: U
-    real(dp), intent(in) :: trialF, triallambda, trialCr
+    real(dp), intent(in) :: trialF, triallambda, trialCr, max_acceptable_value
     integer, intent(in) :: m, n              !current index for population chunk (m) and full population (n) 
     type(codeparams), intent(inout) :: run_params
+    logical, intent(in) :: discard_unfit_points
+    logical, intent(out) :: acceptable_trial_vector
     logical, intent(inout) :: quit
     procedure(MinusLogLikeFunc) :: func
 
     real(dp) :: trialvalue
     real(dp), dimension(size(U)) :: trialvector
     real(dp), dimension(size(X%vectors_and_derived(1,:))) :: trialderived
-    logical :: validvector
+    logical :: validvector, acceptable_fitness
 
 
     trialderived = 0.
@@ -78,29 +81,34 @@ contains
     end if
 #endif
 
-    !when the trial vector is at least as good as the current member  
-    !of the population, use the trial vector for the next generation
-    if (trialvalue .le. X%values(n)) then
-       Xnew%vectors(m,:) = trialvector 
-       Xnew%vectors_and_derived(m,:) = trialderived
-       Xnew%values(m) = trialvalue
-       if (run_params%DE%jDE) then  !in jDE, also keep F and Cr (and lambda)
-          Xnew%FjDE(m) = trialF
-          Xnew%CrjDE(m) = trialCr
-          if (run_params%DE%lambdajDE) then
-             Xnew%lambdajDE(m) = triallambda
+    acceptable_fitness = (trialvalue .le. max_acceptable_value) !true if point is acceptably fit
+    acceptable_trial_vector = (acceptable_fitness .or. .not. discard_unfit_points) !true if trial vector is acceptable
+
+    if (acceptable_trial_vector) then
+       !when the trial vector is at least as good as the current member  
+       !of the population, use the trial vector for the next generation
+       if (trialvalue .le. X%values(n)) then
+          Xnew%vectors(m,:) = trialvector 
+          Xnew%vectors_and_derived(m,:) = trialderived
+          Xnew%values(m) = trialvalue
+          if (run_params%DE%jDE) then  !in jDE, also keep F and Cr (and lambda)
+             Xnew%FjDE(m) = trialF
+             Xnew%CrjDE(m) = trialCr
+             if (run_params%DE%lambdajDE) then
+                Xnew%lambdajDE(m) = triallambda
+             end if
           end if
-       end if
-       accept = accept + 1
-    else
-       Xnew%vectors(m,:) = X%vectors(n,:) 
-       Xnew%vectors_and_derived(m,:) = X%vectors_and_derived(n,:)
-       Xnew%values(m) = X%values(n)
-       if (run_params%DE%jDE) then
-          Xnew%FjDE(m) = X%FjDE(n)
-          Xnew%CrjDE(m) = X%CrjDE(n)
-          if (run_params%DE%lambdajDE) then
-             Xnew%lambdajDE(m) = X%lambdajDE(n)
+          accept = accept + 1
+       else
+          Xnew%vectors(m,:) = X%vectors(n,:) 
+          Xnew%vectors_and_derived(m,:) = X%vectors_and_derived(n,:)
+          Xnew%values(m) = X%values(n)
+          if (run_params%DE%jDE) then
+             Xnew%FjDE(m) = X%FjDE(n)
+             Xnew%CrjDE(m) = X%CrjDE(n)
+             if (run_params%DE%lambdajDE) then
+                Xnew%lambdajDE(m) = X%lambdajDE(n)
+             end if
           end if
        end if
     end if

@@ -46,7 +46,8 @@ type codeparams                                         !code parameters (rememb
    integer :: mpiprocs                                  !number of processes running (1 if no MPI)
    integer :: mpipopchunk                               !number of vectors for each process to work on (NP if no MPI)
    integer :: init_population_strategy                  !initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found.
-   integer :: max_initialisation_attempts               !maximum number of times to try to find a valid vector for each slot in the initial population.
+   logical :: discard_unfit_points                      !recalculate any trial vector whose fitness is above max_acceptable_value if .true.
+   integer :: max_initialisation_attempts               !maximum number of times to try to find a valid vector for each slot in the initial population. Also applies to later generations if discard_unfit_points = .true.
    real(dp) :: max_acceptable_value                     !maximum fitness to accept for the initial generation if init_population_strategy > 0.
    type(c_ptr) :: context                               !context pointer
    integer :: verbose                                   !level of verbosity: 0=quiet, 1=basic, 2=civ-level info, 3=verbose, negative for mpirank!=0
