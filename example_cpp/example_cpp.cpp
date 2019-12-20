@@ -34,11 +34,11 @@ const int         savecount            = 1;                            // Save p
 const bool        resume               = false;                        // Restart from a previous run
 const bool        outputSamples        = true;                         // Write output .raw and .sam (if nDerived != 0) files
 const int         init_pop_strategy    = 2;                            // Initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found.
-const bool        discard_unfit_points = false;                        // Recalculate any trial vector whose fitness is above max_acceptable_value if true
+const bool        discard_unfit_points = false;                        // Recalculate any trial vector whose fitness is above max_acceptable_value
 const int         max_init_attempts    = 10000;                        // Maximum number of times to try to find a valid vector for each slot in the initial population.
-const double      max_acceptable_val   = 1e6;                          // Maximum fitness to accept for the initial generation if init_population_strategy > 0.
+const double      max_acceptable_val   = 1e6;                          // Maximum fitness to accept for the initial generation if init_population_strategy > 0, or any generation if discard_unfit_points = true.
 const int         seed                 = -1;                           // base seed for random number generation; non-positive or absent means seed from the system clock
-const int         verbose              = 2;                            // Output verbosity: 0=only error messages, 1=basic info, 2=civ-level info, 3+=population info
+const int         verbose              = 1;                            // Output verbosity: 0=only error messages, 1=basic info, 2=civ-level info, 3+=population info
 
 const double Pi = 3.14159265359;                                            // Tasty
 typedef double (*likelihood)(double[], const int, int&, bool&, const bool); // This example's internal standard likelihood function signature

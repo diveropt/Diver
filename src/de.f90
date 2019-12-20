@@ -58,7 +58,7 @@ contains
     integer, intent(in), optional    :: savecount               !save progress every savecount generations
     logical, intent(in), optional    :: resume                  !restart from a previous run
     integer, intent(in), optional    :: init_population_strategy!initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found.
-    logical, intent(in), optional    :: discard_unfit_points    !recalculate any trial vector whose fitness is above max_acceptable_value if .true.
+    logical, intent(in), optional    :: discard_unfit_points    !recalculate any trial vector whose fitness is above max_acceptable_value
     integer, intent(in), optional    :: max_initialisation_attempts !maximum number of times to try to find a valid vector for each slot in the initial population.
     real(dp), intent(in), optional   :: max_acceptable_value    !maximum fitness to accept for the initial generation if init_population_strategy > 0. Also applies to later generations if discard_unfit_points = .true.
     logical, intent(in), optional    :: outputSamples           !write samples as output

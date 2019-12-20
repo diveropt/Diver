@@ -54,7 +54,7 @@ contains
     integer, intent(in), optional  :: savecount                         !save progress every savecount generations
     logical, intent(in), optional  :: outputSamples                     !write samples as output
     integer, intent(in), optional  :: init_population_strategy          !initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found.
-    logical, intent(in), optional  :: discard_unfit_points              !recalculate any trial vector whose fitness is above max_acceptable_value if .true.
+    logical, intent(in), optional  :: discard_unfit_points              !recalculate any trial vector whose fitness is above max_acceptable_value
     integer, intent(in), optional  :: max_initialisation_attempts       !maximum number of times to try to find a valid vector for each slot in the initial population.
     real(dp), intent(in), optional :: max_acceptable_value              !maximum fitness to accept for the initial generation if init_population_strategy > 0. Also applies to later generations if discard_unfit_points = .true.
     integer, intent(in), optional  :: seed                              !base seed for random number generation; non-positive or absent means seed from the system clock
@@ -402,7 +402,7 @@ contains
     !Default is not to demand valid points in the initial generation.
     call setIfNonNegative_int("init_population_strategy", run_params%init_population_strategy, 0, invar=init_population_strategy)
 
-    !Default is not to demand trial vectors to be above fitness threshold.
+    !Default is not to demand trial vectors to pass fitness threshold.
     call set_logical(run_params%discard_unfit_points, .false., invar=discard_unfit_points)
 
     !Default is to allow 10,000 initialisation attempts in cases where valid points are preferred for the initial generation.
@@ -456,7 +456,7 @@ contains
        case (.false.)
           write (*,*) 'Validity of trial vectors will not be enforced.'
        case (.true.)
-          write (*,*) 'Trial vectors will be enforced to have a value below', &
+          write (*,*) 'New trial vectors will be generated until all have values below', &
            run_params%max_acceptable_value
        end select
 
