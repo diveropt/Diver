@@ -295,6 +295,7 @@ program example_f
   !            lambdajDE=.true., partitionDiscrete=.true., resume=.false., Ztolerance=0.1_dp, &
   !            removeDuplicates=.true., maxciv=1, NP=1000, bndry=3, prior=flatprior, verbose=1)
 
-  call diver(rosenbrock, lowerbounds, upperbounds, path, doBayesian=.false., verbose=3, prior=flatprior,lambdajDE=.true.)
+  call diver(rosenbrock, lowerbounds, upperbounds, path, doBayesian=.false., verbose=3, prior=flatprior, &
+             lambdajDE=.true., discard_unfit_points=.true.)
 
 end program example_f
