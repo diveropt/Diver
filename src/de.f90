@@ -247,8 +247,8 @@ contains
                    call gencrossover(X, V, U, n, run_params, trialCr)         !trial vectors
 
                    !choose next generation
-                   call selector(X, Xnew, U, trialF, triallambda, trialCr, m, n, run_params, func, fcall, quit, &
-                        accept, discard_unfit_points, max_acceptable_value, acceptable_trial_vector)
+                   call selector(X, Xnew, U, trialF, triallambda, trialCr, m, n, run_params, func, fcall, quit, accept, &
+                                 acceptable_trial_vector)
 
                    if (acceptable_trial_vector) exit
 
