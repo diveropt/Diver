@@ -20,6 +20,7 @@
 module de_c_interface
 
 use iso_c_binding, only: c_funptr
+use detypes
 
 implicit none
 
@@ -30,12 +31,12 @@ type(c_funptr) :: minusloglike, prior
 
 contains
 
-    subroutine cdiver(minusloglike_in, nPar, lowerbounds, upperbounds, path, nDerived, nDiscrete, discrete,  &
+    real(c_double) function cdiver(minusloglike_in, nPar, lowerbounds, upperbounds, path, nDerived, nDiscrete, discrete,  &
                       partitionDiscrete, maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon,              &
                       bndry, jDE, lambdajDE,  convthresh, convsteps, removeDuplicates, doBayesian, prior_in, &
                       maxNodePop, Ztolerance, savecount, resume, outputSamples, init_population_strategy,    &
                       discard_unfit_points, max_initialisation_attempts, max_acceptable_value, seed,         &
-                      context, verbose) bind(c)
+                      context, verbose, bestVector) bind(c)
 
     use iso_c_binding, only: c_int, c_bool, c_double, c_char, c_funptr, c_ptr, C_NULL_CHAR
     use de, only: diver
@@ -57,6 +58,9 @@ contains
     integer, target :: discrete_empty(0)
     integer, pointer :: discrete_f(:)
     character(len=maxpathlen) :: path_f
+
+    real(c_double) :: bestValue
+    real(c_double), dimension(*), intent(inout) :: bestVector
 
     ! Set the pointers to the likelihood and prior functions
     minusloglike = minusloglike_in
@@ -92,7 +96,9 @@ contains
                  outputSamples=logical(outputSamples), init_population_strategy=init_population_strategy,        &
                  discard_unfit_points=logical(discard_unfit_points),                                                      &
                  max_initialisation_attempts=max_initialisation_attempts,                                        &
-                 max_acceptable_value=max_acceptable_value, seed=seed, context=context, verbose=verbose)
+                 max_acceptable_value=max_acceptable_value, seed=seed, context=context, verbose=verbose,         &
+                 bestVector=bestVector, bestValue=bestValue)
+      cdiver = bestValue
 
     else
 
@@ -106,12 +112,14 @@ contains
                  outputSamples=logical(outputSamples), init_population_strategy=init_population_strategy,        &
                  discard_unfit_points=logical(discard_unfit_points),                                                      &
                  max_initialisation_attempts=max_initialisation_attempts,                                        &
-                 max_acceptable_value=max_acceptable_value, seed=seed, context=context, verbose=verbose)
+                 max_acceptable_value=max_acceptable_value, seed=seed, context=context, verbose=verbose,         &
+                 bestVector=bestVector, bestValue=bestValue)
+      cdiver = bestValue
 
     endif
 
-
-    end subroutine
+    return
+   end function cdiver
 
 
     ! Wrapper for the likelihood function

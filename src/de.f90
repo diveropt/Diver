@@ -27,7 +27,8 @@ contains
                    maxciv, maxgen, NP, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE,               &
                    convthresh, convsteps, removeDuplicates, doBayesian, prior, maxNodePop, Ztolerance,     &
                    savecount, resume, outputSamples, init_population_strategy, discard_unfit_points,       &
-                   max_initialisation_attempts, max_acceptable_value, seed, context, verbose)
+                   max_initialisation_attempts, max_acceptable_value, seed, context, verbose,              &
+                   bestVector, bestValue)
 
     use iso_c_binding, only: c_ptr
 
@@ -89,6 +90,9 @@ contains
     integer :: ierror                                           !MPI error code
     logical :: mpi_already_init                                 !MPI initialization
     real(dp) :: t1, t2                                          !for timing
+
+    real(dp), dimension(size(lowerbounds)), intent(inout),  optional :: bestVector  !the final best fit vector
+    real(dp), intent(out),  optional :: bestValue               !the final best fit value
 
     call cpu_time(t1)
 
@@ -320,6 +324,9 @@ contains
        end if
 
     enddo civloop
+
+    bestVector = BF%vectors(1,:)
+    bestValue = BF%values(1)
 
     !Correct civ in cases where the loop has gone through at least once
     if (civ .ne. civstart) civ = civ - 1

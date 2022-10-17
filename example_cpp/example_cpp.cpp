@@ -1,4 +1,5 @@
 #include <cstdlib>
+#include <cstdio>
 #include <cstring>
 #include <cmath>
 #include <limits>
@@ -114,9 +115,13 @@ int main(int argc, char** argv)
   if (argc > 1 and strcmp(argv[1], "shell") == 0) minus_lnlike = gauss_shell; else minus_lnlike = &gauss;
   void* context = &minus_lnlike;
 
+  double vector[2];
+  double result = 
   cdiver(objective, nPar, lowerbounds, upperbounds, path, nDerived, nDiscrete, discrete, partitionDiscrete,
          maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh, convsteps,
          removeDuplicates, doBayesian, flatprior, maxNodePop, Ztolerance, savecount, resume, outputSamples,
-         init_pop_strategy, discard_unfit_points, max_init_attempts, max_acceptable_val, seed, context, verbose);
+         init_pop_strategy, discard_unfit_points, max_init_attempts, max_acceptable_val, seed, context, verbose,
+         vector);
          //Note that prior, maxNodePop and Ztolerance are just ignored if doBayesian = false
+  printf("Best final vector (%g,%g) has value %g\n", vector[0], vector[1], result);
 }
