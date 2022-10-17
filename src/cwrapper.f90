@@ -31,12 +31,14 @@ type(c_funptr) :: minusloglike, prior
 
 contains
 
-    real(c_double) function cdiver(minusloglike_in, nPar, lowerbounds, upperbounds, path, nDerived, nDiscrete, discrete,  &
-                      partitionDiscrete, maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon,              &
-                      bndry, jDE, lambdajDE,  convthresh, convsteps, removeDuplicates, doBayesian, prior_in, &
-                      maxNodePop, Ztolerance, savecount, resume, outputSamples, init_population_strategy,    &
-                      discard_unfit_points, max_initialisation_attempts, max_acceptable_value, seed,         &
-                      context, verbose, bestVector) bind(c)
+    real(c_double) function cdiver(minusloglike_in, bestVector, nPar, lowerbounds, upperbounds, path,   &
+                                    nDerived, nDiscrete, discrete, partitionDiscrete,                   &
+                                    maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE,  &
+                                    lambdajDE,  convthresh, convsteps, removeDuplicates, doBayesian,    &
+                                    prior_in, maxNodePop, Ztolerance, savecount, resume, outputSamples, &
+                                    init_population_strategy, discard_unfit_points,                     &
+                                    max_initialisation_attempts, max_acceptable_value,                  &
+                                    seed, context, verbose) bind(c)
 
     use iso_c_binding, only: c_int, c_bool, c_double, c_char, c_funptr, c_ptr, C_NULL_CHAR
     use de, only: diver

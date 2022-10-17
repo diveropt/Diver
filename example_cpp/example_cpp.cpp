@@ -117,11 +117,10 @@ int main(int argc, char** argv)
 
   double vector[2];
   double result = 
-  cdiver(objective, nPar, lowerbounds, upperbounds, path, nDerived, nDiscrete, discrete, partitionDiscrete,
+  cdiver(objective, vector, nPar, lowerbounds, upperbounds, path, nDerived, nDiscrete, discrete, partitionDiscrete,
          maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh, convsteps,
          removeDuplicates, doBayesian, flatprior, maxNodePop, Ztolerance, savecount, resume, outputSamples,
-         init_pop_strategy, discard_unfit_points, max_init_attempts, max_acceptable_val, seed, context, verbose,
-         vector);
+         init_pop_strategy, discard_unfit_points, max_init_attempts, max_acceptable_val, seed, context, verbose);
          //Note that prior, maxNodePop and Ztolerance are just ignored if doBayesian = false
   printf("Best final vector (%g,%g) has value %g\n", vector[0], vector[1], result);
 }
