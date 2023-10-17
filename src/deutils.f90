@@ -2,11 +2,11 @@ module deutils
 
 use detypes
 
-implicit none
-
 #ifdef MPI
-  include 'mpif.h'
+  use mpi
 #endif
+
+implicit none
 
 private
 public int_to_string, quit_de, quit_all_processes, roundvector, newBFs, update_acceptance, sync

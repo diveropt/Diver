@@ -11,11 +11,11 @@ use crossover
 use post
 use evidence
 
-implicit none
-
 #ifdef MPI
-  include 'mpif.h'
+  use mpi
 #endif
+
+implicit none
 
 public
 

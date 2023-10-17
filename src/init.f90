@@ -6,11 +6,11 @@ use mutation, only: init_FjDE, init_lambdajDE    !initializes scale factors for 
 use crossover, only: init_CrjDE                  !initializes crossovers for jDE
 use selection, only: replace_generation
 
-implicit none
-
 #ifdef MPI
-  include 'mpif.h'
+  use mpi
 #endif
+
+implicit none
 
 private
 public param_assign, initialize, init_all_random_seeds

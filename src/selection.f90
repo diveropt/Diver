@@ -5,11 +5,11 @@ use deutils
 use mutation, only: init_FjDE, init_lambdajDE
 use crossover, only: init_CrjDE
 
-implicit none
-
 #ifdef MPI
-  include 'mpif.h'
+  use mpi
 #endif
+
+implicit none
 
 private
 public selector, replace_generation, roundvector
