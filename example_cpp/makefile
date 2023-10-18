@@ -10,7 +10,7 @@ all: $(EXAMPLENAME)
 	$(DIVER_CC) -c $(DIVER_COPT) $(DIVER_CPPOPT) -I$(INC) $<
  
 $(EXAMPLENAME): $(OBJ) $(HEADERS)
-	$(DIVER_FF) $(DIVER_MIXOPT_CPP) $(OBJ) $(LIBS) -o $(NAME)
+	$(DIVER_FF) $(OBJ) $(LIBS) $(DIVER_MIXOPT_CPP) -o $(NAME)
 
 clean:
 	rm -f *.o *.mod $(NAME) 

@@ -631,6 +631,10 @@ contains
 
     end do
 
+    !crash if fcall hasn't been properly incremented.
+    if (fcall_this_gen == 0) then
+      call quit_de('ERROR: fcall_this_gen = 0; please make sure to increment fcall in your objective function.')
+    endif
     accept = run_params%mpipopchunk * run_params%mpipopchunk / fcall_this_gen
     fcall = fcall + fcall_this_gen
 
