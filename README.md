@@ -51,13 +51,13 @@ Licensing
 
 The actual license is below.  In simple terms: Diver is free for academic use (no need to ask us), potentially free for other non-profit use (but you need to ask us explicitly), and not free for commercial use (you'll likely need to make some sort of contribution to our research budget or similar in that case).
 
-Contact: p.scott@imperial.ac.uk
+Contact: patrickcolinscott@gmail.com
 
 
 License
 --
 
-Copyright 2017 Elinore Roebber and Pat Scott
+Copyright 2013-2023 Elinore Roebber and Pat Scott
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 
