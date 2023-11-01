@@ -3,7 +3,7 @@ module deutils
 use detypes
 
 #ifdef MPI
-  use mpi
+  use mpi_f08
 #endif
 
 implicit none

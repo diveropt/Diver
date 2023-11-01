@@ -6,7 +6,7 @@ use mutation, only: init_FjDE, init_lambdajDE
 use crossover, only: init_CrjDE
 
 #ifdef MPI
-  use mpi
+  use mpi_f08
 #endif
 
 implicit none

@@ -12,7 +12,7 @@ use post
 use evidence
 
 #ifdef MPI
-  use mpi
+  use mpi_f08
 #endif
 
 implicit none

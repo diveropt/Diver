@@ -7,7 +7,7 @@ use crossover, only: init_CrjDE                  !initializes crossovers for jDE
 use selection, only: replace_generation
 
 #ifdef MPI
-  use mpi
+  use mpi_f08
 #endif
 
 implicit none
