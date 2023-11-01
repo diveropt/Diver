@@ -1,8 +1,12 @@
+1.0.8 -- Nov 2023
+Switched from 'use mpi' to 'use mpi_f08'.
+Added a catch for when the user forgets to increment fcall.
+
 1.0.7 -- Oct 2023
-Added 'pragma once' to headers, removed 'define none 0'
+Added 'pragma once' to headers, removed 'define none 0'.
 
 1.0.6 -- Oct 2023
-Switched from 'include mpif.h' to 'use mpi' 
+Switched from 'include mpif.h' to 'use mpi' .
 
 1.0.5 -- Dec 2019
 Added discard_unfit_points option to allow enforcement of policy that all trial

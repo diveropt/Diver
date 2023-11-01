@@ -15,7 +15,7 @@ implicit none
 private
 public param_assign, initialize, init_all_random_seeds
 
-character (len=*), parameter :: version_number = "1.0.7"
+character (len=*), parameter :: version_number = "1.0.8"
 
 contains
 
@@ -103,7 +103,7 @@ contains
        write (*,*) '============================================='
        write (*,*) '************ Begin DE Sampling **************'
        write (*,*) 'Diver v'//trim(version_number)
-       write (*,*) 'Copyright Elinore Roebber and Pat Scott, 2013'
+       write (*,*) 'Copyright Elinore Roebber and Pat Scott'
        write (*,*) '============================================='
        write (*,*)
     end if
