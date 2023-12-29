@@ -1,13 +1,15 @@
 #include <float.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdio.h>
 #include "diver.h"
 
 const int         nPar                 = 5;                            // Dimensionality of the parameter space
 const double      lowerbounds[]        = {-5.,-50.,-5.,-50.,-2.};      // Lower boundaries of parameter space
 const double      upperbounds[]        = { 5., 50., 5., 50., 2.};      // Upper boundaries of parameter space
 const char        path[]               = "example_c/output/example";   // Path to save samples, resume files, etc
-const int         nDerived             = 0;                            // Number of derived quantities to output
+const int         nDerived             = 2;                            // Number of derived quantities to output
+      double      paramsPlus[]         = {0,0,0,0,0,0,0};              // Placeholder for returned parameters and derived quantities at best-fit point
 const int         nDiscrete            = 0;                            // Number of parameters that are to be treated as discrete
 const int         discrete[]           = {0};                          // Indices of discrete parameters, Fortran style, i.e. starting at 1!!
 const bool        partitionDiscrete    = false;                        // Split the population evenly amongst discrete parameters and evolve separately
@@ -44,8 +46,13 @@ const int         verbose              = 1;                            // Output
 //Plain Gaussian centred at the origin. Valid for any number of dimensions.  Minimum value is the number of dimensions.
 double gauss(double params[], const int param_dim, int *fcall, bool *quit, const bool validvector, void** context)
 {
+  //Fill up the two derived parameters with some example quantities 
+  params[param_dim-2] = params[0]*params[1];
+  params[param_dim-1] = params[2]*params[3];
+
+  //Compute the likelihoood
   double result = 0.0;
-  for (int i = 0; i<param_dim; i++) result += params[i]*params[i] + 1.0;
+  for (int i = 0; i<param_dim-2; i++) result += params[i]*params[i] + 1.0;
   if (!validvector) result = DBL_MAX;
   *fcall += 1;
   *quit = false;
@@ -56,9 +63,12 @@ double gauss(double params[], const int param_dim, int *fcall, bool *quit, const
 int main(int argc, char** argv)
 {
   void* context = &gauss; //Not actually used in this example.
-  cdiver(gauss, nPar, lowerbounds, upperbounds, path, nDerived, nDiscrete, discrete, partitionDiscrete,
+  double result = cdiver(gauss, nPar, lowerbounds, upperbounds, path, nDerived, paramsPlus, nDiscrete, discrete, partitionDiscrete,
          maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh,
          convsteps, removeDuplicates, doBayesian, NULL, maxNodePop, Ztolerance, savecount, resume,
          outputSamples, init_pop_strategy, discard_unfit_points, max_init_attempts, max_acceptable_val, seed, context, verbose);
          //Note that prior, maxNodePop and Ztolerance are just ignored if doBayesian = false
+  printf("Best fit returned: %e\n", result);
+  for (int i = 0; i < nPar; i++) printf("Parameter %i at best fit: %e\n", i, paramsPlus[i]);
+  for (int i = 0; i < nDerived; i++) printf("Derived quantity %i at best fit: %e\n", i, paramsPlus[i+nPar]);
 }
