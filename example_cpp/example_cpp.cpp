@@ -34,7 +34,9 @@ const double      maxNodePop           = 1.9;                          // Popula
 const double      Ztolerance           = 0.1;                          // Input tolerance in log-evidence
 const int         savecount            = 1;                            // Save progress every savecount generations
 const bool        resume               = false;                        // Restart from a previous run
-const bool        outputSamples        = true;                         // Write output .raw and .sam (if nDerived != 0) files
+const bool        disableIO            = false;                        // Disable all IO
+const bool        outputRaw            = true;                         // Output raw parameter samples to a .raw file
+const bool        outputSam            = false;                        // Output rounded and derived parameter samples to a .sam file
 const int         init_pop_strategy    = 2;                            // Initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found.
 const bool        discard_unfit_points = false;                        // Recalculate any trial vector whose fitness is above max_acceptable_value
 const int         max_init_attempts    = 10000;                        // Maximum number of times to try to find a valid vector for each slot in the initial population.
@@ -118,7 +120,7 @@ int main(int argc, char** argv)
 
   double result = cdiver(objective, nPar, lowerbounds, upperbounds, path, nDerived, paramsPlus, nDiscrete, discrete,
    partitionDiscrete, maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh, convsteps,
-   removeDuplicates, doBayesian, flatprior, maxNodePop, Ztolerance, savecount, resume, outputSamples,
+   removeDuplicates, doBayesian, flatprior, maxNodePop, Ztolerance, savecount, resume, disableIO, outputRaw, outputSam,
    init_pop_strategy, discard_unfit_points, max_init_attempts, max_acceptable_val, seed, context, verbose);
    //Note that prior, maxNodePop and Ztolerance are just ignored if doBayesian = false
 

@@ -31,15 +31,17 @@ const bool        removeDuplicates     = true;                         // Weed o
 const bool        doBayesian           = false;                        // Calculate approximate log evidence and posterior weightings
 const double      maxNodePop           = 1.9;                          // Population at which node is partitioned in binary space partitioning for posterior
 const double      Ztolerance           = 1.e-3;                        // Input tolerance in log-evidence
-const int         savecount            = 100;                          // Save progress every savecount generations
+const int         savecount            = 10;                           // Save progress every savecount generations
 const bool        resume               = false;                        // Restart from a previous run
-const bool        outputSamples        = false;                        // Write output .raw and .sam (if nDerived != 0) files
+const bool        disableIO            = true;                         // Disable all IO
+const bool        outputRaw            = false;                        // Output raw parameter samples to a .raw file
+const bool        outputSam            = false;                        // Output rounded and derived parameter samples to a .sam file
 const int         init_pop_strategy    = 0;                            // Initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found.
 const bool        discard_unfit_points = false;                        // Recalculate any trial vector whose fitness is above max_acceptable_value
 const int         max_init_attempts    = 10000;                        // Maximum number of times to try to find a valid vector for each slot in the initial population.
 const double      max_acceptable_val   = 1e6;                          // Maximum fitness to accept for the initial generation if init_population_strategy > 0, or any generation if discard_unfit_points = true.
 const int         seed                 = 1234567;                      // base seed for random number generation; non-positive or absent means seed from the system clock
-const int         verbose              = 1;                            // Output verbosity: 0=only error messages, 1=basic info, 2=civ-level info, 3+=population info
+const int         verbose              = 2;                            // Output verbosity: 0=only error messages, 1=basic info, 2=civ-level info, 3+=population info
 
 
 //Function to be minimized.  Corresponds to -ln(Likelihood).
@@ -65,8 +67,8 @@ int main(int argc, char** argv)
   void* context = &gauss; //Not actually used in this example.
   double result = cdiver(gauss, nPar, lowerbounds, upperbounds, path, nDerived, paramsPlus, nDiscrete, discrete, partitionDiscrete,
          maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh,
-         convsteps, removeDuplicates, doBayesian, NULL, maxNodePop, Ztolerance, savecount, resume,
-         outputSamples, init_pop_strategy, discard_unfit_points, max_init_attempts, max_acceptable_val, seed, context, verbose);
+         convsteps, removeDuplicates, doBayesian, NULL, maxNodePop, Ztolerance, savecount, resume, disableIO, outputRaw,
+         outputSam, init_pop_strategy, discard_unfit_points, max_init_attempts, max_acceptable_val, seed, context, verbose);
          //Note that prior, maxNodePop and Ztolerance are just ignored if doBayesian = false
   printf("Best fit returned: %e\n", result);
   for (int i = 0; i < nPar; i++) printf("Parameter %i at best fit: %e\n", i, paramsPlus[i]);

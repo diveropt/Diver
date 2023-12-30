@@ -13,4 +13,4 @@ $(EXAMPLENAME): $(OBJ)
 	$(DIVER_FF) $(DIVER_FOPT) $(OBJ) $(LIBS) -o $(NAME)
 
 clean:
-	rm -f *.o *.mod $(NAME) 
+	rm -f *.o *.mod $(NAME) output/*

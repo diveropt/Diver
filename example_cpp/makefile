@@ -13,4 +13,4 @@ $(EXAMPLENAME): $(OBJ) $(HEADERS)
 	$(DIVER_FF) $(OBJ) $(LIBS) $(DIVER_MIXOPT_CPP) -o $(NAME)
 
 clean:
-	rm -f *.o *.mod $(NAME) 
+	rm -f *.o *.mod $(NAME) output/*

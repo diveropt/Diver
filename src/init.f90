@@ -15,17 +15,47 @@ implicit none
 private
 public param_assign, initialize, init_all_random_seeds
 
-character (len=*), parameter :: version_number = "1.0.8"
+character (len=*), parameter :: version_number = "1.1.0"
 
 contains
 
   !Assign parameter values (defaults if not specified) to run_params and print DE parameter values to screen
 
-  subroutine param_assign(run_params, lowerbounds, upperbounds, nDerived, paramsPlus, discrete, partitionDiscrete, &
-                          maxciv, maxgen, NP, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh,    &
-                          convsteps, removeDuplicates, doBayesian, maxNodePop, Ztolerance, savecount,              &
-                          outputSamples, init_population_strategy, discard_unfit_points,                           &
-                          max_initialisation_attempts, max_acceptable_value, seed, context, verbose)
+  subroutine param_assign(run_params, &
+                          lowerbounds, &
+                          upperbounds, &
+                          nDerived, &
+                          paramsPlus, &
+                          discrete, &
+                          partitionDiscrete, &
+                          maxciv, &
+                          maxgen, &
+                          NP, &
+                          F, &
+                          Cr, &
+                          lambda, &
+                          current, &
+                          expon, &
+                          bndry, &
+                          jDE, &
+                          lambdajDE, &
+                          convthresh, &
+                          convsteps, &
+                          removeDuplicates, &
+                          doBayesian, &
+                          maxNodePop, &
+                          Ztolerance, &
+                          savecount, &
+                          disableIO, &
+                          outputRaw, &
+                          outputSam, &
+                          init_population_strategy, &
+                          discard_unfit_points, &
+                          max_initialisation_attempts, &
+                          max_acceptable_value, &
+                          seed, &
+                          context, &
+                          verbose)
 
     use iso_c_binding, only: C_NULL_PTR, c_ptr
 
@@ -53,7 +83,9 @@ contains
     real(dp), intent(in), optional :: maxNodePop                        !population at which node is partitioned in binary space partitioning for posterior
     real(dp), intent(in), optional :: Ztolerance                        !input tolerance in log-evidence
     integer, intent(in), optional  :: savecount                         !save progress every savecount generations
-    logical, intent(in), optional  :: outputSamples                     !write samples as output
+    logical, intent(in), optional  :: disableIO                         !disable all IO
+    logical, intent(in), optional  :: outputRaw                         !output raw parameter samples to a .raw file
+    logical, intent(in), optional  :: outputSam                         !output rounded and derived parameter samples to a .sam file
     integer, intent(in), optional  :: init_population_strategy          !initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found.
     logical, intent(in), optional  :: discard_unfit_points              !recalculate any trial vector whose fitness is above max_acceptable_value
     integer, intent(in), optional  :: max_initialisation_attempts       !maximum number of times to try to find a valid vector for each slot in the initial population.
@@ -398,8 +430,10 @@ contains
        run_params%subpopNP = run_params%DE%NP !no partitioning, so the subpopulation is the same as the whole population
     endif
 
-    !Default is to output parameter samples.
-    call set_logical(run_params%outputSamples, .true., invar=outputSamples)
+    !Default is to enable all output files.
+    call set_logical(run_params%disableIO, .false., invar=disableIO)
+    call set_logical(run_params%outputRaw, .true., invar=outputRaw)
+    call set_logical(run_params%outputSam, .true., invar=outputSam)
 
     !Just set up a dummy null context pointer if it happens to be missing
     if (present(context)) then

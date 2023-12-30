@@ -1,19 +1,59 @@
 ! iso_c_binding interface for de::diver
-!
+
 ! Allows one to call Diver using the C/C++ prototypes
-!
+
 ! double cdiver(double (*minusloglike)(double[], const int, int&, bool&, bool, void*&),
-!               int nPar, const double lowerbounds[], const double upperbounds[], const char path[], int nDerived, double paramsPlus[],
-!               int nDiscrete, const int discrete[], bool partitionDiscrete, int maxciv, int maxgen, int NP, int nF,
-!               const double F[], double Cr, double lambda, bool current, bool expon, int bndry, bool jDE, bool lambdajDE,
-!               double convthresh, int convsteps, bool removeDuplicates, bool doBayesian, double(*prior)(const double[], const int, void*&),
-!               double maxNodePop, double Ztolerance, int savecount, bool resume, bool outputSamples, int init_population_strategy,
-!               bool discard_unfit_points, int max_initialisation_attempts, double max_acceptable_value, void*& context, int verbose)
-!
-! double minusloglike(double params[], const int param_dim, int &fcall, bool &quit, bool validvector, void*& context)
-!
-! double prior(const double true_params[], const int true_param_dim, void*& context)
-!
+!               int nPar,
+!               const double lowerbounds[],
+!               const double upperbounds[],
+!               const char path[],
+!               int nDerived,
+!               double paramsPlus[],
+!               int nDiscrete,
+!               const int discrete[],
+!               bool partitionDiscrete,
+!               int maxciv,
+!               int maxgen,
+!               int NP,
+!               int nF,
+!               const double F[],
+!               double Cr,
+!               double lambda,
+!               bool current,
+!               bool expon,
+!               int bndry,
+!               bool jDE,
+!               bool lambdajDE,
+!               double convthresh,
+!               int convsteps,
+!               bool removeDuplicates,
+!               bool doBayesian,
+!               double(*prior)(const double[], const int, void*&),
+!               double maxNodePop,
+!               double Ztolerance,
+!               int savecount,
+!               bool resume,
+!               bool disableIO,
+!               bool outputRaw,
+!               bool outputSam,
+!               int init_population_strategy,
+!               bool discard_unfit_points,
+!               int max_initialisation_attempts,
+!               double max_acceptable_value,
+!               void*& context,
+!               int verbose)
+
+! double minusloglike(double params[],
+!                     const int param_dim,
+!                     int& fcall,
+!                     bool& quit,
+!                     bool validvector,
+!                     void*& context)
+
+! double prior(const double true_params[],
+!              const int true_param_dim,
+!              void*& context)
+
 ! Originally inspired by cwrapper.f90 in MultiNest v3.3 by Michele Vallisneri, 2013/09/20
 
 
@@ -30,12 +70,48 @@ type(c_funptr) :: minusloglike, prior
 
 contains
 
-    function cdiver(minusloglike_in, nPar, lowerbounds, upperbounds, path, nDerived, paramsPlus, nDiscrete, &
-                    discrete, partitionDiscrete, maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon,     &
-                    bndry, jDE, lambdajDE,  convthresh, convsteps, removeDuplicates, doBayesian, prior_in,  &
-                    maxNodePop, Ztolerance, savecount, resume, outputSamples, init_population_strategy,     &
-                    discard_unfit_points, max_initialisation_attempts, max_acceptable_value, seed,          &
-                    context, verbose) bind(c)
+    function cdiver(minusloglike_in, &
+                    nPar, &
+                    lowerbounds, &
+                    upperbounds, &
+                    path, &
+                    nDerived, &
+                    paramsPlus, &
+                    nDiscrete, &
+                    discrete, &
+                    partitionDiscrete, &
+                    maxciv, &
+                    maxgen, &
+                    NP, &
+                    nF, &
+                    F, &
+                    Cr, &
+                    lambda, &
+                    current, &
+                    expon, &
+                    bndry, &
+                    jDE, &
+                    lambdajDE, &
+                    convthresh, &
+                    convsteps, &
+                    removeDuplicates, &
+                    doBayesian, &
+                    prior_in, &
+                    maxNodePop, &
+                    Ztolerance, &
+                    savecount, &
+                    resume, &
+                    disableIO, &
+                    outputRaw, &
+                    outputSam, &
+                    init_population_strategy, &
+                    discard_unfit_points, &
+                    max_initialisation_attempts, &
+                    max_acceptable_value, &
+                    seed, &
+                    context, &
+                    verbose &
+                    ) bind(c)
 
     use iso_c_binding, only: c_int, c_bool, c_double, c_char, c_funptr, c_ptr, C_NULL_CHAR
     use de, only: diver
@@ -49,7 +125,7 @@ contains
     integer(c_int),  intent(in), value :: init_population_strategy, max_initialisation_attempts, seed
     integer(c_int),  intent(in), target:: discrete(nDiscrete)
     logical(c_bool), intent(in), value :: partitionDiscrete, current, expon, jDE, lambdajDE, removeDuplicates, doBayesian, resume
-    logical(c_bool), intent(in), value :: outputSamples, discard_unfit_points
+    logical(c_bool), intent(in), value :: disableIO, outputRaw, outputSam, discard_unfit_points
     real(c_double),  intent(in), value :: Cr, lambda, convthresh, maxNodePop, Ztolerance, max_acceptable_value
     real(c_double),  intent(in)        :: lowerbounds(nPar), upperbounds(nPar), F(nF)
     real(c_double),  intent(out)       :: paramsPlus(nPar+nDerived)
@@ -81,34 +157,88 @@ contains
       discrete_f => discrete
     endif
 
-    ! Choose a null pointer for the prior function if it isn't needed
+    ! Use the default of a null pointer for the prior function if it isn't needed
     if (doBayesian) then
 
       ! Call the actual fortran differential evolution function
-      cdiver = diver(minusloglike_f, lowerbounds, upperbounds, path_f, nDerived=nDerived, paramsPlus=paramsPlus,      & 
-                     discrete=discrete_f, partitionDiscrete=logical(partitionDiscrete), maxciv=maxciv, maxgen=maxgen, & 
-                     NP=NP, F=F, Cr=Cr, lambda=lambda, current=logical(current), expon=logical(expon), bndry=bndry,   &
-                     jDE=logical(jDE), lambdajDE=logical(lambdajDE), convthresh=convthresh, convsteps=convsteps,      &
-                     removeDuplicates=logical(removeDuplicates), doBayesian=logical(doBayesian), prior = prior_f,     &
-                     maxNodePop=maxNodePop, Ztolerance=Ztolerance, savecount=savecount, resume=logical(resume),       &
-                     outputSamples=logical(outputSamples), init_population_strategy=init_population_strategy,         &
-                     discard_unfit_points=logical(discard_unfit_points),                                              &
-                     max_initialisation_attempts=max_initialisation_attempts,                                         &
-                     max_acceptable_value=max_acceptable_value, seed=seed, context=context, verbose=verbose)
+      cdiver = diver(minusloglike_f, &
+                     lowerbounds, &
+                     upperbounds, &
+                     path_f, &
+                     nDerived=nDerived, &
+                     paramsPlus=paramsPlus, & 
+                     discrete=discrete_f, &
+                     partitionDiscrete=logical(partitionDiscrete), &
+                     maxciv=maxciv, &
+                     maxgen=maxgen, & 
+                     NP=NP, &
+                     F=F, &
+                     Cr=Cr, &
+                     lambda=lambda, &
+                     current=logical(current), &
+                     expon=logical(expon), &
+                     bndry=bndry, &
+                     jDE=logical(jDE), &
+                     lambdajDE=logical(lambdajDE), &
+                     convthresh=convthresh, convsteps=convsteps, &
+                     removeDuplicates=logical(removeDuplicates), &
+                     doBayesian=logical(doBayesian), &
+                     prior = prior_f, &  !<--- this is the only line that differs!
+                     maxNodePop=maxNodePop, &
+                     Ztolerance=Ztolerance, &
+                     savecount=savecount, &
+                     resume=logical(resume), &
+                     disableIO=logical(disableIO), &
+                     outputRaw=logical(outputRaw), &
+                     outputSam=logical(outputSam), &
+                     init_population_strategy=init_population_strategy, &
+                     discard_unfit_points=logical(discard_unfit_points), &
+                     max_initialisation_attempts=max_initialisation_attempts, &
+                     max_acceptable_value=max_acceptable_value, &
+                     seed=seed, &
+                     context=context, &
+                     verbose=verbose)
 
     else
 
       ! Call the actual fortran differential evolution function
-      cdiver = diver(minusloglike_f, lowerbounds, upperbounds, path_f, nDerived=nDerived, paramsPlus=paramsPlus,      & 
-                     discrete=discrete_f, partitionDiscrete=logical(partitionDiscrete), maxciv=maxciv, maxgen=maxgen, & 
-                     NP=NP, F=F, Cr=Cr, lambda=lambda, current=logical(current), expon=logical(expon), bndry=bndry,   &
-                     jDE=logical(jDE), lambdajDE=logical(lambdajDE), convthresh=convthresh, convsteps=convsteps,      &
-                     removeDuplicates=logical(removeDuplicates), doBayesian=logical(doBayesian),                      &
-                     maxNodePop=maxNodePop, Ztolerance=Ztolerance, savecount=savecount, resume=logical(resume),       &
-                     outputSamples=logical(outputSamples), init_population_strategy=init_population_strategy,         &
-                     discard_unfit_points=logical(discard_unfit_points),                                              &
-                     max_initialisation_attempts=max_initialisation_attempts,                                         &
-                     max_acceptable_value=max_acceptable_value, seed=seed, context=context, verbose=verbose)
+      cdiver = diver(minusloglike_f, &
+                     lowerbounds, &
+                     upperbounds, &
+                     path_f, &
+                     nDerived=nDerived, &
+                     paramsPlus=paramsPlus, & 
+                     discrete=discrete_f, &
+                     partitionDiscrete=logical(partitionDiscrete), &
+                     maxciv=maxciv, &
+                     maxgen=maxgen, & 
+                     NP=NP, &
+                     F=F, &
+                     Cr=Cr, &
+                     lambda=lambda, &
+                     current=logical(current), &
+                     expon=logical(expon), &
+                     bndry=bndry, &
+                     jDE=logical(jDE), &
+                     lambdajDE=logical(lambdajDE), &
+                     convthresh=convthresh, convsteps=convsteps, &
+                     removeDuplicates=logical(removeDuplicates), &
+                     doBayesian=logical(doBayesian), &
+                     !prior = prior_f, &  !<--- this is the only line that differs!
+                     maxNodePop=maxNodePop, &
+                     Ztolerance=Ztolerance, &
+                     savecount=savecount, &
+                     resume=logical(resume), &
+                     disableIO=logical(disableIO), &
+                     outputRaw=logical(outputRaw), &
+                     outputSam=logical(outputSam), &
+                     init_population_strategy=init_population_strategy, &
+                     discard_unfit_points=logical(discard_unfit_points), &
+                     max_initialisation_attempts=max_initialisation_attempts, &
+                     max_acceptable_value=max_acceptable_value, &
+                     seed=seed, &
+                     context=context, &
+                     verbose=verbose)
 
     endif
 

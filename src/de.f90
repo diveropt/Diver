@@ -23,11 +23,44 @@ contains
 
 
   !Main differential evolution routine.
-  function diver(func, lowerbounds, upperbounds, path, nDerived, paramsPlus, discrete, partitionDiscrete, &
-                 maxciv, maxgen, NP, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE,                &
-                 convthresh, convsteps, removeDuplicates, doBayesian, prior, maxNodePop, Ztolerance,      &
-                 savecount, resume, outputSamples, init_population_strategy, discard_unfit_points,        &
-                 max_initialisation_attempts, max_acceptable_value, seed, context, verbose)
+  function diver(func, &
+                 lowerbounds, &
+                 upperbounds, &
+                 path, &
+                 nDerived, &
+                 paramsPlus, &
+                 discrete, &
+                 partitionDiscrete, &
+                 maxciv, &
+                 maxgen, &
+                 NP, &
+                 F, &
+                 Cr, &
+                 lambda, &
+                 current, &
+                 expon, &
+                 bndry, &
+                 jDE, &
+                 lambdajDE, &
+                 convthresh, &
+                 convsteps, &
+                 removeDuplicates, &
+                 doBayesian, &
+                 prior, &
+                 maxNodePop, &
+                 Ztolerance, &
+                 savecount, &
+                 resume, &
+                 disableIO, &
+                 outputRaw, &
+                 outputSam, &
+                 init_population_strategy, &
+                 discard_unfit_points, &
+                 max_initialisation_attempts, &
+                 max_acceptable_value, &
+                 seed, &
+                 context, &
+                 verbose)
 
     use iso_c_binding, only: c_ptr
 
@@ -63,7 +96,9 @@ contains
     logical, intent(in), optional    :: discard_unfit_points    !recalculate any trial vector whose fitness is above max_acceptable_value
     integer, intent(in), optional    :: max_initialisation_attempts !maximum number of times to try to find a valid vector for each slot in the initial population.
     real(dp), intent(in), optional   :: max_acceptable_value    !maximum fitness to accept for the initial generation if init_population_strategy > 0. Also applies to later generations if discard_unfit_points = .true.
-    logical, intent(in), optional    :: outputSamples           !write samples as output
+    logical, intent(in), optional    :: disableIO               !disable all IO
+    logical, intent(in), optional    :: outputRaw               !output raw parameter samples to a .raw file
+    logical, intent(in), optional    :: outputSam               !output rounded and derived parameter samples to a .sam file
     integer, intent(in), optional    :: seed                    !base seed for random number generation; non-positive or absent means seed from the system clock
     integer, intent(in), optional    :: verbose                 !output verbosity: 0=only error messages, 1=basic info, 2=civ-level info, 3+=population info
     type(c_ptr), intent(inout), optional :: context             !context pointer, used for passing info from the caller to likelihood/prior. Use this for passing a pointer
@@ -105,16 +140,39 @@ contains
     run_params%convergence_criterion = meanimprovement
 
     !Assign specified or default values to run_params and print out information to the screen
-    call param_assign(run_params, lowerbounds, upperbounds, nDerived=nDerived, paramsPlus=paramsPlus, &
-                      discrete=discrete, partitionDiscrete=partitionDiscrete, maxciv=maxciv,          &
-                      maxgen=maxgen, NP=NP, F=F, Cr=Cr, lambda=lambda, current=current, expon=expon,  &
-                      bndry=bndry, jDE=jDE, lambdajDE=lambdajDE, convthresh=convthresh,               &
-                      convsteps=convsteps, removeDuplicates=removeDuplicates, doBayesian=doBayesian,  &
-                      maxNodePop=maxNodePop, Ztolerance=Ztolerance, savecount=savecount,              &
-                      outputSamples=outputSamples, init_population_strategy=init_population_strategy, &
-                      discard_unfit_points=discard_unfit_points,                                      &
-                      max_initialisation_attempts=max_initialisation_attempts,                        &
-                      max_acceptable_value=max_acceptable_value, seed=seed, context=context,          &
+    call param_assign(run_params, &
+                      lowerbounds, &
+                      upperbounds, &
+                      nDerived=nDerived, &
+                      paramsPlus=paramsPlus, &
+                      discrete=discrete, &
+                      partitionDiscrete=partitionDiscrete, &
+                      maxciv=maxciv, &
+                      maxgen=maxgen, &
+                      NP=NP, &
+                      F=F, &
+                      Cr=Cr, &
+                      lambda=lambda, &
+                      current=current, &
+                      expon=expon, &
+                      bndry=bndry, &
+                      jDE=jDE, &
+                      lambdajDE=lambdajDE, &
+                      convthresh=convthresh, &
+                      convsteps=convsteps, &
+                      removeDuplicates=removeDuplicates, &
+                      doBayesian=doBayesian, &
+                      maxNodePop=maxNodePop, &
+                      Ztolerance=Ztolerance, &
+                      savecount=savecount, &
+                      disableIO=disableIO, &
+                      outputRaw=outputRaw, &
+                      outputSam=outputSam, &
+                      init_population_strategy=init_population_strategy, &
+                      discard_unfit_points=discard_unfit_points, &
+                      max_initialisation_attempts=max_initialisation_attempts, &
+                      max_acceptable_value=max_acceptable_value, &
+                      seed=seed, context=context, &
                       verbose=verbose)
 
     if (run_params%calcZ .and. .not. present(prior)) then
@@ -360,7 +418,7 @@ contains
     endif
 
     !Do final save operation
-    if (run_params%mpirank .eq. 0 ) then
+    if (run_params%mpirank .eq. 0) then
        call save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, totfcall, run_params, &
                      final = ( (mod(gen,run_params%savefreq) .eq. 0) .or. (civ .eq. civstart) ) )
     end if

@@ -40,7 +40,9 @@ type codeparams                                         !code parameters (rememb
    real(dp) :: tol                                      !tolerance in log-evidence
    real(dp) :: maxNodePop                               !maximum population to allow in a cell before partitioning it
    logical :: calcZ                                     !calculate evidence or not
-   logical :: outputSamples                             !write samples as output
+   logical :: disableIO                                 !disable all IO
+   logical :: outputRaw                                 !output raw parameter samples to a .raw file
+   logical :: outputSam                                 !output rounded and derived parameter samples to a .sam file
    integer :: savefreq                                  !frequency with which to save progress
    integer :: mpirank                                   !rank of current process (0 if no MPI)
    integer :: mpiprocs                                  !number of processes running (1 if no MPI)
