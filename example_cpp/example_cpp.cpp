@@ -38,7 +38,7 @@ const bool        disableIO            = false;                        // Disabl
 const bool        outputRaw            = true;                         // Output raw parameter samples to a .raw file
 const bool        outputSam            = false;                        // Output rounded and derived parameter samples to a .sam file
 const int         init_pop_strategy    = 2;                            // Initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found.
-const bool        discard_unfit_points = false;                        // Recalculate any trial vector whose fitness is above max_acceptable_value
+const bool        discard_unfit_points = false;                        // Recalculate any trial vector whose fitness is above max_acceptable_value. Likely incompatible with any objective function that makes MPI calls of its own.
 const int         max_init_attempts    = 10000;                        // Maximum number of times to try to find a valid vector for each slot in the initial population.
 const double      max_acceptable_val   = 1e6;                          // Maximum fitness to accept for the initial generation if init_population_strategy > 0, or any generation if discard_unfit_points = true.
 const int         seed                 = -1;                           // base seed for random number generation; non-positive or absent means seed from the system clock

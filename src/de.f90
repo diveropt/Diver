@@ -93,7 +93,7 @@ contains
     integer, intent(in), optional    :: savecount               !save progress every savecount generations
     logical, intent(in), optional    :: resume                  !restart from a previous run
     integer, intent(in), optional    :: init_population_strategy!initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found.
-    logical, intent(in), optional    :: discard_unfit_points    !recalculate any trial vector whose fitness is above max_acceptable_value
+    logical, intent(in), optional    :: discard_unfit_points    !recalculate any trial vector whose fitness is above max_acceptable_value. Likely incompatible with any objective function that makes MPI calls of its own.
     integer, intent(in), optional    :: max_initialisation_attempts !maximum number of times to try to find a valid vector for each slot in the initial population.
     real(dp), intent(in), optional   :: max_acceptable_value    !maximum fitness to accept for the initial generation if init_population_strategy > 0. Also applies to later generations if discard_unfit_points = .true.
     logical, intent(in), optional    :: disableIO               !disable all IO
@@ -298,6 +298,7 @@ contains
                 n = run_params%mpipopchunk*run_params%mpirank + m          !current member of the population (same as m if no MPI)
 
                 !keep making trial vectors until one has a fitness less than max_acceptable_value, if discard_unfit_points = .true.
+                !note that this loop means any MPI calls inside objective functions will likely cause MPI issues if discard_unfit_points=true.
                 do
                    if (run_params%partitionDiscrete) then
                       call getSubpopulation(X, Xsub, n, nsub, run_params)     !restrict donor pool to this member's subpopulation

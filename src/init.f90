@@ -87,7 +87,7 @@ contains
     logical, intent(in), optional  :: outputRaw                         !output raw parameter samples to a .raw file
     logical, intent(in), optional  :: outputSam                         !output rounded and derived parameter samples to a .sam file
     integer, intent(in), optional  :: init_population_strategy          !initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found.
-    logical, intent(in), optional  :: discard_unfit_points              !recalculate any trial vector whose fitness is above max_acceptable_value
+    logical, intent(in), optional  :: discard_unfit_points              !recalculate any trial vector whose fitness is above max_acceptable_value. Likely incompatible with any objective function that makes MPI calls of its own.
     integer, intent(in), optional  :: max_initialisation_attempts       !maximum number of times to try to find a valid vector for each slot in the initial population.
     real(dp), intent(in), optional :: max_acceptable_value              !maximum fitness to accept for the initial generation if init_population_strategy > 0. Also applies to later generations if discard_unfit_points = .true.
     integer, intent(in), optional  :: seed                              !base seed for random number generation; non-positive or absent means seed from the system clock
