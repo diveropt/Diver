@@ -4,6 +4,7 @@
 - Replaced "outputSamples" with "outputSam" and "outputRaw" to allow turning off .raw and .sam output separately. 
 - Added option "disableIO" for turning off creation of all output files; note that setting this true makes restarting impossible.
 - Added a bit more explanation to the in-code documentation of the context pointer.
+- Added note about potential gotcha with objectives including MPI calls and discard_unfit_points=true.
 
 1.0.8 -- Nov 2023
 - Switched from 'use mpi' to 'use mpi_f08'.
