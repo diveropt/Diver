@@ -6,7 +6,7 @@ implicit none
 
 integer, parameter :: meanimprovement = 0      !indices for convergence criteria (currently only option is mean improvement)
 logical, parameter :: checkpopres = .false.    !check that the population resolution is ok at all steps. 
-                                               !Useful when dealing with duplicates caused *very* small population variance
+                                               !Useful when dealing with duplicates causing *very* small population variance
 
 private
 public init_convergence, converged, evidenceDone, meanimprovement
