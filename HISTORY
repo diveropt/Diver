@@ -3,8 +3,8 @@
 - Changed diver function signature to return the minimum value of the objective function, as well as the values of the parameters and any derived quantities at the minimum.
 - Replaced "outputSamples" with "outputSam" and "outputRaw" to allow turning off .raw and .sam output separately. 
 - Added option "disableIO" for turning off creation of all output files; note that setting this true makes restarting impossible.
-- Added a bit more explanation to the in-code documentation of the context pointer
-- Delete duplicate points before objective evaluation
+- Added a bit more explanation to the in-code documentation of the context pointer.
+- Delete duplicate points before objective evaluation.
 
 1.0.8 -- Nov 2023
 - Switched from 'use mpi' to 'use mpi_f08'.

@@ -300,6 +300,7 @@ program example_f
   res = diver(rosenbrock, lowerbounds, upperbounds, path, doBayesian=.false., &
    verbose=3, prior=flatprior, lambdajDE=.true., discard_unfit_points=.true.)
   
-write(*,*) "Minimum found:", res
+  write(*,*)
+  write(*,*) "Minimum found:", res
 
 end program example_f
