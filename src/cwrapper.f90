@@ -8,7 +8,8 @@
 !               const double upperbounds[],
 !               const char path[],
 !               int nDerived,
-!               double paramsPlus[],
+!               double bestFitParams[],
+!               double bestFitDerived[],
 !               int nDiscrete,
 !               const int discrete[],
 !               bool partitionDiscrete,
@@ -76,7 +77,8 @@ contains
                     upperbounds, &
                     path, &
                     nDerived, &
-                    paramsPlus, &
+                    bestFitParams, &
+                    bestFitDerived, &
                     nDiscrete, &
                     discrete, &
                     partitionDiscrete, &
@@ -128,7 +130,8 @@ contains
     logical(c_bool), intent(in), value :: disableIO, outputRaw, outputSam, discard_unfit_points
     real(c_double),  intent(in), value :: Cr, lambda, convthresh, maxNodePop, Ztolerance, max_acceptable_value
     real(c_double),  intent(in)        :: lowerbounds(nPar), upperbounds(nPar), F(nF)
-    real(c_double),  intent(out)       :: paramsPlus(nPar+nDerived)
+    real(c_double),  intent(out)       :: bestFitParams(nPar)
+    real(c_double),  intent(out)       :: bestFitDerived(nDerived)
     character(kind=c_char,len=1), dimension(maxpathlen), intent(in) :: path
 
     integer :: i
@@ -166,7 +169,8 @@ contains
                      upperbounds, &
                      path_f, &
                      nDerived=nDerived, &
-                     paramsPlus=paramsPlus, & 
+                     bestFitParams=bestFitParams, &
+                     bestFitDerived=bestFitDerived, &
                      discrete=discrete_f, &
                      partitionDiscrete=logical(partitionDiscrete), &
                      maxciv=maxciv, &
@@ -207,7 +211,8 @@ contains
                      upperbounds, &
                      path_f, &
                      nDerived=nDerived, &
-                     paramsPlus=paramsPlus, & 
+                     bestFitParams=bestFitParams, &
+                     bestFitDerived=bestFitDerived, &
                      discrete=discrete_f, &
                      partitionDiscrete=logical(partitionDiscrete), &
                      maxciv=maxciv, &

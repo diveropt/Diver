@@ -28,7 +28,8 @@ contains
                  upperbounds, &
                  path, &
                  nDerived, &
-                 paramsPlus, &
+                 bestFitParams, &
+                 bestFitDerived, &
                  discrete, &
                  partitionDiscrete, &
                  maxciv, &
@@ -69,7 +70,8 @@ contains
     real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds !boundaries of parameter space
     character(len=*), intent(in)     :: path                    !path to save samples, resume files, etc
     integer, intent(in), optional    :: nDerived                !input number of derived quantities to output
-    real(dp), intent(out), dimension(:), optional :: paramsPlus !values of parameters and derived quantities at mimimum
+    real(dp), intent(out), dimension(:), optional :: bestFitParams  !values of parameters at mimimum
+    real(dp), intent(out), dimension(:), optional :: bestFitDerived !values of derived quantities at mimimum
     integer, dimension(:), intent(in), optional :: discrete     !a vector listing all discrete dimensions of parameter space
     logical, intent(in), optional    :: partitionDiscrete       !split the population evenly amongst discrete parameters and evolve separately
     integer, intent(in), optional    :: maxciv                  !maximum number of civilisations
@@ -144,7 +146,8 @@ contains
                       lowerbounds, &
                       upperbounds, &
                       nDerived=nDerived, &
-                      paramsPlus=paramsPlus, &
+                      bestFitParams=bestFitParams, &
+                      bestFitDerived=bestFitDerived, &
                       discrete=discrete, &
                       partitionDiscrete=partitionDiscrete, &
                       maxciv=maxciv, &
@@ -412,10 +415,11 @@ contains
     endif
 
     !Prepare to return the output parameters and derived quantities at the minimum
-    if (present(paramsPlus)) then
-      paramsPlus(1:run_params%D) = params
-      paramsPlus(run_params%D+1:run_params%D+run_params%D_derived) = &
-       BF%vectors_and_derived(1,run_params%D+1:run_params%D+run_params%D_derived)
+    if (present(bestFitParams)) then
+      bestFitParams(1:run_params%D) = params
+    endif
+    if (present(bestFitDerived)) then
+      bestFitDerived(1:run_params%D_derived) = BF%vectors_and_derived(1,run_params%D+1:run_params%D+run_params%D_derived)
     endif
 
     !Do final save operation

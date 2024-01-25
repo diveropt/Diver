@@ -9,7 +9,8 @@ const double      lowerbounds[]        = {-5.,-50.,-5.,-50.,-2.};      // Lower 
 const double      upperbounds[]        = { 5., 50., 5., 50., 2.};      // Upper boundaries of parameter space
 const char        path[]               = "example_c/output/example";   // Path to save samples, resume files, etc
 const int         nDerived             = 2;                            // Number of derived quantities to output
-      double      paramsPlus[]         = {0,0,0,0,0,0,0};              // Placeholder for returned parameters and derived quantities at best-fit point
+      double      bestFitParams[]      = {0,0,0,0,0};                  // Placeholder for returned parameters at best-fit point
+      double      bestFitDerived[]     = {0,0};                        // Placeholder for returned derived quantities at best-fit point
 const int         nDiscrete            = 0;                            // Number of parameters that are to be treated as discrete
 const int         discrete[]           = {0};                          // Indices of discrete parameters, Fortran style, i.e. starting at 1!!
 const bool        partitionDiscrete    = false;                        // Split the population evenly amongst discrete parameters and evolve separately
@@ -65,12 +66,12 @@ double gauss(double params[], const int param_dim, int *fcall, bool *quit, const
 int main(int argc, char** argv)
 {
   void* context = &gauss; //Not actually used in this example.
-  double result = cdiver(gauss, nPar, lowerbounds, upperbounds, path, nDerived, paramsPlus, nDiscrete, discrete, partitionDiscrete,
-         maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh,
+  double result = cdiver(gauss, nPar, lowerbounds, upperbounds, path, nDerived, bestFitParams, bestFitDerived, nDiscrete,
+         discrete, partitionDiscrete, maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh,
          convsteps, removeDuplicates, doBayesian, NULL, maxNodePop, Ztolerance, savecount, resume, disableIO, outputRaw,
          outputSam, init_pop_strategy, discard_unfit_points, max_init_attempts, max_acceptable_val, seed, context, verbose);
          //Note that prior, maxNodePop and Ztolerance are just ignored if doBayesian = false
   printf("Best fit returned: %e\n", result);
-  for (int i = 0; i < nPar; i++) printf("Parameter %i at best fit: %e\n", i, paramsPlus[i]);
-  for (int i = 0; i < nDerived; i++) printf("Derived quantity %i at best fit: %e\n", i, paramsPlus[i+nPar]);
+  for (int i = 0; i < nPar; i++) printf("Parameter %i at best fit: %e\n", i, bestFitParams[i]);
+  for (int i = 0; i < nDerived; i++) printf("Derived quantity %i at best fit: %e\n", i, bestFitDerived[i]);
 }

@@ -25,7 +25,8 @@ contains
                           lowerbounds, &
                           upperbounds, &
                           nDerived, &
-                          paramsPlus, &
+                          bestFitParams, &
+                          bestFitDerived, &
                           discrete, &
                           partitionDiscrete, &
                           maxciv, &
@@ -62,7 +63,8 @@ contains
     type(codeparams), intent(out) :: run_params
     real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds      !boundaries of parameter space
     integer, intent(in), optional  :: nDerived                          !input number of derived quantities to output
-    real(dp), intent(out), dimension(:), optional :: paramsPlus         !values of parameters and derived quantities at mimimum
+    real(dp), intent(out), dimension(:), optional :: bestFitParams      !values of parameters at mimimum
+    real(dp), intent(out), dimension(:), optional :: bestFitDerived     !values of derived quantities at mimimum
     integer, dimension(:), intent(in), optional :: discrete             !lists all discrete dimensions of parameter space
     logical, intent(in), optional  :: partitionDiscrete                 !split the population evenly amongst discrete parameters and evolve separately
     integer, intent(in), optional  :: maxciv                            !maximum number of civilisations
@@ -153,9 +155,15 @@ contains
 
     call setIfNonNegative_int('nDerived', run_params%D_derived, 0, invar=nDerived) !default is no derived quantities
 
-    if (present(paramsPlus)) then                                                  !paramsPlus must have size equal to D+D_derived 
-      if(size(paramsPlus) .ne. run_params%D + run_params%D_derived) then
-        call quit_de('ERROR: paramsPlus must have size equal to the number of parameters plus the number of derived quantities.')
+    if (present(bestFitParams)) then                                               !bestFitParams must have size equal to D
+      if(size(bestFitParams) .ne. run_params%D) then
+        call quit_de('ERROR: bestFitParams must have size equal to the number of parameters.')
+      endif
+    endif
+
+    if (present(bestFitDerived)) then                                               !bestFitDerived must have size equal to D_derived
+      if(size(bestFitDerived) .ne. run_params%D_derived) then
+        call quit_de('ERROR: bestFitDerived must have size equal to the number of derived quantities.')
       endif
     endif
 

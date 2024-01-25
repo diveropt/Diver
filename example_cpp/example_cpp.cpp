@@ -10,7 +10,8 @@ const double      lowerbounds[nPar]    = {-6.0, -6.0};                 // Lower 
 const double      upperbounds[nPar]    = { 6.0,  6.0};                 // Upper boundaries of parameter space
 const char        path[]               = "example_cpp/output/example"; // Path to save samples, resume files, etc
 const int         nDerived             = 0;                            // Number of derived quantities to output
-      double      paramsPlus[]         = {0,0};                        // Placeholder for returned parameters and derived quantities at best-fit point
+      double      bestFitParams[]      = {0,0};                        // Placeholder for returned parameters at best-fit point
+      double      bestFitDerived[]     = {0};                          // Placeholder for returned derived quantities at best-fit point
 const int         nDiscrete            = 0;                            // Number of parameters that are to be treated as discrete
 const int         discrete[]           = {0};                          // Indices of discrete parameters, Fortran style, i.e. starting at 1!!
 const bool        partitionDiscrete    = false;                        // Split the population evenly amongst discrete parameters and evolve separately
@@ -118,12 +119,12 @@ int main(int argc, char** argv)
   if (argc > 1 and strcmp(argv[1], "shell") == 0) minus_lnlike = gauss_shell; else minus_lnlike = &gauss;
   void* context = &minus_lnlike;
 
-  double result = cdiver(objective, nPar, lowerbounds, upperbounds, path, nDerived, paramsPlus, nDiscrete, discrete,
-   partitionDiscrete, maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh, convsteps,
-   removeDuplicates, doBayesian, flatprior, maxNodePop, Ztolerance, savecount, resume, disableIO, outputRaw, outputSam,
-   init_pop_strategy, discard_unfit_points, max_init_attempts, max_acceptable_val, seed, context, verbose);
+  double result = cdiver(objective, nPar, lowerbounds, upperbounds, path, nDerived, bestFitParams, bestFitDerived, nDiscrete,
+   discrete, partitionDiscrete, maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh,
+   convsteps, removeDuplicates, doBayesian, flatprior, maxNodePop, Ztolerance, savecount, resume, disableIO, outputRaw,
+   outputSam, init_pop_strategy, discard_unfit_points, max_init_attempts, max_acceptable_val, seed, context, verbose);
    //Note that prior, maxNodePop and Ztolerance are just ignored if doBayesian = false
 
   std::cout << "Best fit returned: " << result << std::endl;
-  for (int i = 0; i < nPar; i++) std::cout << "Parameter " <<  i << " at best fit: " << paramsPlus[i] << std::endl;
+  for (int i = 0; i < nPar; i++) std::cout << "Parameter " <<  i << " at best fit: " << bestFitParams[i] << std::endl;
 }
