@@ -432,8 +432,18 @@ contains
 
     !Default is to enable all output files.
     call set_logical(run_params%disableIO, .false., invar=disableIO)
-    call set_logical(run_params%outputRaw, .true., invar=outputRaw)
-    call set_logical(run_params%outputSam, .true., invar=outputSam)
+    call set_logical(run_params%outputRaw, .not. run_params%disableIO, invar=outputRaw)
+    call set_logical(run_params%outputSam, .not. run_params%disableIO, invar=outputSam)
+
+    !Point out if disableIO overrides outputRaw or outputSam
+    if (run_params%disableIO) then
+       if (run_params%outputRaw) then
+          write (*,*) 'WARNING: disableIO = true overrides outputRaw = true. No .raw file will be output.'
+       endif
+       if (run_params%outputSam) then
+          write (*,*) 'WARNING: disableIO = true overrides outputSam = true. No .sam file will be output.'
+       endif
+    endif
 
     !Just set up a dummy null context pointer if it happens to be missing
     if (present(context)) then
