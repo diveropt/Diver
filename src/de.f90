@@ -416,10 +416,10 @@ contains
 
     !Prepare to return the output parameters and derived quantities at the minimum
     if (present(bestFitParams)) then
-      bestFitParams(1:run_params%D) = params
+      bestFitParams = params
     endif
     if (present(bestFitDerived)) then
-      bestFitDerived(1:run_params%D_derived) = BF%vectors_and_derived(1,run_params%D+1:run_params%D+run_params%D_derived)
+      bestFitDerived = BF%vectors_and_derived(1,run_params%D+1:run_params%D+run_params%D_derived)
     endif
 
     !Do final save operation
