@@ -16,16 +16,16 @@ real(dp), parameter :: Ztolscale = 100., Ftolscale = 100., Bndtolscale = 100.
 contains
 
 
-subroutine io_begin(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF, prior, restart)
+subroutine io_begin(civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF, path, prior, restart)
 
-  character(len=*), intent(in) :: path
   integer, intent(inout) :: civ, gen, Nsamples, Nsamples_saved, fcall
   real(dp), intent(inout) :: Z, Zmsq, Zerr, Zold
   type(codeparams), intent(inout) :: run_params
-  logical, intent(in), optional :: restart
   integer :: filestatus
   type(population), intent(inout) :: X, BF
+  character(len=*), intent(in), optional :: path
   procedure(PriorFunc), optional :: prior
+  logical, intent(in), optional :: restart
 
   logical           :: restart_
 
@@ -33,12 +33,18 @@ subroutine io_begin(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_save
   if (present(restart)) restart_ = restart
 
   if (restart_) then
+    if (.not. present(path)) then
+      call quit_de('Error: Resuming a Diver run requires the path argument to be set to the location of the previous run files.')
+    endif
     if (present(prior)) then
       call resume(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF, prior=prior)
     else
       call resume(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF)
     endif
   else if (run_params%mpirank .eq. 0 .and. .not. run_params%disableIO) then
+    if (.not. present(path)) then
+      call quit_de('Error: The path argument must be set unless disableIO = true and not attempting to resume an old run.')
+    endif
     !Create output .raw file
     if (run_params%outputRaw) then
       if (run_params%verbose .ge. 1) write(*,*) 'Creating Diver .raw file at '//trim(path)//'.raw'
@@ -57,14 +63,14 @@ subroutine io_begin(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_save
 end subroutine io_begin
 
 
-subroutine save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, final)
+subroutine save_all(X, BF, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, path, final)
 
   type(population), intent(in) :: X, BF
-  character(len=*), intent(in) :: path
   integer, intent(inout) :: Nsamples_saved
   integer, intent(in) :: civ, gen, Nsamples, fcall
   real(dp), intent(in) :: Z, Zmsq, Zerr, Zold
   type(codeparams), intent(in) :: run_params
+  character(len=*), intent(in), optional :: path
   logical, intent(in), optional :: final
 
   logical         :: final_
@@ -74,22 +80,22 @@ subroutine save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsampl
 
   if (.not. final_) then
     Nsamples_saved = Nsamples_saved + run_params%DE%NP
-    call save_samples(X, path, civ, gen, run_params)
+    call save_samples(X, civ, gen, run_params, path=path)
   endif
-  call save_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF)
+  call save_state(civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF, path=path)
 
 end subroutine save_all
 
 
-subroutine save_samples(X, path, civ, gen, run_params)
+subroutine save_samples(X, civ, gen, run_params, path)
 
   type(population), intent(in) :: X
-  character(len=*), intent(in) :: path
   integer, intent(in) :: civ, gen
   type(codeparams), intent(in) :: run_params
   integer :: filestatus, i
   character(len=28) :: formatstring_raw
   character(len=28) :: formatstring_sam
+  character(len=*), intent(in), optional :: path
 
   if (run_params%disableIO) return
 
@@ -118,10 +124,10 @@ subroutine save_samples(X, path, civ, gen, run_params)
 end subroutine save_samples
 
 
-subroutine save_run_params(path, run_params)
+subroutine save_run_params(run_params, path)
 
-  character(len=*), intent(in) :: path
   type(codeparams), intent(in) :: run_params
+  character(len=*), intent(in), optional :: path
   integer :: filestatus
   logical :: exists
   character(len=31) :: formatstring
@@ -184,9 +190,8 @@ subroutine save_run_params(path, run_params)
 end subroutine save_run_params
 
 
-subroutine save_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF)
+subroutine save_state(civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF, path)
 
-  character(len=*), intent(in) :: path
   integer, intent(in) :: civ, gen, Nsamples, Nsamples_saved, fcall
   real(dp), intent(in) :: Z, Zmsq, Zerr, Zold
   type(codeparams), intent(in) :: run_params
@@ -194,6 +199,7 @@ subroutine save_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_sa
   logical :: exists
   character(len=31) :: formatstring
   type(population), intent(in) :: X, BF
+  character(len=*), intent(in), optional :: path
 
   if (run_params%disableIO) return
 
@@ -495,7 +501,7 @@ subroutine resume(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved,
     !Check agreement of the evidence things with what was read in from devo file
     if (require_Z_match) then
       if (any(abs((/(Z_new-Z)/Z, (Zmsq_new-Zmsq)/Zmsq, (Zerr_new - Zerr)/Zerr/)) .gt. Ztolscale*epsilon(Z))) then
-        call polishEvidence(Z_3, Zmsq_3, Zerr_3, prior, run_params%context, Nsamples_saved, path, run_params, .false.)
+        call polishEvidence(Z_3, Zmsq_3, Zerr_3, prior, run_params%context, Nsamples_saved, run_params, .false., path=path)
         if (any(abs((/(Z_3-Z)/Z, (Zmsq_3-Zmsq)/Zmsq, (Zerr_3 - Zerr)/Zerr/)) .gt. Ztolscale*epsilon(Z))) then
           write(*,*) ' Evidence variables look fishy...'
           write(*,'(A24,3F16.5)') '  From devo file: ', log(Z), log(Zmsq), log(Zerr)

@@ -51,7 +51,7 @@ contains
 
   
   !Recalculate evidence and all posterior weights at the end of a run
-  subroutine polishEvidence(Z, Zmsq, Zerr, prior, context, Nsamples, path, run_params, update)
+  subroutine polishEvidence(Z, Zmsq, Zerr, prior, context, Nsamples, run_params, update, path)
 
     use iso_c_binding, only: c_ptr
 
@@ -62,12 +62,12 @@ contains
     integer, intent(in) :: Nsamples
     type(c_ptr), intent(inout) :: context
     integer :: filestatus, reclen_raw, reclen_sam, civ, gen, i
-    character(len=*), intent(in) :: path
     character(len=31) :: formatstring_raw 
     character(len=31) :: formatstring_sam
     character(len=1)  :: LF
     logical, intent(in) :: update
     logical :: dosam
+    character(len=*), intent(in), optional :: path
 
     !determine whether to bother with .sam file
     dosam = ((run_params%D_derived .ne. 0) .or. (size(run_params%discrete) .ne. 0))

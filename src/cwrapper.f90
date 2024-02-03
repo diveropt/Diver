@@ -120,23 +120,25 @@ contains
 
     integer, parameter :: maxpathlen = 300
 
-    real(c_double)                     :: cdiver
-    type(c_funptr),  intent(in), value :: minusloglike_in, prior_in
-    type(c_ptr),     intent(inout)     :: context
-    integer(c_int),  intent(in), value :: nPar, nDerived, nDiscrete, maxciv, maxgen, NP, nF, bndry, convsteps, savecount, verbose
-    integer(c_int),  intent(in), value :: init_population_strategy, max_initialisation_attempts, seed
-    integer(c_int),  intent(in), target:: discrete(nDiscrete)
-    logical(c_bool), intent(in), value :: partitionDiscrete, current, expon, jDE, lambdajDE, removeDuplicates, doBayesian, resume
-    logical(c_bool), intent(in), value :: disableIO, outputRaw, outputSam, discard_unfit_points
-    real(c_double),  intent(in), value :: Cr, lambda, convthresh, maxNodePop, Ztolerance, max_acceptable_value
-    real(c_double),  intent(in)        :: lowerbounds(nPar), upperbounds(nPar), F(nF)
-    real(c_double),  intent(out)       :: bestFitParams(nPar)
-    real(c_double),  intent(out)       :: bestFitDerived(nDerived)
+    real(c_double)                       :: cdiver
+    type(c_funptr),  intent(in), value   :: minusloglike_in, prior_in
+    type(c_ptr),     intent(inout)       :: context
+    integer(c_int),  intent(in), value   :: nPar, nDerived, nDiscrete, maxciv, maxgen, NP, nF, bndry, convsteps, savecount, verbose
+    integer(c_int),  intent(in), value   :: init_population_strategy, max_initialisation_attempts, seed
+    integer(c_int),  intent(in), target  :: discrete(nDiscrete)
+    logical(c_bool), intent(in), value   :: partitionDiscrete, current, expon, jDE, lambdajDE, removeDuplicates, doBayesian, resume
+    logical(c_bool), intent(in), value   :: disableIO, outputRaw, outputSam, discard_unfit_points
+    real(c_double),  intent(in), value   :: Cr, lambda, convthresh, maxNodePop, Ztolerance, max_acceptable_value
+    real(c_double),  intent(in)          :: lowerbounds(nPar), upperbounds(nPar), F(nF)
+    real(c_double),  intent(out)         :: bestFitParams(nPar)
+    real(c_double),  intent(out), target :: bestFitDerived(nDerived)
     character(kind=c_char,len=1), dimension(maxpathlen), intent(in) :: path
 
     integer :: i
     integer, target :: discrete_empty(0)
     integer, pointer :: discrete_f(:)
+    real(c_double), target :: bestFitDerived_empty(0)
+    real(c_double), pointer :: bestFitDerived_f(:)
     character(len=maxpathlen) :: path_f
 
     ! Set the pointers to the likelihood and prior functions
@@ -152,6 +154,13 @@ contains
           path_f(i:i) = path(i)
        end if
     end do
+
+    ! Fix up the potential null pointer passed in instead of an illegal zero-element C array if nDerived = 0
+    if (nDerived .eq. 0) then
+      bestFitDerived_f => bestFitDerived_empty
+    else
+      bestFitDerived_f => bestFitDerived
+    endif
 
     ! Fix up the potential null pointer passed in instead of an illegal zero-element C array if nDiscrete = 0
     if (nDiscrete .eq. 0) then
@@ -170,7 +179,7 @@ contains
                      path_f, &
                      nDerived=nDerived, &
                      bestFitParams=bestFitParams, &
-                     bestFitDerived=bestFitDerived, &
+                     bestFitDerived=bestFitDerived_f, &
                      discrete=discrete_f, &
                      partitionDiscrete=logical(partitionDiscrete), &
                      maxciv=maxciv, &

@@ -68,7 +68,7 @@ contains
     real(dp)                         :: diver                   !result (minimum value obtained from func)
     procedure(MinusLogLikeFunc)      :: func                    !the likelihood function to be minimised -- assumed to be -ln(likelihood)
     real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds !boundaries of parameter space
-    character(len=*), intent(in)     :: path                    !path to save samples, resume files, etc
+    character(len=*), intent(in), optional :: path              !path to save samples, resume files, etc
     integer, intent(in), optional    :: nDerived                !input number of derived quantities to output
     real(dp), intent(out), dimension(:), optional :: bestFitParams  !values of parameters at mimimum
     real(dp), intent(out), dimension(:), optional :: bestFitDerived !values of derived quantities at mimimum
@@ -182,6 +182,10 @@ contains
        call quit_de('Error: evidence calculation requested without specifying a prior.')
     end if
 
+    if (run_params%calcZ .and. run_params%disableIO) then
+       call quit_de('Error: evidence calculation is not possible with IO disabled.')
+    end if
+
     !seed the random number generator(s) from the system clock
     call init_all_random_seeds(run_params%DE%NP/run_params%mpipopchunk, run_params%mpirank, run_params%seed)
 
@@ -221,8 +225,8 @@ contains
     BF%values(1) = huge(BF%values(1))
 
     !Resume from saved run or initialise save files for a new one.
-    call io_begin(path, civstart, genstart, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, totfcall, &
-                  run_params, X, BF, prior=prior, restart=resume)
+    call io_begin(civstart, genstart, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, totfcall, &
+                  run_params, X, BF, path=path, prior=prior, restart=resume)
 
     !Tidy a few things up if resuming.
     if (present(resume)) then
@@ -286,9 +290,9 @@ contains
 
              !save things
              if (run_params%mpirank .eq. 0) then
-                if (civ .eq. 1) call save_run_params(path, run_params)
+                if (civ .eq. 1) call save_run_params(run_params, path=path)
                 if (run_params%savefreq .eq. 1) then
-                   call save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, huge(Z), Nsamples, Nsamples_saved, totfcall, run_params)
+                   call save_all(X, BF, civ, gen, Z, Zmsq, Zerr, huge(Z), Nsamples, Nsamples_saved, totfcall, run_params, path=path)
                 endif
              endif
 
@@ -353,15 +357,15 @@ contains
 
              !Do periodic save
              if ((mod(gen,run_params%savefreq) .eq. 0) .and. (run_params%mpirank .eq. 0)) then
-                call save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, huge(Z), Nsamples, Nsamples_saved, totfcall, run_params)
+                call save_all(X, BF, civ, gen, Z, Zmsq, Zerr, huge(Z), Nsamples, Nsamples_saved, totfcall, run_params, path=path)
              endif
 
           endif
 
           if (quit .and. run_params%mpirank .eq. 0) then
              if (run_params%verbose .gt. 0) write(*,*) 'Quit requested by objective function - Diver will save and exit now.'
-             call save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, huge(Z), Nsamples, Nsamples_saved, totfcall, run_params, &
-                          final=(mod(gen,run_params%savefreq) .eq. 0) )
+             call save_all(X, BF, civ, gen, Z, Zmsq, Zerr, huge(Z), Nsamples, Nsamples_saved, totfcall, run_params, &
+                           path=path, final=(mod(gen,run_params%savefreq) .eq. 0) )
           endif
 
           !Check generation-level convergence: if satisfied, or quit flag set, exit genloop
@@ -406,7 +410,7 @@ contains
     !Polish the evidence
     if (run_params%calcZ .and. run_params%mpirank .eq. 0 .and. Nsamples_saved .gt. 0) then
       Zold = Z
-      call polishEvidence(Z, Zmsq, Zerr, prior, run_params%context, Nsamples_saved, path, run_params, .true.)
+      call polishEvidence(Z, Zmsq, Zerr, prior, run_params%context, Nsamples_saved, run_params, .true., path=path)
       if (run_params%verbose .ge. 1) then
          write (*,'(A25,E13.6)') ' corrected ln(Evidence): ', log(Z)
          write (*,'(A25,E13.6,A6)') '                     +/- ', abs(log(Z/Zold)), ' (sys)'
@@ -424,8 +428,8 @@ contains
 
     !Do final save operation
     if (run_params%mpirank .eq. 0) then
-       call save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, totfcall, run_params, &
-                     final = ( (mod(gen,run_params%savefreq) .eq. 0) .or. (civ .eq. civstart) ) )
+       call save_all(X, BF, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, totfcall, run_params, &
+                     path=path, final = ( (mod(gen,run_params%savefreq) .eq. 0) .or. (civ .eq. civstart) ) )
     end if
 
     !Clean up and shut down.

@@ -297,7 +297,7 @@ program example_f
   ! discrete=(/1,3,5/), lambdajDE=.true., partitionDiscrete=.true., resume=.false., Ztolerance=0.1_dp, &
   ! removeDuplicates=.true., maxciv=1, NP=1000, bndry=3, prior=flatprior, verbose=1)
   
-  res = diver(rosenbrock, lowerbounds, upperbounds, path, doBayesian=.false., &
+  res = diver(rosenbrock, lowerbounds, upperbounds, doBayesian=.false., path=path, &
    verbose=3, prior=flatprior, lambdajDE=.true., discard_unfit_points=.true.)
   
   write(*,*)
