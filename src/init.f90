@@ -15,23 +15,56 @@ implicit none
 private
 public param_assign, initialize, init_all_random_seeds
 
-character (len=*), parameter :: version_number = "1.0.8"
+character (len=*), parameter :: version_number = "1.1.0"
 
 contains
 
   !Assign parameter values (defaults if not specified) to run_params and print DE parameter values to screen
 
-  subroutine param_assign(run_params, lowerbounds, upperbounds, nDerived, discrete, partitionDiscrete, maxciv,     &
-                          maxgen, NP, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh, convsteps, &
-                          removeDuplicates, doBayesian, maxNodePop, Ztolerance, savecount, outputSamples,          &
-                          init_population_strategy, discard_unfit_points, max_initialisation_attempts,             &
-                          max_acceptable_value, seed, context, verbose)
+  subroutine param_assign(run_params, &
+                          lowerbounds, &
+                          upperbounds, &
+                          nDerived, &
+                          bestFitParams, &
+                          bestFitDerived, &
+                          discrete, &
+                          partitionDiscrete, &
+                          maxciv, &
+                          maxgen, &
+                          NP, &
+                          F, &
+                          Cr, &
+                          lambda, &
+                          current, &
+                          expon, &
+                          bndry, &
+                          jDE, &
+                          lambdajDE, &
+                          convthresh, &
+                          convsteps, &
+                          removeDuplicates, &
+                          doBayesian, &
+                          maxNodePop, &
+                          Ztolerance, &
+                          savecount, &
+                          disableIO, &
+                          outputRaw, &
+                          outputSam, &
+                          init_population_strategy, &
+                          discard_unfit_points, &
+                          max_initialisation_attempts, &
+                          max_acceptable_value, &
+                          seed, &
+                          context, &
+                          verbose)
 
     use iso_c_binding, only: C_NULL_PTR, c_ptr
 
     type(codeparams), intent(out) :: run_params
     real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds      !boundaries of parameter space
     integer, intent(in), optional  :: nDerived                          !input number of derived quantities to output
+    real(dp), intent(out), dimension(:), optional :: bestFitParams      !values of parameters at mimimum
+    real(dp), intent(out), dimension(:), optional :: bestFitDerived     !values of derived quantities at mimimum
     integer, dimension(:), intent(in), optional :: discrete             !lists all discrete dimensions of parameter space
     logical, intent(in), optional  :: partitionDiscrete                 !split the population evenly amongst discrete parameters and evolve separately
     integer, intent(in), optional  :: maxciv                            !maximum number of civilisations
@@ -52,14 +85,17 @@ contains
     real(dp), intent(in), optional :: maxNodePop                        !population at which node is partitioned in binary space partitioning for posterior
     real(dp), intent(in), optional :: Ztolerance                        !input tolerance in log-evidence
     integer, intent(in), optional  :: savecount                         !save progress every savecount generations
-    logical, intent(in), optional  :: outputSamples                     !write samples as output
+    logical, intent(in), optional  :: disableIO                         !disable all IO
+    logical, intent(in), optional  :: outputRaw                         !output raw parameter samples to a .raw file
+    logical, intent(in), optional  :: outputSam                         !output rounded and derived parameter samples to a .sam file
     integer, intent(in), optional  :: init_population_strategy          !initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found.
-    logical, intent(in), optional  :: discard_unfit_points              !recalculate any trial vector whose fitness is above max_acceptable_value
+    logical, intent(in), optional  :: discard_unfit_points              !recalculate any trial vector whose fitness is above max_acceptable_value. Likely incompatible with any objective function that makes MPI calls of its own.
     integer, intent(in), optional  :: max_initialisation_attempts       !maximum number of times to try to find a valid vector for each slot in the initial population.
     real(dp), intent(in), optional :: max_acceptable_value              !maximum fitness to accept for the initial generation if init_population_strategy > 0. Also applies to later generations if discard_unfit_points = .true.
     integer, intent(in), optional  :: seed                              !base seed for random number generation; non-positive or absent means seed from the system clock
-    type(c_ptr), intent(inout), optional  :: context                    !context pointer/integer, used for passing info from the caller to likelihood/prior
     integer, intent(in), optional  :: verbose                           !how much info to print to screen: 0-quiet, 1-basic info, 2-civ info, 3+ everything
+    type(c_ptr), intent(inout), optional  :: context                    !context pointer, used for passing info from the caller to likelihood/prior. Use this for passing a pointer
+                                                                        !to a callback function that can be used for I/O, harvesting samples in situ, printing or whatever else you like.
 
     integer :: mpiprocs, mpirank, ierror                                !number of processes running, rank of current process, error code
     character (len=70) :: DEstrategy                                    !for printing mutation/crossover DE strategy
@@ -118,6 +154,19 @@ contains
     run_params%upperbounds = upperbounds
 
     call setIfNonNegative_int('nDerived', run_params%D_derived, 0, invar=nDerived) !default is no derived quantities
+
+    if (present(bestFitParams)) then                                               !bestFitParams must have size equal to D
+      if(size(bestFitParams) .ne. run_params%D) then
+        call quit_de('ERROR: bestFitParams must have size equal to the number of parameters.')
+      endif
+    endif
+
+    if (present(bestFitDerived)) then                                               !bestFitDerived must have size equal to D_derived
+      if(size(bestFitDerived) .ne. run_params%D_derived) then
+        call quit_de('ERROR: bestFitDerived must have size equal to the number of derived quantities.')
+      endif
+    endif
+
     call setIfPositive_int('maxgen', run_params%numgen, 300, invar=maxgen)
     call setIfPositive_real('convthresh', run_params%convthresh, 1e-3_dp, invar=convthresh)
 
@@ -389,8 +438,20 @@ contains
        run_params%subpopNP = run_params%DE%NP !no partitioning, so the subpopulation is the same as the whole population
     endif
 
-    !Default is to output parameter samples.
-    call set_logical(run_params%outputSamples, .true., invar=outputSamples)
+    !Default is to enable all output files.
+    call set_logical(run_params%disableIO, .false., invar=disableIO)
+    call set_logical(run_params%outputRaw, .not. run_params%disableIO, invar=outputRaw)
+    call set_logical(run_params%outputSam, .not. run_params%disableIO, invar=outputSam)
+
+    !Point out if disableIO overrides outputRaw or outputSam
+    if (run_params%disableIO) then
+       if (run_params%outputRaw) then
+          write (*,*) 'WARNING: disableIO = true overrides outputRaw = true. No .raw file will be output.'
+       endif
+       if (run_params%outputSam) then
+          write (*,*) 'WARNING: disableIO = true overrides outputSam = true. No .sam file will be output.'
+       endif
+    endif
 
     !Just set up a dummy null context pointer if it happens to be missing
     if (present(context)) then

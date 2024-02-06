@@ -1,28 +1,35 @@
+
+1.1.0 -- Jan 2024
+- Changed diver function signature to return the minimum value of the objective function, as well as the values of the parameters and any derived quantities at the minimum.
+- Replaced "outputSamples" with "outputSam" and "outputRaw" to allow turning off .raw and .sam output separately. 
+- Added option "disableIO" for turning off creation of all output files; note that setting this true makes restarting impossible.
+- Added a bit more explanation to the in-code documentation of the context pointer.
+- Added note about potential gotcha with objectives including MPI calls and discard_unfit_points=true.
+
 1.0.8 -- Nov 2023
-Switched from 'use mpi' to 'use mpi_f08'.
-Added a catch for when the user forgets to increment fcall.
+- Switched from 'use mpi' to 'use mpi_f08'.
+- Added a catch for when the user forgets to increment fcall.
 
 1.0.7 -- Oct 2023
-Added 'pragma once' to headers, removed 'define none 0'.
+- Added 'pragma once' to headers, removed 'define none 0'.
 
 1.0.6 -- Oct 2023
-Switched from 'include mpif.h' to 'use mpi' .
+- Switched from 'include mpif.h' to 'use mpi' .
 
 1.0.5 -- Dec 2019
-Added discard_unfit_points option to allow enforcement of policy that all trial
-vectors must be valid. Thanks to Ethan Carragher.
+- Added discard_unfit_points option to allow enforcement of policy that all trial vectors must be valid. Thanks to Ethan Carragher.
 
 1.0.4 -- Nov 2017
-Made workaround for compatibility with intel 2018 compilers.
+- Made workaround for compatibility with intel 2018 compilers.
 
 1.0.3 -- Sep 2017
-Added argument to allow random number generator to be seeded when calling Diver.
+- Added argument to allow random number generator to be seeded when calling Diver.
 
 1.0.2 -- June 2017
-Another fix to dependencies in makefile for parallel building.
+- Another fix to dependencies in makefile for parallel building.
 
 1.0.1 -- June 2017
-Fixes to makefile to allow proper parallel build
+- Fixes to makefile to allow proper parallel build
 
 1.0.0 -- May 2017
-Initial release
+- Initial release

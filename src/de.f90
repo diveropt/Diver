@@ -23,18 +23,55 @@ contains
 
 
   !Main differential evolution routine.
-  subroutine diver(func, lowerbounds, upperbounds, path, nDerived, discrete, partitionDiscrete,            &
-                   maxciv, maxgen, NP, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE,               &
-                   convthresh, convsteps, removeDuplicates, doBayesian, prior, maxNodePop, Ztolerance,     &
-                   savecount, resume, outputSamples, init_population_strategy, discard_unfit_points,       &
-                   max_initialisation_attempts, max_acceptable_value, seed, context, verbose)
+  function diver(func, &
+                 lowerbounds, &
+                 upperbounds, &
+                 path, &
+                 nDerived, &
+                 bestFitParams, &
+                 bestFitDerived, &
+                 discrete, &
+                 partitionDiscrete, &
+                 maxciv, &
+                 maxgen, &
+                 NP, &
+                 F, &
+                 Cr, &
+                 lambda, &
+                 current, &
+                 expon, &
+                 bndry, &
+                 jDE, &
+                 lambdajDE, &
+                 convthresh, &
+                 convsteps, &
+                 removeDuplicates, &
+                 doBayesian, &
+                 prior, &
+                 maxNodePop, &
+                 Ztolerance, &
+                 savecount, &
+                 resume, &
+                 disableIO, &
+                 outputRaw, &
+                 outputSam, &
+                 init_population_strategy, &
+                 discard_unfit_points, &
+                 max_initialisation_attempts, &
+                 max_acceptable_value, &
+                 seed, &
+                 context, &
+                 verbose)
 
     use iso_c_binding, only: c_ptr
 
+    real(dp)                         :: diver                   !result (minimum value obtained from func)
     procedure(MinusLogLikeFunc)      :: func                    !the likelihood function to be minimised -- assumed to be -ln(likelihood)
     real(dp), dimension(:), intent(in) :: lowerbounds, upperbounds !boundaries of parameter space
-    character(len=*), intent(in)     :: path                    !path to save samples, resume files, etc
+    character(len=*), intent(in), optional :: path              !path to save samples, resume files, etc
     integer, intent(in), optional    :: nDerived                !input number of derived quantities to output
+    real(dp), intent(out), dimension(:), optional :: bestFitParams  !values of parameters at mimimum
+    real(dp), intent(out), dimension(:), optional :: bestFitDerived !values of derived quantities at mimimum
     integer, dimension(:), intent(in), optional :: discrete     !a vector listing all discrete dimensions of parameter space
     logical, intent(in), optional    :: partitionDiscrete       !split the population evenly amongst discrete parameters and evolve separately
     integer, intent(in), optional    :: maxciv                  !maximum number of civilisations
@@ -58,15 +95,19 @@ contains
     integer, intent(in), optional    :: savecount               !save progress every savecount generations
     logical, intent(in), optional    :: resume                  !restart from a previous run
     integer, intent(in), optional    :: init_population_strategy!initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found.
-    logical, intent(in), optional    :: discard_unfit_points    !recalculate any trial vector whose fitness is above max_acceptable_value
+    logical, intent(in), optional    :: discard_unfit_points    !recalculate any trial vector whose fitness is above max_acceptable_value. Likely incompatible with any objective function that makes MPI calls of its own.
     integer, intent(in), optional    :: max_initialisation_attempts !maximum number of times to try to find a valid vector for each slot in the initial population.
     real(dp), intent(in), optional   :: max_acceptable_value    !maximum fitness to accept for the initial generation if init_population_strategy > 0. Also applies to later generations if discard_unfit_points = .true.
-    logical, intent(in), optional    :: outputSamples           !write samples as output
+    logical, intent(in), optional    :: disableIO               !disable all IO
+    logical, intent(in), optional    :: outputRaw               !output raw parameter samples to a .raw file
+    logical, intent(in), optional    :: outputSam               !output rounded and derived parameter samples to a .sam file
     integer, intent(in), optional    :: seed                    !base seed for random number generation; non-positive or absent means seed from the system clock
-    type(c_ptr), intent(inout), optional :: context             !context pointer, used for passing info from the caller to likelihood/prior
-
     integer, intent(in), optional    :: verbose                 !output verbosity: 0=only error messages, 1=basic info, 2=civ-level info, 3+=population info
+    type(c_ptr), intent(inout), optional :: context             !context pointer, used for passing info from the caller to likelihood/prior. Use this for passing a pointer
+                                                                !to a callback function that can be used for I/O, harvesting samples in situ, printing or whatever else you like.
 
+    real(dp), dimension(size(lowerbounds)) :: params            !parameters at the best-fit point
+    
     type(codeparams) :: run_params                              !carries the code parameters
 
     type(population), target :: X, BF                           !population of target vectors, best-fit vector
@@ -101,20 +142,48 @@ contains
     run_params%convergence_criterion = meanimprovement
 
     !Assign specified or default values to run_params and print out information to the screen
-    call param_assign(run_params, lowerbounds, upperbounds, nDerived=nDerived, discrete=discrete,    &
-                      partitionDiscrete=partitionDiscrete, maxciv=maxciv, maxgen=maxgen, NP=NP,      &
-                      F=F, Cr=Cr, lambda=lambda, current=current, expon=expon, bndry=bndry, jDE=jDE, &
-                      lambdajDE=lambdajDE, convthresh=convthresh, convsteps=convsteps,               &
-                      removeDuplicates=removeDuplicates, doBayesian=doBayesian,                      &
-                      maxNodePop=maxNodePop, Ztolerance=Ztolerance, savecount=savecount,             &
-                      outputSamples=outputSamples, init_population_strategy=init_population_strategy,&
-                      discard_unfit_points=discard_unfit_points,                                     &
-                      max_initialisation_attempts=max_initialisation_attempts,                       &
-                      max_acceptable_value=max_acceptable_value, seed=seed, context=context,         &
+    call param_assign(run_params, &
+                      lowerbounds, &
+                      upperbounds, &
+                      nDerived=nDerived, &
+                      bestFitParams=bestFitParams, &
+                      bestFitDerived=bestFitDerived, &
+                      discrete=discrete, &
+                      partitionDiscrete=partitionDiscrete, &
+                      maxciv=maxciv, &
+                      maxgen=maxgen, &
+                      NP=NP, &
+                      F=F, &
+                      Cr=Cr, &
+                      lambda=lambda, &
+                      current=current, &
+                      expon=expon, &
+                      bndry=bndry, &
+                      jDE=jDE, &
+                      lambdajDE=lambdajDE, &
+                      convthresh=convthresh, &
+                      convsteps=convsteps, &
+                      removeDuplicates=removeDuplicates, &
+                      doBayesian=doBayesian, &
+                      maxNodePop=maxNodePop, &
+                      Ztolerance=Ztolerance, &
+                      savecount=savecount, &
+                      disableIO=disableIO, &
+                      outputRaw=outputRaw, &
+                      outputSam=outputSam, &
+                      init_population_strategy=init_population_strategy, &
+                      discard_unfit_points=discard_unfit_points, &
+                      max_initialisation_attempts=max_initialisation_attempts, &
+                      max_acceptable_value=max_acceptable_value, &
+                      seed=seed, context=context, &
                       verbose=verbose)
 
     if (run_params%calcZ .and. .not. present(prior)) then
        call quit_de('Error: evidence calculation requested without specifying a prior.')
+    end if
+
+    if (run_params%calcZ .and. run_params%disableIO) then
+       call quit_de('Error: evidence calculation is not possible with IO disabled.')
     end if
 
     !seed the random number generator(s) from the system clock
@@ -156,8 +225,8 @@ contains
     BF%values(1) = huge(BF%values(1))
 
     !Resume from saved run or initialise save files for a new one.
-    call io_begin(path, civstart, genstart, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, totfcall, &
-                  run_params, X, BF, prior=prior, restart=resume)
+    call io_begin(civstart, genstart, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, totfcall, &
+                  run_params, X, BF, path=path, prior=prior, restart=resume)
 
     !Tidy a few things up if resuming.
     if (present(resume)) then
@@ -221,9 +290,9 @@ contains
 
              !save things
              if (run_params%mpirank .eq. 0) then
-                if (civ .eq. 1) call save_run_params(path, run_params)
+                if (civ .eq. 1) call save_run_params(run_params, path=path)
                 if (run_params%savefreq .eq. 1) then
-                   call save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, huge(Z), Nsamples, Nsamples_saved, totfcall, run_params)
+                   call save_all(X, BF, civ, gen, Z, Zmsq, Zerr, huge(Z), Nsamples, Nsamples_saved, totfcall, run_params, path=path)
                 endif
              endif
 
@@ -236,6 +305,7 @@ contains
                 n = run_params%mpipopchunk*run_params%mpirank + m          !current member of the population (same as m if no MPI)
 
                 !keep making trial vectors until one has a fitness less than max_acceptable_value, if discard_unfit_points = .true.
+                !note that this loop means any MPI calls inside objective functions will likely cause MPI issues if discard_unfit_points=true.
                 do
                    if (run_params%partitionDiscrete) then
                       call getSubpopulation(X, Xsub, n, nsub, run_params)     !restrict donor pool to this member's subpopulation
@@ -287,15 +357,15 @@ contains
 
              !Do periodic save
              if ((mod(gen,run_params%savefreq) .eq. 0) .and. (run_params%mpirank .eq. 0)) then
-                call save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, huge(Z), Nsamples, Nsamples_saved, totfcall, run_params)
+                call save_all(X, BF, civ, gen, Z, Zmsq, Zerr, huge(Z), Nsamples, Nsamples_saved, totfcall, run_params, path=path)
              endif
 
           endif
 
           if (quit .and. run_params%mpirank .eq. 0) then
              if (run_params%verbose .gt. 0) write(*,*) 'Quit requested by objective function - Diver will save and exit now.'
-             call save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, huge(Z), Nsamples, Nsamples_saved, totfcall, run_params, &
-                          final=(mod(gen,run_params%savefreq) .eq. 0) )
+             call save_all(X, BF, civ, gen, Z, Zmsq, Zerr, huge(Z), Nsamples, Nsamples_saved, totfcall, run_params, &
+                           path=path, final=(mod(gen,run_params%savefreq) .eq. 0) )
           endif
 
           !Check generation-level convergence: if satisfied, or quit flag set, exit genloop
@@ -305,8 +375,10 @@ contains
 
        genstart = 1
 
-       !Update best fits
+       !Update best fits and save to output variables
        call newBFs(X,BF)
+       diver = BF%values(1)
+       params = roundvector(BF%vectors(1,:), run_params)
 
        if (run_params%verbose .ge. 3) then
           write (*,*)
@@ -314,8 +386,8 @@ contains
        end if
        if (run_params%verbose .ge. 2) then
           write (*,*) '  Number of generations in this civilisation: ', min(gen,run_params%numgen)
-          write (*,*) '  Best final vector in this civilisation: ', roundvector(BF%vectors(1,:), run_params)
-          write (*,*) '  Value at best final vector in this civilisation: ', BF%values(1)
+          write (*,*) '  Best final vector at the end of this civilisation: ', params
+          write (*,*) '  Value at best final vector at the end of this civilisation: ', diver
           write (*,*) '  Cumulative function calls: ', totfcall
        end if
 
@@ -327,8 +399,8 @@ contains
     if (run_params%verbose .ge. 1) then
        write (*,*) '============================='
        write (*,'(A25,I4)') ' Number of civilisations: ', min(civ,run_params%numciv)
-       write (*,*) 'Best final vector: ', roundvector(BF%vectors(1,:), run_params)
-       write (*,*) 'Value at best final vector: ', BF%values(1)
+       write (*,*) 'Best final vector: ', params
+       write (*,*) 'Value at best final vector: ', diver
        if (run_params%calcZ) then
           write (*,'(A23,E13.6,A5,E13.6,A7)') ' approx. ln(Evidence): ', log(Z), ' +/- ', log(Z/(Z-Zerr)), ' (stat)'
        end if
@@ -338,7 +410,7 @@ contains
     !Polish the evidence
     if (run_params%calcZ .and. run_params%mpirank .eq. 0 .and. Nsamples_saved .gt. 0) then
       Zold = Z
-      call polishEvidence(Z, Zmsq, Zerr, prior, run_params%context, Nsamples_saved, path, run_params, .true.)
+      call polishEvidence(Z, Zmsq, Zerr, prior, run_params%context, Nsamples_saved, run_params, .true., path=path)
       if (run_params%verbose .ge. 1) then
          write (*,'(A25,E13.6)') ' corrected ln(Evidence): ', log(Z)
          write (*,'(A25,E13.6,A6)') '                     +/- ', abs(log(Z/Zold)), ' (sys)'
@@ -346,10 +418,18 @@ contains
       end if
     endif
 
+    !Prepare to return the output parameters and derived quantities at the minimum
+    if (present(bestFitParams)) then
+      bestFitParams = params
+    endif
+    if (present(bestFitDerived)) then
+      bestFitDerived = BF%vectors_and_derived(1,run_params%D+1:run_params%D+run_params%D_derived)
+    endif
+
     !Do final save operation
-    if (run_params%mpirank .eq. 0 ) then
-       call save_all(X, BF, path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, totfcall, run_params, &
-                     final = ( (mod(gen,run_params%savefreq) .eq. 0) .or. (civ .eq. civstart) ) )
+    if (run_params%mpirank .eq. 0) then
+       call save_all(X, BF, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, totfcall, run_params, &
+                     path=path, final = ( (mod(gen,run_params%savefreq) .eq. 0) .or. (civ .eq. civstart) ) )
     end if
 
     !Clean up and shut down.
@@ -388,7 +468,7 @@ contains
     if (.not. mpi_already_init) call MPI_Finalize(ierror)
 #endif
 
-  end subroutine diver
+  end function diver
 
 
 end module de

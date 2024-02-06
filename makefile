@@ -1,6 +1,6 @@
 # ===========================================
 # Makefile for Diver
-# Author: Pat Scott, p.scott@imperial.ac.uk
+# Author: Pat Scott, patrickcolinscott@gmail.com
 #
 # The Diver make system is not really complex enough to require autotools or
 # cmake.  Just change this makefile by hand to suit your system, or call it

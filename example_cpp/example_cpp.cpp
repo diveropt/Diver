@@ -2,6 +2,7 @@
 #include <cstring>
 #include <cmath>
 #include <limits>
+#include <iostream>
 #include "diver.hpp"
 
 const int         nPar                 = 2;                            // Dimensionality of the parameter space
@@ -9,6 +10,8 @@ const double      lowerbounds[nPar]    = {-6.0, -6.0};                 // Lower 
 const double      upperbounds[nPar]    = { 6.0,  6.0};                 // Upper boundaries of parameter space
 const char        path[]               = "example_cpp/output/example"; // Path to save samples, resume files, etc
 const int         nDerived             = 0;                            // Number of derived quantities to output
+      double      bestFitParams[]      = {0,0};                        // Placeholder for returned parameters at best-fit point
+      double      bestFitDerived[]     = {0};                          // Placeholder for returned derived quantities at best-fit point
 const int         nDiscrete            = 0;                            // Number of parameters that are to be treated as discrete
 const int         discrete[]           = {0};                          // Indices of discrete parameters, Fortran style, i.e. starting at 1!!
 const bool        partitionDiscrete    = false;                        // Split the population evenly amongst discrete parameters and evolve separately
@@ -32,9 +35,11 @@ const double      maxNodePop           = 1.9;                          // Popula
 const double      Ztolerance           = 0.1;                          // Input tolerance in log-evidence
 const int         savecount            = 1;                            // Save progress every savecount generations
 const bool        resume               = false;                        // Restart from a previous run
-const bool        outputSamples        = true;                         // Write output .raw and .sam (if nDerived != 0) files
+const bool        disableIO            = false;                        // Disable all IO
+const bool        outputRaw            = true;                         // Output raw parameter samples to a .raw file
+const bool        outputSam            = false;                        // Output rounded and derived parameter samples to a .sam file
 const int         init_pop_strategy    = 2;                            // Initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found.
-const bool        discard_unfit_points = false;                        // Recalculate any trial vector whose fitness is above max_acceptable_value
+const bool        discard_unfit_points = false;                        // Recalculate any trial vector whose fitness is above max_acceptable_value. Likely incompatible with any objective function that makes MPI calls of its own.
 const int         max_init_attempts    = 10000;                        // Maximum number of times to try to find a valid vector for each slot in the initial population.
 const double      max_acceptable_val   = 1e6;                          // Maximum fitness to accept for the initial generation if init_population_strategy > 0, or any generation if discard_unfit_points = true.
 const int         seed                 = -1;                           // base seed for random number generation; non-positive or absent means seed from the system clock
@@ -114,9 +119,12 @@ int main(int argc, char** argv)
   if (argc > 1 and strcmp(argv[1], "shell") == 0) minus_lnlike = gauss_shell; else minus_lnlike = &gauss;
   void* context = &minus_lnlike;
 
-  cdiver(objective, nPar, lowerbounds, upperbounds, path, nDerived, nDiscrete, discrete, partitionDiscrete,
-         maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh, convsteps,
-         removeDuplicates, doBayesian, flatprior, maxNodePop, Ztolerance, savecount, resume, outputSamples,
-         init_pop_strategy, discard_unfit_points, max_init_attempts, max_acceptable_val, seed, context, verbose);
-         //Note that prior, maxNodePop and Ztolerance are just ignored if doBayesian = false
+  double result = cdiver(objective, nPar, lowerbounds, upperbounds, path, nDerived, bestFitParams, bestFitDerived, nDiscrete,
+   discrete, partitionDiscrete, maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh,
+   convsteps, removeDuplicates, doBayesian, flatprior, maxNodePop, Ztolerance, savecount, resume, disableIO, outputRaw,
+   outputSam, init_pop_strategy, discard_unfit_points, max_init_attempts, max_acceptable_val, seed, context, verbose);
+   //Note that prior, maxNodePop and Ztolerance are just ignored if doBayesian = false
+
+  std::cout << "Best fit returned: " << result << std::endl;
+  for (int i = 0; i < nPar; i++) std::cout << "Parameter " <<  i << " at best fit: " << bestFitParams[i] << std::endl;
 }

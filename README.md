@@ -7,11 +7,13 @@ A fast parameter sampler and optimiser based on differential evolution.
 About
 --
 
-Diver is written in Fortran2003.  We originally wrote it with applications in particle physics and astronomy in mind, but there is nothing to prevent its use in other fields.
+Diver is written in Fortran2008 and uses MPI.  We originally wrote it with applications in particle physics and astronomy in mind, but it has since found broad applicability in other fields.
 
-The code and its options are described in detail in the ScannerBit paper included in the distribution.  Any papers that use results or insights obtained with Diver should cite this paper:
-  1. Martinez, McKay, Farmer, Scott, Roebber, Putze & Conrad 2017, European Physical Journal C 77 (2017) 761, [arXiv:1705.07959](https://arxiv.org/abs/1705.07959)
-
+The code and its options are documented in the project's [GitHub wiki](https://github.com/patscott/Diver/wiki), which has been updated from the description in the original release paper (included in the distribution as ScannerBit.pdf). Any papers that use results or insights obtained with Diver should cite this paper:
+  1. Martinez, McKay, Farmer, Scott, Roebber, Putze & Conrad 2017, European Physical Journal C 77 (2017) 761, [arXiv:1705.07959](https://arxiv.org/abs/1705.07959).
+One can also find detailed performance comparisons of Diver with other samplers and optimisers in both the above paper and in:
+  2. DarkMachines High Dimensional Sampling Group, JHEP 05 (2021) 108, [arXiv:2101.04525](https://arxiv.org/abs/2101.04525).
+In particular, this latter paper demonstrates that Diver significantly outperforms Scipy's implementation of differential evolution.
 
 Compilation
 --
@@ -49,7 +51,7 @@ The executables will appear in the Diver root directory. (You should run them.)
 Licensing
 --
 
-The actual license is below.  In simple terms: Diver is free for academic use (no need to ask us), potentially free for other non-profit use (but you need to ask us explicitly), and not free for commercial use (you'll likely need to make some sort of contribution to our research budget or similar in that case).
+The actual license is below.  In simple terms: Diver is free for academic use (no need to ask us), potentially free for other non-profit use (but you need to ask us explicitly), and not free for commercial use (you'll likely need to pay for a license in that case).
 
 Contact: patrickcolinscott@gmail.com
 

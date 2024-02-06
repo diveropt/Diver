@@ -40,13 +40,15 @@ type codeparams                                         !code parameters (rememb
    real(dp) :: tol                                      !tolerance in log-evidence
    real(dp) :: maxNodePop                               !maximum population to allow in a cell before partitioning it
    logical :: calcZ                                     !calculate evidence or not
-   logical :: outputSamples                             !write samples as output
+   logical :: disableIO                                 !disable all IO
+   logical :: outputRaw                                 !output raw parameter samples to a .raw file
+   logical :: outputSam                                 !output rounded and derived parameter samples to a .sam file
    integer :: savefreq                                  !frequency with which to save progress
    integer :: mpirank                                   !rank of current process (0 if no MPI)
    integer :: mpiprocs                                  !number of processes running (1 if no MPI)
    integer :: mpipopchunk                               !number of vectors for each process to work on (NP if no MPI)
    integer :: init_population_strategy                  !initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found.
-   logical :: discard_unfit_points                      !recalculate any trial vector whose fitness is above max_acceptable_value
+   logical :: discard_unfit_points                      !recalculate any trial vector whose fitness is above max_acceptable_value. Likely incompatible with any objective function that makes MPI calls of its own.
    integer :: max_initialisation_attempts               !maximum number of times to try to find a valid vector for each slot in the initial population. Also applies to later generations if discard_unfit_points = .true.
    real(dp) :: max_acceptable_value                     !maximum fitness to accept for the initial generation if init_population_strategy > 0.
    type(c_ptr) :: context                               !context pointer
