@@ -61,7 +61,8 @@ contains
                  max_acceptable_value, &
                  seed, &
                  context, &
-                 verbose)
+                 verbose, &
+                 license)
 
     use iso_c_binding, only: c_ptr
 
@@ -103,11 +104,12 @@ contains
     logical, intent(in), optional    :: outputSam               !output rounded and derived parameter samples to a .sam file
     integer, intent(in), optional    :: seed                    !base seed for random number generation; non-positive or absent means seed from the system clock
     integer, intent(in), optional    :: verbose                 !output verbosity: 0=only error messages, 1=basic info, 2=civ-level info, 3+=population info
+    integer, intent(in), optional    :: license                 !license: 0=none, 1=monthly, 2=annual, 3+=academic use
     type(c_ptr), intent(inout), optional :: context             !context pointer, used for passing info from the caller to likelihood/prior. Use this for passing a pointer
                                                                 !to a callback function that can be used for I/O, harvesting samples in situ, printing or whatever else you like.
 
     real(dp), dimension(size(lowerbounds)) :: params            !parameters at the best-fit point
-    
+
     type(codeparams) :: run_params                              !carries the code parameters
 
     type(population), target :: X, BF                           !population of target vectors, best-fit vector
@@ -132,6 +134,10 @@ contains
     real(dp) :: t1, t2                                          !for timing
 
     call cpu_time(t1)
+
+
+    !Log license type
+    call log_license(license=license)
 
 #ifdef MPI
     call MPI_Initialized(mpi_already_init, ierror)              !check if MPI has been initialized by the calling routine

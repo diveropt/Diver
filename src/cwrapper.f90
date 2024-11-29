@@ -42,7 +42,8 @@
 !               int max_initialisation_attempts,
 !               double max_acceptable_value,
 !               void*& context,
-!               int verbose)
+!               int verbose,
+!               int license)
 
 ! double minusloglike(double params[],
 !                     const int param_dim,
@@ -112,7 +113,8 @@ contains
                     max_acceptable_value, &
                     seed, &
                     context, &
-                    verbose &
+                    verbose, &
+                    license &
                     ) bind(c)
 
     use iso_c_binding, only: c_int, c_bool, c_double, c_char, c_funptr, c_ptr, C_NULL_CHAR
@@ -124,7 +126,7 @@ contains
     type(c_funptr),  intent(in), value   :: minusloglike_in, prior_in
     type(c_ptr),     intent(inout)       :: context
     integer(c_int),  intent(in), value   :: nPar, nDerived, nDiscrete, maxciv, maxgen, NP, nF, bndry, convsteps, savecount, verbose
-    integer(c_int),  intent(in), value   :: init_population_strategy, max_initialisation_attempts, seed
+    integer(c_int),  intent(in), value   :: init_population_strategy, max_initialisation_attempts, seed, license
     integer(c_int),  intent(in), target  :: discrete(nDiscrete)
     logical(c_bool), intent(in), value   :: partitionDiscrete, current, expon, jDE, lambdajDE, removeDuplicates, doBayesian, resume
     logical(c_bool), intent(in), value   :: disableIO, outputRaw, outputSam, discard_unfit_points
@@ -183,7 +185,7 @@ contains
                      discrete=discrete_f, &
                      partitionDiscrete=logical(partitionDiscrete), &
                      maxciv=maxciv, &
-                     maxgen=maxgen, & 
+                     maxgen=maxgen, &
                      NP=NP, &
                      F=F, &
                      Cr=Cr, &
@@ -210,7 +212,8 @@ contains
                      max_acceptable_value=max_acceptable_value, &
                      seed=seed, &
                      context=context, &
-                     verbose=verbose)
+                     verbose=verbose, &
+                     license=license)
 
     else
 
@@ -225,7 +228,7 @@ contains
                      discrete=discrete_f, &
                      partitionDiscrete=logical(partitionDiscrete), &
                      maxciv=maxciv, &
-                     maxgen=maxgen, & 
+                     maxgen=maxgen, &
                      NP=NP, &
                      F=F, &
                      Cr=Cr, &
@@ -252,7 +255,8 @@ contains
                      max_acceptable_value=max_acceptable_value, &
                      seed=seed, &
                      context=context, &
-                     verbose=verbose)
+                     verbose=verbose, &
+                     license=license)
 
     endif
 
