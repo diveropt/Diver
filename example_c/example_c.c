@@ -43,13 +43,14 @@ const int         max_init_attempts    = 10000;                        // Maximu
 const double      max_acceptable_val   = 1e6;                          // Maximum fitness to accept for the initial generation if init_population_strategy > 0, or any generation if discard_unfit_points = true.
 const int         seed                 = 1234567;                      // base seed for random number generation; non-positive or absent means seed from the system clock
 const int         verbose              = 2;                            // Output verbosity: 0=only error messages, 1=basic info, 2=civ-level info, 3+=population info
+const int         license              = 0;                            // License: 0=none, 1=monthly, 2=annual, 3+=academic use
 
 
 //Function to be minimized.  Corresponds to -ln(Likelihood).
 //Plain Gaussian centred at the origin. Valid for any number of dimensions.  Minimum value is the number of dimensions.
 double gauss(double params[], const int param_dim, int *fcall, bool *quit, const bool validvector, void** context)
 {
-  //Fill up the two derived parameters with some example quantities 
+  //Fill up the two derived parameters with some example quantities
   params[param_dim-2] = params[0]*params[1];
   params[param_dim-1] = params[2]*params[3];
 
@@ -69,7 +70,7 @@ int main(int argc, char** argv)
   double result = cdiver(gauss, nPar, lowerbounds, upperbounds, path, nDerived, bestFitParams, bestFitDerived, nDiscrete,
          discrete, partitionDiscrete, maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh,
          convsteps, removeDuplicates, doBayesian, NULL, maxNodePop, Ztolerance, savecount, resume, disableIO, outputRaw,
-         outputSam, init_pop_strategy, discard_unfit_points, max_init_attempts, max_acceptable_val, seed, context, verbose);
+         outputSam, init_pop_strategy, discard_unfit_points, max_init_attempts, max_acceptable_val, seed, context, verbose, license);
          //Note that prior, maxNodePop and Ztolerance are just ignored if doBayesian = false
   printf("Best fit returned: %e\n", result);
   for (int i = 0; i < nPar; i++) printf("Parameter %i at best fit: %e\n", i, bestFitParams[i]);

@@ -9,7 +9,7 @@ use detypes
 implicit none
 
 private
-public int_to_string, quit_de, quit_all_processes, roundvector, newBFs, update_acceptance, sync
+public int_to_string, quit_de, quit_all_processes, roundvector, newBFs, update_acceptance, sync, log_license
 
 contains
 
@@ -89,7 +89,7 @@ contains
     integer, intent(IN) :: accept, fcall, NP
     integer, intent(OUT) :: totaccept, totfcall
     integer :: ierror
-   
+
 #ifdef MPI
     call MPI_Allreduce(accept, totaccept, 1, MPI_integer, MPI_sum, MPI_COMM_WORLD, ierror)
     call MPI_Allreduce(fcall, totfcall, 1, MPI_integer, MPI_sum, MPI_COMM_WORLD, ierror)
@@ -107,7 +107,7 @@ contains
   logical function sync(flag)
     logical, intent(INOUT) :: flag
     integer :: ierror
-    
+
     sync = flag
 #ifdef MPI
     call MPI_AllReduce(flag, sync, 1, MPI_LOGICAL, MPI_LOR, MPI_COMM_WORLD, ierror)
@@ -115,5 +115,23 @@ contains
 
   end function sync
 
+
+  !Logs usage according to license type
+  subroutine log_license(license)
+    integer, intent(IN), optional :: license
+    integer :: istat
+    character :: cmd*100
+
+    ! Log license only for unlicensed (license not specified or=0) or monthly (=1) use; skip for annual (=2) and academic licenses (=3)
+    if (.not. present(license) .or. (present (license) .and. license .lt. 2)) then
+      !Check that user actually has sendmail
+      call execute_command_line('command -v sendmail > /dev/null 2>&1', exitstat=istat)
+      if (istat .eq. 0) then
+        !Log usage
+        call execute_command_line('printf "Subject: POLICY0001 Diver license log\n\nuser: ' &
+         // '$(whoami)\nhost: $(hostname)" | sendmail -v diver.optimisation@gmail.com', wait=.false.)
+      endif
+    endif
+  end subroutine log_license
 
 end module deutils
