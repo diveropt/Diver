@@ -4,7 +4,19 @@
 namespace diver
 {
 
-  // pointers to std::functions holding Python objective and prior functions
+  // Implementations of params class
+  /// Constructor
+  params::params(double arr[], long int arr_size) : wrapped_array(&arr[0]), wrapped_array_size(arr_size) {}
+  /// Element accessor
+  double params::operator[] (long int i) const { return wrapped_array[i]; }
+  /// Element modifier
+  double& params::operator[](long int i) { return wrapped_array[i]; }
+  /// Length
+  long int params::size() const { return wrapped_array_size; }
+  /// Update wrapped array
+  void params::update_pointer(double arr[]) { wrapped_array = &arr[0]; }
+
+  // Pointers to std::functions holding Python objective and prior functions
   func_type* func;
   prior_type* prior;
 

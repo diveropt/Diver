@@ -16,15 +16,15 @@ namespace diver
   {
     public:
       /// Constructor
-      params(double arr[], long int arr_size) : wrapped_array(&arr[0]), wrapped_array_size(arr_size) {}
+      params(double arr[], long int arr_size);
       /// Element accessor
-      double operator[] (long int i) const { return wrapped_array[i]; }
+      double operator[] (long int i) const;
       /// Element modifier
-      double& operator[](long int i) { return wrapped_array[i]; }
+      double& operator[](long int i);
       /// Length
-      long int size() const { return wrapped_array_size; }
+      long int size() const;
       /// Update wrapped array
-      void update_pointer(double arr[]) { wrapped_array = &arr[0]; }
+      void update_pointer(double arr[]);
 
     private:
       /// Pointer to the first element of the wrapped C-style parameter array
