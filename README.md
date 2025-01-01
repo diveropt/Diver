@@ -35,6 +35,11 @@ To build only the static library, do
   make libdiver.a
 ```
 
+To build only the python module that wraps the library, do
+```
+  make python_module
+```
+
 Testing
 --
 
@@ -47,11 +52,16 @@ To build only the Fortran, C and C++ examples, do
 
 The executables will appear in the Diver root directory. (You should run them.)
 
+To run the python example, first build the python module and then do
+```
+  python3 example_py/example.py
+```
+
 
 Licensing
 --
 
-The actual license is below.  In simple terms: Diver is free for academic use (no need to ask us), potentially free for other non-profit use (but you need to ask us explicitly), and not free for commercial use (you'll likely need to pay for a license in that case).
+The actual license is below.  In simple terms: Diver is free for academic use (no need to ask us), potentially free for other non-profit use (but you need to ask us explicitly), and not free for commercial use (you'll need to pay for a license in that case).
 
 Contact: diver.optimisation@gmail.com
 
