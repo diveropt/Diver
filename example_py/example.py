@@ -1,0 +1,18 @@
+import diver
+
+def gauss(p: diver.params, fcall: int, finish: bool, validvector: bool, context: object) -> tuple[float, int, bool]:
+  """ Plain Gaussian centred at the origin. Valid for any number of dimensions.  Minimum value is the number of dimensions."""
+  finish = False;
+  objective = 1e300 if not validvector else p[0]*p[0]+p[1]*p[1]+2#sum([x*x+1 for x in p])
+  return objective, fcall+1, finish
+
+def main():
+  # 2D
+  opts = diver.defaults(upperbounds=[2,2], lowerbounds=[-2,-2])
+  s = diver.run(gauss, opts)
+  print("Min in 2D: ", s[0])
+  print("Found at: ", s[1])
+
+if __name__=="__main__":
+    main()
+

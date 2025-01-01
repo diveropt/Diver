@@ -1,4 +1,4 @@
-// C++ prototype of the main run_de function for Diver.
+// C++ prototype of the main diver function.
 #pragma once
 extern "C" double cdiver(double (*)(double[], const int, int&, bool&, const bool, void*&), int, const double[], const double[],
            const char[], int, double[], double[], int, const int[], bool, int, int, int, int, const double[], double,
