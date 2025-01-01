@@ -73,7 +73,7 @@ export DIVER_FF DIVER_FOPT DIVER_CC DIVER_COPT DIVER_CPPOPT DIVER_MIXOPT_C DIVER
 SOURCEFILES = detypes deutils mutation crossover selection init converge posterior evidence io de cwrapper
 OBJ = $(SOURCEFILES:%=$(BUILD)/%.o)
 
-all: libdiver.a $(EXAMPLENAMES)
+all: libdiver.a python_module $(EXAMPLENAMES)
 
 libdiver.a: makefile $(OBJ)
 	$(AR) $(LIB)/$@ $(OBJ)
@@ -83,7 +83,7 @@ libdiver.so: makefile $(OBJ)
 
 python_module: libdiver.a $(BUILD)/python_binding.o
 	$(DIVER_FF) $(DIVER_SO_LINK_FLAGS) -o python/diver_cpp$(shell python3-config --extension-suffix) $(BUILD)/python_binding.o -L$(LIB) -l$(LIBNAME) $(DIVER_MIXOPT_CPP)
-	ln -rs python/diver_cpp$(shell python3-config --extension-suffix) example_py/
+	ln -frs python/diver_cpp$(shell python3-config --extension-suffix) example_py/
 
 $(BUILD)/python_binding.o: $(SOURCE)/python_binding.cpp $(INC)/python_binding.hpp
 	$(DIVER_CC) -c $(DIVER_COPT) $(DIVER_CPPOPT) -I$(INC) $(shell python3 -m pybind11 --includes) $< -o $@

@@ -1,9 +1,13 @@
+# Simple python example for Diver.  'Just works' either serially as
+#   python3 example.py
+# or using e.g. 4 MPI processes as
+#   mpirun -n 4 python3 example.py
 import diver
 
 def gauss(p: diver.params, fcall: int, finish: bool, validvector: bool, context: object) -> tuple[float, int, bool]:
   """ Plain Gaussian centred at the origin. Valid for any number of dimensions.  Minimum value is the number of dimensions."""
   finish = False;
-  objective = 1e300 if not validvector else p[0]*p[0]+p[1]*p[1]+2#sum([x*x+1 for x in p])
+  objective = 1e300 if not validvector else sum([x*x+1 for x in p])
   return objective, fcall+1, finish
 
 def main():

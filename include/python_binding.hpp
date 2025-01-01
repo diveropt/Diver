@@ -23,8 +23,6 @@ namespace diver
       double& operator[](long int i) { return wrapped_array[i]; }
       /// Length
       long int size() const { return wrapped_array_size; }
-      /// Iterator
-      // TODO
       /// Update wrapped array
       void update_pointer(double arr[]) { wrapped_array = &arr[0]; }
 
@@ -53,10 +51,9 @@ PYBIND11_MODULE(diver_cpp, m) {
   py::class_<diver::params>(m, "params")
    .def("__getitem__", [](const diver::params& p, long int i) { return p[i]; })
    .def("__setitem__", [](diver::params& p, long int i, double val) { p[i] = val; })
-   .def("__len__", [](const diver::params& p) { return p.size(); });
-   //.def("__iter__", [](std::vector<int> &v) {
-   //   return py::make_iterator(v.begin(), v.end());
-   //}, py::keep_alive<0, 1>()) /* Keep vector alive while iterator is used */
+   .def("__len__", [](const diver::params& p) { return p.size(); })
+   .def("__iter__", [](diver::params& p) { return py::make_iterator(&p[0], &p[p.size()]); },
+    py::keep_alive<0, 1>()); /* Keep vector alive while iterator is used */
   m.def("run", &diver::diver_cpp, "Run differential evolution via C++ interface.",
         py::arg("func"),
         py::arg("lowerbounds"),
