@@ -11,10 +11,10 @@ def gauss(p: diver.params, fcall: int, finish: bool, validvector: bool, context:
   return objective, fcall+1, finish
 
 def main():
-  # 2D
-  opts = diver.defaults(upperbounds=[2,2], lowerbounds=[-2,-2])
+  N=10
+  opts = diver.defaults(upperbounds=[2]*N, lowerbounds=[-2]*N)
   s = diver.run(gauss, opts)
-  print("Min in 2D: ", s[0])
+  print(f"Min in {N:>2d}D: ", s[0])
   print("Found at: ", s[1])
 
 if __name__=="__main__":

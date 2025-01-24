@@ -5,12 +5,21 @@ namespace diver
 {
 
   // Implementations of params class
-  /// Constructor
-  params::params(double arr[], long int arr_size) : wrapped_array(&arr[0]), wrapped_array_size(arr_size) {}
+  /// Standard constructor
+  params::params(double* arr, long int arr_size, long int step) : wrapped_array(&arr[0]), wrapped_array_size(arr_size), access_stride(step) {}
+  /// Slice view copy constructor
+  params::params(const params& p, long int start, long int stop, long int step)
+  {
+    if (start < 0) start = p.wrapped_array_size + start + 1;
+    if (stop < 0) stop = p.wrapped_array_size + stop + 1;
+    wrapped_array = p.wrapped_array + start * p.access_stride;
+    wrapped_array_size = std::ceil( (stop-start)/(float)step );
+    access_stride = p.access_stride * step;
+  }
   /// Element accessor
-  double params::operator[] (long int i) const { return wrapped_array[i]; }
+  double params::operator[] (long int i) const { return wrapped_array[i*access_stride]; }
   /// Element modifier
-  double& params::operator[](long int i) { return wrapped_array[i]; }
+  double& params::operator[] (long int i) { return wrapped_array[i*access_stride]; }
   /// Length
   long int params::size() const { return wrapped_array_size; }
   /// Update wrapped array
