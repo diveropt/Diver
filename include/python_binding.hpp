@@ -53,7 +53,11 @@ namespace diver
 PYBIND11_MODULE(diver_cpp, m) {
   m.doc() = "Diver differential evolution C++ interface";
   py::class_<diver::params>(m, "params")
-   .def("__getitem__", [](const diver::params& p, long int i) { return p[i]; })
+   .def("__getitem__", [](const diver::params& p, long int i)
+    {
+      if (i < 0) i = p.size() + i;
+      return p[i];
+    })
    .def("__getitem__", [](const diver::params& p, py::slice s)
     {
       size_t start, stop, step, slicelength;
@@ -61,7 +65,11 @@ PYBIND11_MODULE(diver_cpp, m) {
         throw py::error_already_set();
       return diver::params(p, start, stop, step);
     })
-   .def("__setitem__", [](diver::params& p, long int i, double val) { p[i] = val; })
+   .def("__setitem__", [](diver::params& p, long int i, double val)
+    {
+      if (i < 0) i = p.size() + i;
+      p[i] = val;
+    })
    .def("__setitem__", [](diver::params& p, py::slice slice, const diver::params& val)
     {
       size_t start, stop, step, slicelength;

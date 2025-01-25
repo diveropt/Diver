@@ -10,8 +10,7 @@ namespace diver
   /// Slice view copy constructor
   params::params(const params& p, long int start, long int stop, long int step)
   {
-    if (start < 0) start = p.wrapped_array_size + start + 1;
-    if (stop < 0) stop = p.wrapped_array_size + stop + 1;
+    if (stop == -1) stop = p.wrapped_array_size;
     wrapped_array = p.wrapped_array + start * p.access_stride;
     wrapped_array_size = std::ceil( (stop-start)/(float)step );
     access_stride = p.access_stride * step;
