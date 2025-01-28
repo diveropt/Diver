@@ -3,10 +3,12 @@
 # or using e.g. 4 MPI processes as
 #   mpirun -n 4 python3 example.py
 import diver
+import numpy as np
+from numpy.typing import NDArray
 
-def gauss(p: diver.params, fcall: int, finish: bool, validvector: bool, context: object) -> tuple[float, int, bool]:
+def gauss(p: NDArray[np.float64], fcall: int, finish: bool, validvector: bool, context: object) -> tuple[float, int, bool]:
   """ Plain Gaussian centred at the origin. Valid for any number of dimensions.  Minimum value is the number of dimensions."""
-  finish = False;
+  finish = False
   objective = 1e300 if not validvector else sum([x*x+1 for x in p])
   return objective, fcall+1, finish
 

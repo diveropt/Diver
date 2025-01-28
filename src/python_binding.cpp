@@ -1,29 +1,9 @@
 // Diver pybind11 bindings (Python -> C++ -> Fortran)
 #include "python_binding.hpp"
+    #include <iostream>
 
 namespace diver
 {
-
-  // Implementations of params class
-  /// Standard constructor
-  params::params(double* arr, long int arr_size, long int step) : wrapped_array(&arr[0]), wrapped_array_size(arr_size), access_stride(step) {}
-  /// Slice view copy constructor
-  params::params(const params& p, long int start, long int stop, long int step)
-  {
-    if (stop == -1) stop = p.wrapped_array_size;
-    wrapped_array = p.wrapped_array + start * p.access_stride;
-    wrapped_array_size = std::ceil( (stop-start)/(float)step );
-    access_stride = p.access_stride * step;
-  }
-  /// Element accessor
-  double params::operator[] (long int i) const { return wrapped_array[i*access_stride]; }
-  /// Element modifier
-  double& params::operator[] (long int i) { return wrapped_array[i*access_stride]; }
-  /// Length
-  long int params::size() const { return wrapped_array_size; }
-  /// Update wrapped array
-  void params::update_pointer(double arr[]) { wrapped_array = &arr[0]; }
-
   // Pointers to std::functions holding Python objective and prior functions
   func_type* func;
   prior_type* prior;
@@ -32,16 +12,15 @@ namespace diver
   // - provides plain C-style function pointers for Python Callable types
   // - void* --> Python object, allowing arbitrary Python objects to be passed and later used
   //   as 'context', without faffing about with ctypes module and casting
-  // - parameter pack class in place of C-style arrays for model parameters, to allow references
-  //   to be passed to them instead of triggering a (potentially expensive) copy operation. We don't
-  //   want to opaquely bind std::vector<double>, because we want automatic conversion to list[float]
-  //   elsewhere.
+  // - numpy array in place of C-style arrays, providing a view of the underlying array rather than a copy
   // - unpack return pack instead of modifying types passed by reference that are immutable in Python
   double func_local(double pars[], const int nPar, int& fcall, bool& quit, const bool validvector, void*& context)
   {
-    // Statically created parameter pack, so all that needs to be done on each call is to update the pointer to the parameter array.
-    static params parameters(pars, nPar);
-    parameters.update_pointer(pars);
+    py::array_t<double> parameters(
+            {nPar},               // shape
+            {sizeof(double)},     // stride
+            pars,                 // data pointer
+            py::capsule([](){})); // base; without passing a base, the array_t constructor copies the underlying data
     std::tuple<double, int, bool> result = (*func)(parameters, fcall, quit, validvector, *reinterpret_cast<py::object*>(context));
     fcall = std::get<1>(result);
     quit = std::get<2>(result);
@@ -50,27 +29,28 @@ namespace diver
 
   double prior_local(const double pars[], const int nPar, void*& context)
   {
-    // Statically created parameter pack, so all that needs to be done on each call is to update the pointer to the parameter array.
-    // Here we just throw away the constness of the pointer, and rely on the constness of the first argument of the prior std::function type instead.
-    static params parameters(const_cast<double*>(pars), nPar);
-    parameters.update_pointer(const_cast<double*>(pars));
+    py::array_t<double> parameters(
+            {nPar},               // shape
+            {sizeof(double)},     // stride
+            pars,                 // data pointer
+            py::capsule([](){})); // base; without passing a base, the array_t constructor copies the underlying data
     return (*prior)(parameters,*reinterpret_cast<py::object*>(context));
   }
 
-  // Local redirection function for the diver main program, using std::vector in place of C-style arrays and explicit size integers,
-  // local redirection functions for objective and prior functions, and a return pack instead of output arrays passed by reference.
-  std::tuple<double, std::vector<double>, std::vector<double>> diver_cpp(
+  // Local redirection function for the diver main program, using numpy arrays in place of C-style arrays and explicit size
+  // integers, as well as local redirection functions for objective and prior functions.
+  std::tuple<double, py::array_t<double>, py::array_t<double>> diver_cpp(
     func_type func_in,
-    std::vector<double> lowerbounds,
-    std::vector<double> upperbounds,
+    py::array_t<double>& lowerbounds,
+    py::array_t<double>& upperbounds,
     const char path[],
     int nDerived,
-    std::vector<int> discrete,
+    py::array_t<int>& discrete,
     bool partitionDiscrete,
     int maxciv,
     int maxgen,
     int NP,
-    std::vector<double> F,
+    py::array_t<double>& F,
     double Cr,
     double lambda,
     bool current,
@@ -98,27 +78,44 @@ namespace diver
     py::object& context_in,
     int verbose )
   {
+    // Get data pointer and data size for the lowerbounds array
+    py::buffer_info info = lowerbounds.request();
+    double* lowerbounds_ptr = static_cast<double*>(info.ptr);
+    int nPar = info.shape[0];
+    // Get data pointers and sizes for other input arrays
+    double* upperbounds_ptr = static_cast<double*>(upperbounds.request().ptr);
+    info = discrete.request();
+    int* discrete_ptr = static_cast<int*>(info.ptr);
+    int nDiscrete = info.shape[0];
+    info = F.request();
+    double* F_ptr = static_cast<double*>(info.ptr);
+    int nF = info.shape[0];
+    // Create and get data pointers to output arrays.
+    py::array_t<double> bestFitParams({nPar}, {sizeof(double)});
+    double* bestFitParams_ptr = static_cast<double*>(bestFitParams.request().ptr);
+    py::array_t<double> bestFitDerived({nDerived}, {sizeof(double)});
+    double* bestFitDerived_ptr = static_cast<double*>(bestFitDerived.request().ptr);
+
     func = &func_in;
     prior = &prior_in;
-    std::vector<double> bestFitParams(lowerbounds.size());
-    std::vector<double> bestFitDerived(nDerived);
     void* context = &context_in;
+
     double min = cdiver(func_local,
-                        lowerbounds.size(),
-                        &lowerbounds[0],
-                        &upperbounds[0],
+                        nPar,
+                        lowerbounds_ptr,
+                        upperbounds_ptr,
                         path,
                         nDerived,
-                        &bestFitParams[0],
-                        &bestFitDerived[0],
-                        discrete.size(),
-                        &discrete[0],
+                        bestFitParams_ptr,
+                        bestFitDerived_ptr,
+                        nDiscrete,
+                        discrete_ptr,
                         partitionDiscrete,
                         maxciv,
                         maxgen,
                         NP,
-                        F.size(),
-                        &F[0],
+                        nF,
+                        F_ptr,
                         Cr,
                         lambda,
                         current,
@@ -146,7 +143,7 @@ namespace diver
                         context,
                         verbose
                         );
-    return { min, bestFitParams, bestFitDerived };
+    return { min, std::move(bestFitParams), std::move(bestFitDerived) };
   }
 
 }

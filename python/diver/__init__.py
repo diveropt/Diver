@@ -2,22 +2,23 @@
 Diver differential evolution
 """
 
+import numpy as np
+from numpy.typing import NDArray
 from typing import TypedDict, Callable
-from diver_cpp import params
 from diver_cpp import run as run_cpp
 
 class options(TypedDict):
   """Diver options typed dictionary"""
-  lowerbounds: list[float]
-  upperbounds: list[float]
+  lowerbounds: NDArray[np.float64]
+  upperbounds: NDArray[np.float64]
   path: str
   nDerived: int
-  discrete: list[int]
+  discrete: NDArray[np.int32]
   partitionDiscrete: bool
   maxciv: int
   maxgen: int
   NP: int
-  F: list[float]
+  F: NDArray[np.float64]
   Cr: float
   lmbda: float
   current: bool
@@ -29,7 +30,7 @@ class options(TypedDict):
   convsteps: int
   removeDuplicates: bool
   doBayesian: bool
-  prior: Callable[[params, object], float]
+  prior: Callable[[NDArray[np.float64], object], float]
   maxNodePop: float
   Ztolerance: float
   savecount: int
@@ -45,7 +46,7 @@ class options(TypedDict):
   context: object
   verbose: int
 
-def dummy_prior(p: params, context: object) -> float:
+def dummy_prior(p: NDArray[np.float64], context: object) -> float:
   """Flat dummy prior."""
   return 1.0
 
@@ -56,12 +57,12 @@ def defaults(lowerbounds, upperbounds):
        'upperbounds': upperbounds,
        'path': 'output',
        'nDerived': 0,
-       'discrete': [],
+       'discrete': np.array([], dtype=np.float64),
        'partitionDiscrete': False,
        'maxciv': 1,
        'maxgen': 300,
        'NP': max(10*len(upperbounds), 5),
-       'F': [0.7],
+       'F': np.array([0.7]),
        'Cr': 0.9,
        'lmbda': 0.0,
        'current': False,
@@ -91,7 +92,7 @@ def defaults(lowerbounds, upperbounds):
        }
   return d
 
-def run(func: Callable[[params, int, bool, bool, object], tuple[float, int, bool]], opt: options) -> tuple[float, list[float], list[float]]:
+def run(func: Callable[[NDArray[np.float64], int, bool, bool, object], tuple[float, int, bool]], opt: options) -> tuple[float, NDArray[np.float64], NDArray[np.float64]]:
   """
   Run Diver differential evolution.
   """
