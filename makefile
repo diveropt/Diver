@@ -83,8 +83,8 @@ libdiver.so: makefile $(OBJ)
 
 python_module: libdiver.a $(BUILD)/python_binding.o
 	$(DIVER_FF) $(DIVER_SO_LINK_FLAGS) -o python/diver_cpp$(shell python3-config --extension-suffix) $(BUILD)/python_binding.o -L$(LIB) -l$(LIBNAME) $(DIVER_MIXOPT_CPP)
-	# Note that python3-config is not installed by default on Macs! You can get it by installing python using anaconda or homebrew, or building python from source.
-	ln -frs python/diver_cpp$(shell python3-config --extension-suffix) example_py/
+	# Note that on Mac, python3-config is not installed by default. You can get it by installing python using anaconda or homebrew, or by building python from source.
+	cd example_py; ln -fs ../python/diver_cpp$(shell python3-config --extension-suffix) .
 
 $(BUILD)/python_binding.o: $(SOURCE)/python_binding.cpp $(INC)/python_binding.hpp
 	$(DIVER_CC) -c $(DIVER_COPT) $(DIVER_CPPOPT) -I$(INC) $(shell python3 -m pybind11 --includes) $< -o $@
