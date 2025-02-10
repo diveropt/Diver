@@ -76,6 +76,7 @@ License
 --
 
 Copyright 2013-2023 Elinore Roebber and Pat Scott
+Copyright 2024-2025 Diver Optimisation Solutions
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 
