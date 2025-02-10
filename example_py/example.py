@@ -9,7 +9,7 @@ from numpy.typing import NDArray
 def gauss(p: NDArray[np.float64], fcall: int, finish: bool, validvector: bool, context: object) -> tuple[float, int, bool]:
   """ Plain Gaussian centred at the origin. Valid for any number of dimensions.  Minimum value is the number of dimensions."""
   finish = False
-  objective = 1e300 if not validvector else sum([x*x+1 for x in p])
+  objective = 1e300 if not validvector else np.sum(p**2 + 1)
   return objective, fcall+1, finish
 
 def main():

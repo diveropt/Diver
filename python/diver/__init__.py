@@ -4,7 +4,9 @@ Diver differential evolution
 
 import numpy as np
 from numpy.typing import NDArray
-from typing import TypedDict, Callable
+from collections import abc
+from collections.abc import Callable
+from typing import TypedDict
 from diver_cpp import run as run_cpp
 
 class options(TypedDict):

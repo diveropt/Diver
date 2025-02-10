@@ -15,6 +15,12 @@ One can also find detailed performance comparisons of Diver with other samplers 
   2. DarkMachines High Dimensional Sampling Group, JHEP 05 (2021) 108, [arXiv:2101.04525](https://arxiv.org/abs/2101.04525).
 In particular, this latter paper demonstrates that Diver significantly outperforms Scipy's implementation of differential evolution.
 
+Dependencies
+--
+- Main library and Fortran example: ifort/gfortran
+- C/C++ examples: icpc/g++
+- Python module and Python example: pybind11, numpy
+
 Compilation
 --
 
