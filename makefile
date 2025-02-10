@@ -34,6 +34,7 @@ MODULE=J
 CC=mpicc
 COPT=-DMPI
 CPPOPT=
+# On Mac, you may need to add -undefined dynamic_lookup to SO_LINK_FLAGS
 SO_LINK_FLAGS=
 # Intel
 #MIXOPT_C=-nofor-main
