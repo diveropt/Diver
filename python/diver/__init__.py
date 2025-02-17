@@ -10,7 +10,51 @@ from typing import TypedDict
 from diver_cpp import run as run_cpp
 
 class options(TypedDict):
-  """Diver options typed dictionary"""
+  """
+  Diver options typed dictionary.
+
+  Fields:
+    lowerbounds [NDArray[np.float64]]: lower boundaries of parameter space.
+    upperbounds [NDArray[np.float64]]: upper boundaries of parameter space.
+    path [str]: path to save samples, resume files, etc.
+    nDerived [int]: number of derived quantities to output.
+    discrete [NDArray[np.int32]]: a 1D array listing all discrete dimensions of parameter space.
+    partitionDiscrete [bool]: split the population evenly amongst discrete parameters and evolve separately.
+    maxciv [int]: maximum number of civilisations.
+    maxgen [int]: maximum number of generations per civilisation.
+    NP [int]: population size (individuals per generation).
+    F [NDArray[np.float64]]: scale factor(s).
+    Cr [float]: crossover factor.
+    lmbda [float]: mixing factor between best and rand/current.
+    current [bool]: use current vector for mutation.
+    expon [bool]: use exponential crossover.
+    bndry [int]: boundary constraint: 1 -> brick wall, 2 -> random re-initialization, 3 -> reflection.
+    jDE [bool]: use self-adaptive choices for rand/1/bin parameters as described in Brest et al 2006.
+    lambdajDE [bool]: use self-adaptive choices for rand-to-best/1/bin parameters; based on Brest et al 2006.
+    convthresh [float]: threshold for generation-level convergence.
+    convsteps [int]: number of steps to smooth over when checking convergence.
+    removeDuplicates [bool]: weed out duplicate vectors within a single generation.
+    doBayesian [bool]: calculate log evidence and posterior weightings.
+    prior [Callable[[NDArray[np.float64], object], float]]: the prior function.
+        Args:
+            params [numpy.NDArray[np.float64]]: parameter values at which to evaluate the prior.
+            context [object]: Python object passed as an option when invoking diver.run.
+        Returns [float]: prior pdf value at parameter values.
+    maxNodePop [float]: population at which node is partitioned in binary space partitioning for posterior.
+    Ztolerance [float]: input tolerance in log-evidence.
+    savecount [int]: save progress every savecount generations.
+    resume [bool]: restart from a previous run.
+    disableIO [bool]: disable all I/O.
+    outputRaw [bool]: output raw parameter samples to a .raw file.
+    outputSam [bool]: output rounded and derived parameter samples to a .sam file.
+    init_population_strategy [int]: initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found.
+    discard_unfit_points [bool]: recalculate any trial vector whose fitness is above max_acceptable_value. Likely incompatible with any objective function that makes MPI calls of its own.
+    max_initialisation_attempts [int]: maximum number of times to try to find a valid vector for each slot in the initial population.
+    max_acceptable_value [float]: maximum fitness to accept for the initial generation if init_population_strategy > 0. Also applies to later generations if discard_unfit_points = .true.
+    seed [int]: base seed for random number generation; non-positive or absent means seed from the system clock.
+    context [object]: context object, used for passing info from the caller to likelihood/prior. Use this for passing a callback object that can be used for I/O, harvesting samples in situ, printing or whatever else you like.
+    verbose [int]: output verbosity: 0=only error messages, 1=basic info, 2=civ-level info, 3+=population info.
+  """
   lowerbounds: NDArray[np.float64]
   upperbounds: NDArray[np.float64]
   path: str
@@ -114,7 +158,7 @@ def run(func: Callable[[NDArray[np.float64], int, bool, bool, object], tuple[flo
 
   Returns [tuple[float, NDArray[np.float64], NDArray[np.float64]]]:
       minimum function value found [float]
-      parameters at minimum [NDArray[np.float64]]
-      derived parameters at minimum [NDArray[np.float64]]
+      parameter values at minimum [NDArray[np.float64]]
+      values of derived quantities at minimum [NDArray[np.float64]]
   """
   return run_cpp(func=func, **opt)
