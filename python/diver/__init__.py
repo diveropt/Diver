@@ -97,5 +97,24 @@ def defaults(lowerbounds, upperbounds):
 def run(func: Callable[[NDArray[np.float64], int, bool, bool, object], tuple[float, int, bool]], opt: options) -> tuple[float, NDArray[np.float64], NDArray[np.float64]]:
   """
   Run Diver differential evolution.
+
+  Args:
+      func [Callable]: A callable object that returns the value of the function to be optimised.
+          Args:
+              params [numpy.NDArray[np.float64]]: parameter values at which to evaluate the function.
+              fcall [int]: number of calls to func so far.
+              finish [bool]: True if diver should halt at the end of the current generation.
+              validvector [bool]: True if the parameters passed are considered valid (inside upperbounds and lowerbounds options passed when invoking diver.run).
+              context [object]: Python object passed as an option when invoking diver.run.
+          Returns [tuple[float, int, bool]]:
+              function value [float]
+              updated fcall [int]
+              updated validvector [bool]
+      opt [diver.options]: A typed dictionary containing the names and values all options accepted by diver.
+
+  Returns [tuple[float, NDArray[np.float64], NDArray[np.float64]]]:
+      minimum function value found [float]
+      parameters at minimum [NDArray[np.float64]]
+      derived parameters at minimum [NDArray[np.float64]]
   """
   return run_cpp(func=func, **opt)
