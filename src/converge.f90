@@ -5,11 +5,11 @@ use detypes
 implicit none
 
 integer, parameter :: meanimprovement = 0      !indices for convergence criteria (currently only option is mean improvement)
-logical, parameter :: checkpopres = .false.    !check that the population resolution is ok at all steps. 
+logical, parameter :: checkpopres = .false.    !check that the population resolution is ok at all steps.
                                                !Useful when dealing with duplicates causing *very* small population variance
 
 private
-public init_convergence, converged, evidenceDone, meanimprovement
+public init_convergence, converged, meanimprovement
 
 contains
 
@@ -25,24 +25,14 @@ contains
   end subroutine init_convergence
 
 
-  logical function evidenceDone(Z,Zerr,tol)
-
-    real(dp), intent(in) :: Z, tol
-    real(dp), intent(inout) :: Zerr
-
-    evidenceDone = (log(Z/(Z-Zerr)) .le. tol)
-
-  end function evidenceDone
-
-
-  logical function converged(X, run_params)                     
+  logical function converged(X, run_params)
     type(population), intent(in) :: X
     type(codeparams), intent(inout) :: run_params
 
     if (run_params%verbose .ge. 3) write(*,*) '  Checking convergence...'
 
     select case (run_params%convergence_criterion)
-       case (meanimprovement) 
+       case (meanimprovement)
           converged = check_SFIM(X, run_params)
        case default                                 !TODO implement other convergence criteria options
           converged = .false.                       !no convergence criteria used
@@ -59,7 +49,7 @@ contains
 
 
   !tracks the smoothed fractional improvement of the mean value of the population
-  !at each generation, and ends the civilization when this goes below a certain threshold
+  !at each generation, and ends the run when this goes below a certain threshold
   !Note that this *does not work* for test functions whose minimum is 0
   logical function check_SFIM(X, run_params) result(isConverged)
 
@@ -76,7 +66,7 @@ contains
     !curval = minval(X%values)            !best population value
 
     !make sure we don't have problems with infinity
-    if (curval .gt. inf_threshold) then     
+    if (curval .gt. inf_threshold) then
        run_params%meanlike = inf_threshold
        fracdiff = 1.0_dp
     else
@@ -86,9 +76,9 @@ contains
 
     run_params%improvements = eoshift(run_params%improvements, shift=-1, boundary=fracdiff)   !store new improvement, discard oldest improvement
     sfim = sum(run_params%improvements)/real(run_params%convsteps, kind=dp)                   !average over the generations stored
-    
+
     if (run_params%verbose .ge. 3) write (*,*) '  Smoothed fractional improvement of the mean =', sfim
-    
+
     !compare to threshold value
     isConverged = (sfim .lt. run_params%convthresh)
 
@@ -96,7 +86,7 @@ contains
 
 
 
-  !check if the variance of the population has gotten too small--if close to 
+  !check if the variance of the population has gotten too small--if close to
   !floating-point resolution, could have problems with duplicate population members
   !This is not really useful except for smooth functions
   subroutine check_population_resolution(X, run_params, converged)
@@ -130,10 +120,10 @@ contains
           if (run_params%verbose .ge. 3) write(*,*) '    WARNING: at least one vector within allowed resolution'
 
           res_pt_count = run_params%DE%NP/4 !no reason for this value, but it keeps down duplicates
-          if (count(diffvectors(:,i) .lt. resolution) .ge. res_pt_count) then  
+          if (count(diffvectors(:,i) .lt. resolution) .ge. res_pt_count) then
              converged = .true.
              if (run_params%verbose .ge. 3) write (*,*) 'WARNING: Points along dimension', i, &
-                                                'cannot be resolved further. Ending civilization.'
+                                                        'cannot be resolved further. Ending run.'
           end if
        else
           if (run_params%verbose .ge. 3) write(*,*) '    Population resolution okay.'

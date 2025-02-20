@@ -1,15 +1,14 @@
 // Diver pybind11 bindings (Python -> C++ -> Fortran)
 #include "python_binding.hpp"
-    #include <iostream>
+#include <iostream>
 
 namespace diver
 {
-  // Pointers to std::functions holding Python objective and prior functions
+  // Pointers to std::function holding Python objective function
   func_type* func;
-  prior_type* prior;
 
-  // Local redirection functions for objective and prior, to effect various type conversions:
-  // - provides plain C-style function pointers for Python Callable types
+  // Local redirection functions for objective, to effect various type conversions:
+  // - provides plain C-style function pointer for Python Callable type
   // - void* --> Python object, allowing arbitrary Python objects to be passed and later used
   //   as 'context', without faffing about with ctypes module and casting
   // - numpy array in place of C-style arrays, providing a view of the underlying array rather than a copy
@@ -27,18 +26,8 @@ namespace diver
     return std::get<0>(result);
   }
 
-  double prior_local(const double pars[], const int nPar, void*& context)
-  {
-    py::array_t<double> parameters(
-            {nPar},               // shape
-            {sizeof(double)},     // stride
-            pars,                 // data pointer
-            py::capsule([](){})); // base; without passing a base, the array_t constructor copies the underlying data
-    return (*prior)(parameters,*reinterpret_cast<py::object*>(context));
-  }
-
   // Local redirection function for the diver main program, using numpy arrays in place of C-style arrays and explicit size
-  // integers, as well as local redirection functions for objective and prior functions.
+  // integers, as well as local redirection function for objective function.
   std::tuple<double, py::array_t<double>, py::array_t<double>> diver_cpp(
     func_type func_in,
     py::array_t<double>& lowerbounds,
@@ -47,7 +36,6 @@ namespace diver
     int nDerived,
     py::array_t<int>& discrete,
     bool partitionDiscrete,
-    int maxciv,
     int maxgen,
     int NP,
     py::array_t<double>& F,
@@ -61,10 +49,6 @@ namespace diver
     double convthresh,
     int convsteps,
     bool removeDuplicates,
-    bool doBayesian,
-    prior_type prior_in,
-    double maxNodePop,
-    double Ztolerance,
     int savecount,
     bool resume,
     bool disableIO,
@@ -97,7 +81,6 @@ namespace diver
     double* bestFitDerived_ptr = static_cast<double*>(bestFitDerived.request().ptr);
 
     func = &func_in;
-    prior = &prior_in;
     void* context = &context_in;
 
     double min = cdiver(func_local,
@@ -111,7 +94,6 @@ namespace diver
                         nDiscrete,
                         discrete_ptr,
                         partitionDiscrete,
-                        maxciv,
                         maxgen,
                         NP,
                         nF,
@@ -126,10 +108,6 @@ namespace diver
                         convthresh,
                         convsteps,
                         removeDuplicates,
-                        doBayesian,
-                        prior_local,
-                        maxNodePop,
-                        Ztolerance,
                         savecount,
                         resume,
                         disableIO,

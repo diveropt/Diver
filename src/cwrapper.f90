@@ -13,7 +13,6 @@
 !               int nDiscrete,
 !               const int discrete[],
 !               bool partitionDiscrete,
-!               int maxciv,
 !               int maxgen,
 !               int NP,
 !               int nF,
@@ -28,10 +27,6 @@
 !               double convthresh,
 !               int convsteps,
 !               bool removeDuplicates,
-!               bool doBayesian,
-!               double(*prior)(const double[], const int, void*&),
-!               double maxNodePop,
-!               double Ztolerance,
 !               int savecount,
 !               bool resume,
 !               bool disableIO,
@@ -51,10 +46,6 @@
 !                     bool validvector,
 !                     void*& context)
 
-! double prior(const double true_params[],
-!              const int true_param_dim,
-!              void*& context)
-
 ! Originally inspired by cwrapper.f90 in MultiNest v3.3 by Michele Vallisneri, 2013/09/20
 
 
@@ -67,7 +58,7 @@ implicit none
 private
 public cdiver
 
-type(c_funptr) :: minusloglike, prior
+type(c_funptr) :: minusloglike
 
 contains
 
@@ -82,7 +73,6 @@ contains
                     nDiscrete, &
                     discrete, &
                     partitionDiscrete, &
-                    maxciv, &
                     maxgen, &
                     NP, &
                     nF, &
@@ -97,10 +87,6 @@ contains
                     convthresh, &
                     convsteps, &
                     removeDuplicates, &
-                    doBayesian, &
-                    prior_in, &
-                    maxNodePop, &
-                    Ztolerance, &
                     savecount, &
                     resume, &
                     disableIO, &
@@ -121,14 +107,14 @@ contains
     integer, parameter :: maxpathlen = 300
 
     real(c_double)                       :: cdiver
-    type(c_funptr),  intent(in), value   :: minusloglike_in, prior_in
+    type(c_funptr),  intent(in), value   :: minusloglike_in
     type(c_ptr),     intent(inout)       :: context
-    integer(c_int),  intent(in), value   :: nPar, nDerived, nDiscrete, maxciv, maxgen, NP, nF, bndry, convsteps, savecount, verbose
+    integer(c_int),  intent(in), value   :: nPar, nDerived, nDiscrete, maxgen, NP, nF, bndry, convsteps, savecount, verbose
     integer(c_int),  intent(in), value   :: init_population_strategy, max_initialisation_attempts, seed
     integer(c_int),  intent(in), target  :: discrete(nDiscrete)
-    logical(c_bool), intent(in), value   :: partitionDiscrete, current, expon, jDE, lambdajDE, removeDuplicates, doBayesian, resume
+    logical(c_bool), intent(in), value   :: partitionDiscrete, current, expon, jDE, lambdajDE, removeDuplicates, resume
     logical(c_bool), intent(in), value   :: disableIO, outputRaw, outputSam, discard_unfit_points
-    real(c_double),  intent(in), value   :: Cr, lambda, convthresh, maxNodePop, Ztolerance, max_acceptable_value
+    real(c_double),  intent(in), value   :: Cr, lambda, convthresh, max_acceptable_value
     real(c_double),  intent(in)          :: lowerbounds(nPar), upperbounds(nPar), F(nF)
     real(c_double),  intent(out)         :: bestFitParams(nPar)
     real(c_double),  intent(out), target :: bestFitDerived(nDerived)
@@ -141,9 +127,8 @@ contains
     real(c_double), pointer :: bestFitDerived_f(:)
     character(len=maxpathlen) :: path_f
 
-    ! Set the pointers to the likelihood and prior functions
+    ! Set the pointer to the likelihood function
     minusloglike = minusloglike_in
-    prior = prior_in
 
     ! Fix up the string, which is null-terminated in C
     path_f = ' '
@@ -169,93 +154,40 @@ contains
       discrete_f => discrete
     endif
 
-    ! Use the default of a null pointer for the prior function if it isn't needed
-    if (doBayesian) then
-
-      ! Call the actual fortran differential evolution function
-      cdiver = diver(minusloglike_f, &
-                     lowerbounds, &
-                     upperbounds, &
-                     path_f, &
-                     nDerived=nDerived, &
-                     bestFitParams=bestFitParams, &
-                     bestFitDerived=bestFitDerived_f, &
-                     discrete=discrete_f, &
-                     partitionDiscrete=logical(partitionDiscrete), &
-                     maxciv=maxciv, &
-                     maxgen=maxgen, & 
-                     NP=NP, &
-                     F=F, &
-                     Cr=Cr, &
-                     lambda=lambda, &
-                     current=logical(current), &
-                     expon=logical(expon), &
-                     bndry=bndry, &
-                     jDE=logical(jDE), &
-                     lambdajDE=logical(lambdajDE), &
-                     convthresh=convthresh, convsteps=convsteps, &
-                     removeDuplicates=logical(removeDuplicates), &
-                     doBayesian=logical(doBayesian), &
-                     prior = prior_f, &  !<--- this is the only line that differs!
-                     maxNodePop=maxNodePop, &
-                     Ztolerance=Ztolerance, &
-                     savecount=savecount, &
-                     resume=logical(resume), &
-                     disableIO=logical(disableIO), &
-                     outputRaw=logical(outputRaw), &
-                     outputSam=logical(outputSam), &
-                     init_population_strategy=init_population_strategy, &
-                     discard_unfit_points=logical(discard_unfit_points), &
-                     max_initialisation_attempts=max_initialisation_attempts, &
-                     max_acceptable_value=max_acceptable_value, &
-                     seed=seed, &
-                     context=context, &
-                     verbose=verbose)
-
-    else
-
-      ! Call the actual fortran differential evolution function
-      cdiver = diver(minusloglike_f, &
-                     lowerbounds, &
-                     upperbounds, &
-                     path_f, &
-                     nDerived=nDerived, &
-                     bestFitParams=bestFitParams, &
-                     bestFitDerived=bestFitDerived, &
-                     discrete=discrete_f, &
-                     partitionDiscrete=logical(partitionDiscrete), &
-                     maxciv=maxciv, &
-                     maxgen=maxgen, & 
-                     NP=NP, &
-                     F=F, &
-                     Cr=Cr, &
-                     lambda=lambda, &
-                     current=logical(current), &
-                     expon=logical(expon), &
-                     bndry=bndry, &
-                     jDE=logical(jDE), &
-                     lambdajDE=logical(lambdajDE), &
-                     convthresh=convthresh, convsteps=convsteps, &
-                     removeDuplicates=logical(removeDuplicates), &
-                     doBayesian=logical(doBayesian), &
-                     !prior = prior_f, &  !<--- this is the only line that differs!
-                     maxNodePop=maxNodePop, &
-                     Ztolerance=Ztolerance, &
-                     savecount=savecount, &
-                     resume=logical(resume), &
-                     disableIO=logical(disableIO), &
-                     outputRaw=logical(outputRaw), &
-                     outputSam=logical(outputSam), &
-                     init_population_strategy=init_population_strategy, &
-                     discard_unfit_points=logical(discard_unfit_points), &
-                     max_initialisation_attempts=max_initialisation_attempts, &
-                     max_acceptable_value=max_acceptable_value, &
-                     seed=seed, &
-                     context=context, &
-                     verbose=verbose)
-
-    endif
-
+    ! Call the actual fortran differential evolution function
+    cdiver = diver(minusloglike_f, &
+                   lowerbounds, &
+                   upperbounds, &
+                   path_f, &
+                   nDerived=nDerived, &
+                   bestFitParams=bestFitParams, &
+                   bestFitDerived=bestFitDerived, &
+                   discrete=discrete_f, &
+                   partitionDiscrete=logical(partitionDiscrete), &
+                   maxgen=maxgen, &
+                   NP=NP, &
+                   F=F, &
+                   Cr=Cr, &
+                   lambda=lambda, &
+                   current=logical(current), &
+                   expon=logical(expon), &
+                   bndry=bndry, &
+                   jDE=logical(jDE), &
+                   lambdajDE=logical(lambdajDE), &
+                   convthresh=convthresh, convsteps=convsteps, &
+                   removeDuplicates=logical(removeDuplicates), &
+                   savecount=savecount, &
+                   resume=logical(resume), &
+                   disableIO=logical(disableIO), &
+                   outputRaw=logical(outputRaw), &
+                   outputSam=logical(outputSam), &
+                   init_population_strategy=init_population_strategy, &
+                   discard_unfit_points=logical(discard_unfit_points), &
+                   max_initialisation_attempts=max_initialisation_attempts, &
+                   max_acceptable_value=max_acceptable_value, &
+                   seed=seed, &
+                   context=context, &
+                   verbose=verbose)
 
     end function
 
@@ -295,35 +227,6 @@ contains
        quit = quit_c                ! Do boolen type conversion c_bool --> default logical
 
     end function minusloglike_f
-
-
-    ! Wrapper for the prior function
-    real(dp) function prior_f(true_params, context)
-    use iso_c_binding, only: c_f_procpointer, c_ptr
-    use detypes, only: dp
-
-    real(dp),    intent(in)    :: true_params(:)
-    type(c_ptr), intent(inout) :: context
-
-    interface
-       real(c_double) function prior_proto(true_params, true_param_dim, context) bind(c)
-          use iso_c_binding, only: c_double, c_int, c_ptr
-          implicit none
-          real(c_double),  intent(in)           :: true_params(*)
-          integer(c_int),  intent(in), value    :: true_param_dim
-             type(c_ptr),     intent(inout)        :: context
-       end function prior_proto
-    end interface
-
-    procedure(prior_proto), pointer, bind(c) :: prior_c
-
-       ! Cast c_funptr prior to a pointer with signature prior_proto, and assign the result to prior_c
-       call c_f_procpointer(prior,prior_c)
-
-       prior_f = prior_c(true_params, size(true_params), context)
-
-    end function prior_f
-
 
 
 end module

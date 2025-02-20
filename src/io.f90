@@ -2,7 +2,6 @@ module io
 
 use detypes
 use deutils
-use evidence
 use converge
 
 implicit none
@@ -11,20 +10,18 @@ private
 public io_begin, save_all, save_run_params, resume
 
 integer :: rawlun, samlun, devolun, rparamlun
-real(dp), parameter :: Ztolscale = 100., Ftolscale = 100., Bndtolscale = 100.
+real(dp), parameter :: Ftolscale = 100., Bndtolscale = 100.
 
 contains
 
 
-subroutine io_begin(civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF, path, prior, restart)
+subroutine io_begin(gen, Nsamples, Nsamples_saved, fcall, run_params, X, BF, path, restart)
 
-  integer, intent(inout) :: civ, gen, Nsamples, Nsamples_saved, fcall
-  real(dp), intent(inout) :: Z, Zmsq, Zerr, Zold
+  integer, intent(inout) :: gen, Nsamples, Nsamples_saved, fcall
   type(codeparams), intent(inout) :: run_params
   integer :: filestatus
   type(population), intent(inout) :: X, BF
   character(len=*), intent(in), optional :: path
-  procedure(PriorFunc), optional :: prior
   logical, intent(in), optional :: restart
 
   logical           :: restart_
@@ -36,11 +33,7 @@ subroutine io_begin(civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fca
     if (.not. present(path)) then
       call quit_de('Error: Resuming a Diver run requires the path argument to be set to the location of the previous run files.')
     endif
-    if (present(prior)) then
-      call resume(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF, prior=prior)
-    else
-      call resume(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF)
-    endif
+    call resume(path, gen, Nsamples, Nsamples_saved, fcall, run_params, X, BF)
   else if (run_params%mpirank .eq. 0 .and. .not. run_params%disableIO) then
     if (.not. present(path)) then
       call quit_de('Error: The path argument must be set unless disableIO = true and not attempting to resume an old run.')
@@ -51,7 +44,7 @@ subroutine io_begin(civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fca
       open(newunit=rawlun, file=trim(path)//'.raw', iostat=filestatus, action='WRITE', status='REPLACE')
       close(rawlun)
     endif
-    !Create output .sam file only if there are discrete parameters or derived quantities to save. 
+    !Create output .sam file only if there are discrete parameters or derived quantities to save.
     if (run_params%outputSam .and. ( (run_params%D_derived .ne. 0) .or. (size(run_params%discrete) .ne. 0) )) then
       if (run_params%verbose .ge. 1) write(*,*) 'Creating Diver .sam file at '//trim(path)//'.sam'
       open(newunit=samlun, file=trim(path)//'.sam', iostat=filestatus, action='WRITE', status='REPLACE')
@@ -63,12 +56,11 @@ subroutine io_begin(civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fca
 end subroutine io_begin
 
 
-subroutine save_all(X, BF, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, path, final)
+subroutine save_all(X, BF, gen, Nsamples, Nsamples_saved, fcall, run_params, path, final)
 
   type(population), intent(in) :: X, BF
   integer, intent(inout) :: Nsamples_saved
-  integer, intent(in) :: civ, gen, Nsamples, fcall
-  real(dp), intent(in) :: Z, Zmsq, Zerr, Zold
+  integer, intent(in) :: gen, Nsamples, fcall
   type(codeparams), intent(in) :: run_params
   character(len=*), intent(in), optional :: path
   logical, intent(in), optional :: final
@@ -80,17 +72,17 @@ subroutine save_all(X, BF, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_sav
 
   if (.not. final_) then
     Nsamples_saved = Nsamples_saved + run_params%DE%NP
-    call save_samples(X, civ, gen, run_params, path=path)
+    call save_samples(X, gen, run_params, path=path)
   endif
-  call save_state(civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF, path=path)
+  call save_state(gen, Nsamples, Nsamples_saved, fcall, run_params, X, BF, path=path)
 
 end subroutine save_all
 
 
-subroutine save_samples(X, civ, gen, run_params, path)
+subroutine save_samples(X, gen, run_params, path)
 
   type(population), intent(in) :: X
-  integer, intent(in) :: civ, gen
+  integer, intent(in) :: gen
   type(codeparams), intent(in) :: run_params
   integer :: filestatus, i
   character(len=28) :: formatstring_raw
@@ -102,9 +94,9 @@ subroutine save_samples(X, civ, gen, run_params, path)
   if (run_params%outputRaw) then
     open(newunit=rawlun, file=trim(path)//'.raw', iostat=filestatus, action='WRITE', status='OLD', POSITION='APPEND')
     if (filestatus .ne. 0) call quit_all_processes(' Error opening raw file.  Quitting...')
-    write(formatstring_raw,'(A18,I4,A6)') '(2E20.9,2x,2I6,2x,', run_params%D, 'E20.9)'
-    do i = 1, size(X%weights)
-      write(rawlun,formatstring_raw) X%multiplicities(i), X%values(i), civ, gen, X%vectors(i,:)
+    write(formatstring_raw,'(A18,I4,A6)') '(E20.9,2x,I6,2x,', run_params%D, 'E20.9)'
+    do i = 1, size(X%values)
+      write(rawlun,formatstring_raw) X%values(i), gen, X%vectors(i,:)
     enddo
     close(rawlun)
   endif
@@ -113,9 +105,9 @@ subroutine save_samples(X, civ, gen, run_params, path)
     if ((run_params%D_derived .ne. 0) .or. (size(run_params%discrete) .ne. 0)) then
       open(newunit=samlun, file=trim(path)//'.sam', iostat=filestatus, action='WRITE', status='OLD', POSITION='APPEND')
       if (filestatus .ne. 0) call quit_all_processes(' Error opening sam file.  Quitting...')
-      write(formatstring_sam,'(A18,I4,A6)') '(2E20.9,2x,2I6,2x,', run_params%D+run_params%D_derived, 'E20.9)'
-      do i = 1, size(X%weights)
-        write(samlun,formatstring_sam) X%multiplicities(i), X%values(i), civ, gen, X%vectors_and_derived(i,:)
+      write(formatstring_sam,'(A18,I4,A6)') '(E20.9,2x,I6,2x,', run_params%D+run_params%D_derived, 'E20.9)'
+      do i = 1, size(X%values)
+        write(samlun,formatstring_sam) X%values(i), gen, X%vectors_and_derived(i,:)
       enddo
       close(samlun)
     endif
@@ -171,12 +163,9 @@ subroutine save_run_params(run_params, path)
         write(rparamlun,'(I6)') run_params%subpopNP                     !subpopulation NP for partitioned parameters
      endif
   endif
-  write(rparamlun,'(2I6)')    run_params%numciv, run_params%numgen      !maximum number of civilizations, generations
+  write(rparamlun,'(2I6)')    run_params%numgen                         !maximum number of generations
   write(rparamlun,'(E20.9)')  run_params%convthresh                     !threshold for gen-level convergence
   write(rparamlun,'(I6)')     run_params%convsteps                      !number of steps to smooth over when checking convergence
-  write(rparamlun,'(E20.9)')  run_params%tol                            !tolerance in log-evidence
-  write(rparamlun,'(E20.9)')  run_params%maxNodePop                     !maximum population to allow in a cell before partitioning it
-  write(rparamlun,'(L1)')     run_params%calcZ                          !calculate evidence or not
   write(rparamlun,'(L1)')     run_params%disableIO                      !disable all IO or not
   write(rparamlun,'(L1)')     run_params%outputRaw                      !output raw parameter samples to a .raw file or not
   write(rparamlun,'(L1)')     run_params%outputSam                      !output rounded and derived parameter samples to a .sam file or not
@@ -190,10 +179,9 @@ subroutine save_run_params(run_params, path)
 end subroutine save_run_params
 
 
-subroutine save_state(civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF, path)
+subroutine save_state(gen, Nsamples, Nsamples_saved, fcall, run_params, X, BF, path)
 
-  integer, intent(in) :: civ, gen, Nsamples, Nsamples_saved, fcall
-  real(dp), intent(in) :: Z, Zmsq, Zerr, Zold
+  integer, intent(in) :: gen, Nsamples, Nsamples_saved, fcall
   type(codeparams), intent(in) :: run_params
   integer :: filestatus
   logical :: exists
@@ -212,8 +200,7 @@ subroutine save_state(civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, f
   endif
   if (filestatus .ne. 0) call quit_all_processes(' Error opening devo file.  Quitting...')
 
-  write(devolun,'(2I10)')     civ, gen                                  !current civilisation, generation
-  write(devolun,'(4E20.9)')   Z, Zmsq, Zerr, Zold                       !current evidence, mean square, stat. uncertainty, approx Z if Z=corrected
+  write(devolun,'(2I10)')     gen                                       !current generation
   write(devolun,'(3I10)')     Nsamples, Nsamples_saved, fcall           !total number of independent samples so far, num saved, num function calls
 
   write(devolun,'(E20.9)')    BF%values(1)                              !current best-fit
@@ -250,10 +237,9 @@ subroutine save_state(civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, f
 end subroutine save_state
 
 
-subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF)
+subroutine read_state(path, gen, Nsamples, Nsamples_saved, fcall, run_params, X, BF)
 
-  real(dp), intent(out) :: Z, Zmsq, Zerr, Zold
-  integer, intent(out) :: civ, gen, Nsamples, Nsamples_saved, fcall
+  integer, intent(out) :: gen, Nsamples, Nsamples_saved, fcall
   integer :: filestatus, inNP
   logical :: exists
   character(len=*), intent(in) :: path
@@ -308,12 +294,9 @@ subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_sa
   else
      allocate(run_params%discrete(0))
   endif
-  read(rparamlun,'(2I6)')    run_params%numciv, run_params%numgen       !maximum number of civilizations, generations
+  read(rparamlun,'(2I6)')    run_params%numgen                          !maximum number of generations
   read(rparamlun,'(E20.9)')  run_params%convthresh                      !threshold for gen-level convergence
   read(rparamlun,'(I6)')     run_params%convsteps                       !number of steps to smooth over when checking convergence
-  read(rparamlun,'(E20.9)')  run_params%tol                             !tolerance in log-evidence
-  read(rparamlun,'(E20.9)')  run_params%maxNodePop                      !maximum population to allow in a cell before partitioning it
-  read(rparamlun,'(L1)')     run_params%calcZ                           !calculate evidence or not
   read(rparamlun,'(L1)')     run_params%disableIO                       !disable all IO or not
   read(rparamlun,'(L1)')     run_params%outputRaw                       !output raw parameter samples to a .raw file or not
   read(rparamlun,'(L1)')     run_params%outputSam                       !output rounded and derived parameter samples to a .sam file or not
@@ -330,8 +313,7 @@ subroutine read_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_sa
   open(newunit=devolun, file=trim(path)//'.devo', iostat=filestatus, action='READ', status='OLD')
   if (filestatus .ne. 0) call quit_all_processes(' Error opening devo file.  Quitting...')
 
-  read(devolun,'(2I10)')     civ, gen                                   !current civilisation, generation
-  read(devolun,'(4E20.9)')   Z, Zmsq, Zerr, Zold                        !current evidence, mean square, stat. uncertainty, approx Z if Z=corrected
+  read(devolun,'(I10)')      gen                                        !current generation
   read(devolun,'(3I10)')     Nsamples, Nsamples_saved, fcall            !total number of independent samples so far, num saved, num function calls
 
   read(devolun,'(E20.9)')    BF%values(1)                               !current best-fit
@@ -370,17 +352,13 @@ end subroutine read_state
 
 
 !Resumes from a previous run
-subroutine resume(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params, X, BF, prior)
+subroutine resume(path, gen, Nsamples, Nsamples_saved, fcall, run_params, X, BF)
 
   character(len=*), intent(in) :: path
-  integer, intent(inout) :: civ, gen, Nsamples, Nsamples_saved, fcall
+  integer, intent(inout) :: gen, Nsamples, Nsamples_saved, fcall
   integer :: reclen, filestatus, i, j, passoverlen
-  real(dp), intent(inout) :: Z, Zmsq, Zerr, Zold
-  procedure(PriorFunc), optional :: prior
-  real(dp) :: Z_new, Zmsq_new, Zerr_new, Z_3, Zmsq_3, Zerr_3
   character(len=31) :: formatstring
   character(len=1) :: LF
-  logical :: require_Z_match = .true.
   type(codeparams), intent(inout) :: run_params
   type(codeparams) :: run_params_restored
   type(population), intent(inout) :: X, BF
@@ -390,7 +368,7 @@ subroutine resume(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved,
 
   !Read the run state
   run_params_restored%DE%NP = run_params%DE%NP
-  call read_state(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, fcall, run_params_restored, X, BF)
+  call read_state(path, gen, Nsamples, Nsamples_saved, fcall, run_params_restored, X, BF)
   if (run_params_restored%convergence_criterion == meanimprovement) then
     run_params%meanlike = run_params_restored%meanlike
     passoverlen = min(run_params%convsteps,run_params_restored%convsteps)
@@ -413,114 +391,8 @@ subroutine resume(path, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved,
     call quit_de('Error: resumed run does not contain only full generations - file likely corrupted.')
   endif
 
-  !Make sure we haven't already passed the number of civs or gens
-  if (civ .gt. run_params%numciv) call quit_de('Max number of civilisations already reached.')
-  if (civ .eq. run_params%numciv .and. gen .ge. run_params%numgen) call quit_de('Max number of generations already reached.')
-
-  !If computing evidences, do consistency checks and rebuild the binary spanning tree by reading the points in by generation and sending them climbing
-  if (run_params%calcZ) then
-
-    !Consistency checks
-    if (.not. run_params_restored%outputRaw) call quit_de('Error: cannot resume in Bayesian mode if .raw file was not output.')
-    if (.not. run_params_restored%calcZ) call quit_de('Error: cannot resume in Bayesian mode from non-Bayesian run.')
-    if (.not. present(prior)) call quit_de('Error: evidence calculation requested without specifying a prior.')
-    if (any(abs(run_params%upperbounds-run_params_restored%upperbounds)/run_params%upperbounds .ge. &
-                Bndtolscale*epsilon(run_params%upperbounds))                                   .or. &
-        any(abs(run_params%lowerbounds-run_params_restored%lowerbounds)/run_params%lowerbounds .ge. &
-                Bndtolscale*epsilon(run_params%lowerbounds)) )                                 then
-       call quit_de('Error: cannot resume in Bayesian mode with a modified prior box.')
-    end if
-    if ( ((run_params%convthresh .ne. run_params_restored%convthresh) .or. &
-         (run_params%convsteps .ne. run_params_restored%convsteps))  .and. (run_params%verbose .ge. 1) ) then
-       write(*,*) 'WARNING: changing the generation-level convergence parameters mid-run may make evidence inaccurate.'
-    end if
-    if (run_params%MaxNodePop .ne. run_params_restored%MaxNodePop) then
-       call quit_de('Error: you cannot change MaxNodePopulation mid-run!')
-    end if
-    if (.not. (run_params%DE%jDE .or. run_params_restored%DE%jDE)) then
-      if ((run_params%DE%Fsize .ne. run_params_restored%DE%Fsize) .and. (run_params%verbose .ge. 1)) then
-        write(*,*) 'WARNING: changing the number of F parameters mid-run may make evidence inaccurate.'
-      elseif (run_params%DE%Fsize .ne. 0) then
-        if ( any(abs(run_params%DE%F-run_params_restored%DE%F)/run_params%DE%F .ge. Ftolscale*epsilon(run_params%DE%F))) then
-          if (run_params%verbose .ge. 1) write(*,*) 'WARNING: changing F values mid-run may make evidence inaccurate.'
-        endif
-      endif
-    endif
-    if ( any ( (/ run_params%DE%lambda     .ne.   run_params_restored%DE%lambda,     &
-                  run_params%DE%current    .neqv. run_params_restored%DE%current,    &
-                  run_params%DE%Cr         .ne.   run_params_restored%DE%Cr,         &
-                  run_params%DE%expon      .neqv. run_params_restored%DE%expon,      &
-                  run_params%DE%bconstrain .ne.   run_params_restored%DE%bconstrain, &
-                  run_params%DE%jDE        .neqv. run_params_restored%DE%jDE,        &
-                  run_params%DE%lambdajDE  .neqv. run_params_restored%DE%lambdajDE   /) ) ) then
-      if (run_params%verbose .ge. 1) write(*,*) 'WARNING: changing DE algorithm mid-run may make evidence inaccurate!'
-    endif
-    if (Nsamples .ne. Nsamples_saved) then
-       if (run_params%verbose .ge. 1) then
-          write(*,*) 'WARNING: running evidence from restored chain will differ to saved value, '
-          write(*,*) 'as not all points used for the previous error calculation were saved.'
-       end if
-      require_Z_match = .false.
-    endif
-  
-    !Organise the read/write format
-    write(formatstring,'(A18,I4,A9)') '(2E20.9,2x,2I6,2x,', run_params%D, 'E20.9,A1)'
-    reclen = 57 + 20*run_params%D
-  
-    !Open the raw file
-    open(newunit=rawlun, file=trim(path)//'.raw', &
-     iostat=filestatus, status='OLD', access='DIRECT', action='READ', recl=reclen, form='FORMATTED')
-    if (filestatus .ne. 0) call quit_all_processes(' Error opening .raw file. Quitting...')
-  
-    !Allocate temporary population used to rebuild the binary spanning tree
-    allocate(Y%vectors(run_params%DE%NP, run_params%D))
-    allocate(Y%vectors_and_derived(run_params%DE%NP, run_params%D+run_params%D_derived))
-    allocate(Y%values(run_params%DE%NP), Y%weights(run_params%DE%NP), Y%multiplicities(run_params%DE%NP))
-
-    !Initialise evidences and sample count
-    Z_new = 0.0_dp
-    Zmsq_new = 0.0_dp
-    Zerr_new = 0.0_dp
-    Nsamples = 0
-  
-    !loop over the generations in the raw file to recreate the BSP tree
-    do i = 1, Nsamples_saved/run_params%DE%NP
-      !read in a generation
-      do j = 1, run_params%DE%NP
-        !read in a point
-        read(rawlun,formatstring,rec=(i-1)*run_params%DE%NP+j) Y%multiplicities(j), Y%values(j), civ, gen, &
-         Y%vectors(j,:), LF
-      enddo
-      !Update the evidence calculation
-      call updateEvidence(Y, Z_new, Zmsq_new, Zerr_new, prior, run_params%context, Nsamples)
-    enddo
-  
-    !Shut the raw file
-    close(rawlun)
-  
-    !Check agreement of the evidence things with what was read in from devo file
-    if (require_Z_match) then
-      if (any(abs((/(Z_new-Z)/Z, (Zmsq_new-Zmsq)/Zmsq, (Zerr_new - Zerr)/Zerr/)) .gt. Ztolscale*epsilon(Z))) then
-        call polishEvidence(Z_3, Zmsq_3, Zerr_3, prior, run_params%context, Nsamples_saved, run_params, .false., path=path)
-        if (any(abs((/(Z_3-Z)/Z, (Zmsq_3-Zmsq)/Zmsq, (Zerr_3 - Zerr)/Zerr/)) .gt. Ztolscale*epsilon(Z))) then
-          write(*,*) ' Evidence variables look fishy...'
-          write(*,'(A24,3F16.5)') '  From devo file: ', log(Z), log(Zmsq), log(Zerr)
-          write(*,'(A24,3F16.5)') '  From samples: ', log(Z_new), log(Zmsq_new), log(Zerr_new)
-          write(*,'(A24,3F16.5)') '  From polished samples: ',log(Z_3), log(Zmsq_3), log(Zerr_3)
-          call quit_de(' Error: evidence variables in devo file do not exactly match sample file:')
-          !Z = Z_new; Zmsq = Zmsq_new; Zerr = Zerr_new
-        else
-          if (run_params_restored%tol .le. run_params%tol .and. run_params_restored%numciv .ge. run_params%numciv) then
-            call quit_de(' This run was already completed.  Quitting...')
-          else
-            write(*,*) ' This run was converged already, but I will try to do a tighter job...'
-            Z = Z_new; Zmsq = Zmsq_new; Zerr = Zerr_new
-          endif
-        endif
-      endif
-    endif
-
-  endif
+  !Make sure we haven't already passed the number of gens
+  if (gen .ge. run_params%numgen) call quit_de('Max number of generations already reached.')
 
   if (run_params%verbose .ge. 1) write(*,*) 'Restored successfully.'
 

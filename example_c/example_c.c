@@ -14,8 +14,7 @@ const int         nDerived             = 2;                            // Number
 const int         nDiscrete            = 0;                            // Number of parameters that are to be treated as discrete
 const int         discrete[]           = {0};                          // Indices of discrete parameters, Fortran style, i.e. starting at 1!!
 const bool        partitionDiscrete    = false;                        // Split the population evenly amongst discrete parameters and evolve separately
-const int         maxciv               = 1;                            // Maximum number of civilisations
-const int         maxgen               = 100;                          // Maximum number of generations per civilisation
+const int         maxgen               = 100;                          // Maximum number of generations
 const int         NP                   = 1000;                         // Population size (individuals per generation)
 const int         nF                   = 1;                            // Size of the array indicating scale factors
 const double      F[]                  = {0.6};                        // Scale factor(s).  Note that this must be entered as an array.
@@ -29,9 +28,6 @@ const bool        lambdajDE            = true;                         // Use se
 const double      convthresh           = 1.e-6;                        // Threshold for gen-level convergence: smoothed fractional improvement in the mean population value
 const int         convsteps            = 10;                           // Number of steps to smooth over when checking convergence
 const bool        removeDuplicates     = true;                         // Weed out duplicate vectors within a single generation
-const bool        doBayesian           = false;                        // Calculate approximate log evidence and posterior weightings
-const double      maxNodePop           = 1.9;                          // Population at which node is partitioned in binary space partitioning for posterior
-const double      Ztolerance           = 1.e-3;                        // Input tolerance in log-evidence
 const int         savecount            = 10;                           // Save progress every savecount generations
 const bool        resume               = false;                        // Restart from a previous run
 const bool        disableIO            = true;                         // Disable all IO
@@ -42,14 +38,14 @@ const bool        discard_unfit_points = false;                        // Recalc
 const int         max_init_attempts    = 10000;                        // Maximum number of times to try to find a valid vector for each slot in the initial population.
 const double      max_acceptable_val   = 1e6;                          // Maximum fitness to accept for the initial generation if init_population_strategy > 0, or any generation if discard_unfit_points = true.
 const int         seed                 = 1234567;                      // base seed for random number generation; non-positive or absent means seed from the system clock
-const int         verbose              = 2;                            // Output verbosity: 0=only error messages, 1=basic info, 2=civ-level info, 3+=population info
+const int         verbose              = 2;                            // Output verbosity: 0=only error messages, 1=basic info, 2+=population info
 
 
 //Function to be minimized.  Corresponds to -ln(Likelihood).
 //Plain Gaussian centred at the origin. Valid for any number of dimensions.  Minimum value is the number of dimensions.
 double gauss(double params[], const int param_dim, int *fcall, bool *quit, const bool validvector, void** context)
 {
-  //Fill up the two derived parameters with some example quantities 
+  //Fill up the two derived parameters with some example quantities
   params[param_dim-2] = params[0]*params[1];
   params[param_dim-1] = params[2]*params[3];
 
@@ -67,8 +63,8 @@ int main(int argc, char** argv)
 {
   void* context = &gauss; //Not actually used in this example.
   double result = cdiver(gauss, nPar, lowerbounds, upperbounds, path, nDerived, bestFitParams, bestFitDerived, nDiscrete,
-         discrete, partitionDiscrete, maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh,
-         convsteps, removeDuplicates, doBayesian, NULL, maxNodePop, Ztolerance, savecount, resume, disableIO, outputRaw,
+         discrete, partitionDiscrete, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh,
+         convsteps, removeDuplicates, savecount, resume, disableIO, outputRaw,
          outputSam, init_pop_strategy, discard_unfit_points, max_init_attempts, max_acceptable_val, seed, context, verbose);
          //Note that prior, maxNodePop and Ztolerance are just ignored if doBayesian = false
   printf("Best fit returned: %e\n", result);

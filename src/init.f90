@@ -29,7 +29,6 @@ contains
                           bestFitDerived, &
                           discrete, &
                           partitionDiscrete, &
-                          maxciv, &
                           maxgen, &
                           NP, &
                           F, &
@@ -43,9 +42,6 @@ contains
                           convthresh, &
                           convsteps, &
                           removeDuplicates, &
-                          doBayesian, &
-                          maxNodePop, &
-                          Ztolerance, &
                           savecount, &
                           disableIO, &
                           outputRaw, &
@@ -67,8 +63,7 @@ contains
     real(dp), intent(out), dimension(:), optional :: bestFitDerived     !values of derived quantities at mimimum
     integer, dimension(:), intent(in), optional :: discrete             !lists all discrete dimensions of parameter space
     logical, intent(in), optional  :: partitionDiscrete                 !split the population evenly amongst discrete parameters and evolve separately
-    integer, intent(in), optional  :: maxciv                            !maximum number of civilisations
-    integer, intent(in), optional  :: maxgen                            !maximum number of generations per civilisation
+    integer, intent(in), optional  :: maxgen                            !maximum number of generations
     integer, intent(in), optional  :: NP                                !population size (individuals per generation)
     real(dp), dimension(:), intent(in), optional :: F                   !scale factor(s).  Note that this must be entered as an array.
     real(dp), intent(in), optional :: Cr                                !crossover factor
@@ -81,9 +76,6 @@ contains
     real(dp), intent(in), optional :: convthresh                        !threshold for generation-level convergence
     integer, intent(in), optional  :: convsteps                         !number of steps to smooth over when checking convergence
     logical, intent(in), optional  :: removeDuplicates                  !weed out duplicate vectors within a single generation
-    logical, intent(in), optional  :: doBayesian                        !calculate log evidence and posterior weightings
-    real(dp), intent(in), optional :: maxNodePop                        !population at which node is partitioned in binary space partitioning for posterior
-    real(dp), intent(in), optional :: Ztolerance                        !input tolerance in log-evidence
     integer, intent(in), optional  :: savecount                         !save progress every savecount generations
     logical, intent(in), optional  :: disableIO                         !disable all IO
     logical, intent(in), optional  :: outputRaw                         !output raw parameter samples to a .raw file
@@ -93,8 +85,8 @@ contains
     integer, intent(in), optional  :: max_initialisation_attempts       !maximum number of times to try to find a valid vector for each slot in the initial population.
     real(dp), intent(in), optional :: max_acceptable_value              !maximum fitness to accept for the initial generation if init_population_strategy > 0. Also applies to later generations if discard_unfit_points = .true.
     integer, intent(in), optional  :: seed                              !base seed for random number generation; non-positive or absent means seed from the system clock
-    integer, intent(in), optional  :: verbose                           !how much info to print to screen: 0-quiet, 1-basic info, 2-civ info, 3+ everything
-    type(c_ptr), intent(inout), optional  :: context                    !context pointer, used for passing info from the caller to likelihood/prior. Use this for passing a pointer
+    integer, intent(in), optional  :: verbose                           !how much info to print to screen: 0=quiet, 1=basic info, 2+=everything
+    type(c_ptr), intent(inout), optional  :: context                    !context pointer, used for passing info from the caller to likelihood. Use this for passing a pointer
                                                                         !to a callback function that can be used for I/O, harvesting samples in situ, printing or whatever else you like.
 
     integer :: mpiprocs, mpirank, ierror                                !number of processes running, rank of current process, error code
@@ -176,17 +168,6 @@ contains
 
     call setIfPositive_int('convsteps', run_params%convsteps, 10, invar=convsteps)
     allocate(run_params%improvements(run_params%convsteps))
-
-    call set_logical(run_params%calcZ, .false., invar=doBayesian)                  !default is not to do Bayesian stuff
-
-    if (run_params%calcZ) then
-       call setIfPositive_real('maxNodePop', run_params%maxNodePop, 1.9_dp, invar=maxNodePop)
-       call setIfPositive_real('Ztolerance', run_params%tol, 0.01_dp, invar=Ztolerance)
-       call setIfPositive_int('maxciv', run_params%numciv, 2000, invar=maxciv)
-    else
-       !when not doing evidence calculations, no need for many civilizations
-       call setIfPositive_int('maxciv', run_params%numciv, 1, invar=maxciv)
-    endif
 
     call setIfPositive_int('savecount', run_params%savefreq, 1, invar=savecount)   !tolerance counter
 
@@ -611,11 +592,7 @@ contains
     integer, intent(inout) :: fcall
     logical, intent(inout) :: quit
     procedure(MinusLogLikeFunc) :: func
-    integer :: n, m, i, discrete_index, attempt_count, max_attempts, accept, fcall_this_gen
-
-    fcall_this_gen = 0 !Initialise to zero so as not to mess up acceptance in subsequent civilisations.
-
-    X%multiplicities = 1.0_dp !Initialise to 1 in case posteriors are not calculated
+    integer :: n, m, i, discrete_index, attempt_count, max_attempts, accept
 
     if (run_params%DE%jDE) then                              !initialize population of F and Cr parameters
        Xnew%FjDE = init_FjDE(run_params%mpipopchunk)
@@ -664,7 +641,7 @@ contains
 
           Xnew%vectors_and_derived(m,:run_params%D) = roundvector(Xnew%vectors(m,:), run_params)
 
-          Xnew%values(m) = func(Xnew%vectors_and_derived(m,:), fcall_this_gen, quit, .true., run_params%context)
+          Xnew%values(m) = func(Xnew%vectors_and_derived(m,:), fcall, quit, .true., run_params%context)
 
           if (quit) call quit_de('ERROR: quit flag raised whilst initialising first generation.  Forcing hard quit.')
 
@@ -693,11 +670,10 @@ contains
     end do
 
     !crash if fcall hasn't been properly incremented.
-    if (fcall_this_gen == 0) then
-      call quit_de('ERROR: fcall_this_gen = 0; please make sure to increment fcall in your objective function.')
+    if (fcall == 0) then
+      call quit_de('ERROR: fcall = 0; please make sure to increment fcall in your objective function.')
     endif
-    accept = run_params%mpipopchunk * run_params%mpipopchunk / fcall_this_gen
-    fcall = fcall + fcall_this_gen
+    accept = run_params%mpipopchunk * run_params%mpipopchunk / fcall
 
     call replace_generation(X, Xnew, run_params, func, fcall, quit, accept, init=.true.)
 

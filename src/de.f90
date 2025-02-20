@@ -8,8 +8,6 @@ use converge
 use selection
 use mutation
 use crossover
-use post
-use evidence
 
 #ifdef MPI
   use mpi_f08
@@ -32,7 +30,6 @@ contains
                  bestFitDerived, &
                  discrete, &
                  partitionDiscrete, &
-                 maxciv, &
                  maxgen, &
                  NP, &
                  F, &
@@ -46,10 +43,6 @@ contains
                  convthresh, &
                  convsteps, &
                  removeDuplicates, &
-                 doBayesian, &
-                 prior, &
-                 maxNodePop, &
-                 Ztolerance, &
                  savecount, &
                  resume, &
                  disableIO, &
@@ -74,8 +67,7 @@ contains
     real(dp), intent(out), dimension(:), optional :: bestFitDerived !values of derived quantities at mimimum
     integer, dimension(:), intent(in), optional :: discrete     !a vector listing all discrete dimensions of parameter space
     logical, intent(in), optional    :: partitionDiscrete       !split the population evenly amongst discrete parameters and evolve separately
-    integer, intent(in), optional    :: maxciv                  !maximum number of civilisations
-    integer, intent(in), optional    :: maxgen                  !maximum number of generations per civilisation
+    integer, intent(in), optional    :: maxgen                  !maximum number of generations
     integer, intent(in), optional    :: NP                      !population size (individuals per generation)
     real(dp), dimension(:), intent(in), optional :: F           !scale factor(s).  Note that this must be entered as an array.
     real(dp), intent(in), optional   :: Cr                      !crossover factor
@@ -88,10 +80,6 @@ contains
     real(dp), intent(in), optional   :: convthresh              !threshold for generation-level convergence
     integer, intent(in), optional    :: convsteps               !number of steps to smooth over when checking convergence
     logical, intent(in), optional    :: removeDuplicates        !weed out duplicate vectors within a single generation
-    logical, intent(in), optional    :: doBayesian              !calculate log evidence and posterior weightings
-    procedure(PriorFunc), optional   :: prior                   !the prior function
-    real(dp), intent(in), optional   :: maxNodePop              !population at which node is partitioned in binary space partitioning for posterior
-    real(dp), intent(in), optional   :: Ztolerance              !input tolerance in log-evidence
     integer, intent(in), optional    :: savecount               !save progress every savecount generations
     logical, intent(in), optional    :: resume                  !restart from a previous run
     integer, intent(in), optional    :: init_population_strategy!initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found.
@@ -102,12 +90,12 @@ contains
     logical, intent(in), optional    :: outputRaw               !output raw parameter samples to a .raw file
     logical, intent(in), optional    :: outputSam               !output rounded and derived parameter samples to a .sam file
     integer, intent(in), optional    :: seed                    !base seed for random number generation; non-positive or absent means seed from the system clock
-    integer, intent(in), optional    :: verbose                 !output verbosity: 0=only error messages, 1=basic info, 2=civ-level info, 3+=population info
-    type(c_ptr), intent(inout), optional :: context             !context pointer, used for passing info from the caller to likelihood/prior. Use this for passing a pointer
+    integer, intent(in), optional    :: verbose                 !output verbosity: 0=only error messages, 1=basic info, 2+=population info
+    type(c_ptr), intent(inout), optional :: context             !context pointer, used for passing info from the caller to likelihood. Use this for passing a pointer
                                                                 !to a callback function that can be used for I/O, harvesting samples in situ, printing or whatever else you like.
 
     real(dp), dimension(size(lowerbounds)) :: params            !parameters at the best-fit point
-    
+
     type(codeparams) :: run_params                              !carries the code parameters
 
     type(population), target :: X, BF                           !population of target vectors, best-fit vector
@@ -117,11 +105,10 @@ contains
 
     integer :: fcall=0, accept=0                                !fcall counts function calls, accept counts acceptance rate
     integer :: totfcall = 0, totaccept = 0                      !for function calls & acceptance rates for all processes
-    integer :: civ, gen, m                                      !civ, gen, n for iterating civilisation, generation, population loops
+    integer :: gen, m                                           !gen, n for iterating generation and population loops
     integer :: n, nsub                                          !current member of population being evolved (same as m unless using MPI), subpop version
-    integer :: civstart=1, genstart=1                           !starting values of civ, gen
+    integer :: genstart=1                                       !starting value of gen
 
-    real(dp) :: Z=0., Zmsq=0., Zerr=0., Zold=0.                 !evidence
     integer :: Nsamples = 0                                     !number of statistically independent samples from posterior
     integer :: Nsamples_saved = 0                               !number of samples saved to .sam file so far
     logical :: quit = .false.                                   !flag passed from user function to indicate need to stop
@@ -150,7 +137,6 @@ contains
                       bestFitDerived=bestFitDerived, &
                       discrete=discrete, &
                       partitionDiscrete=partitionDiscrete, &
-                      maxciv=maxciv, &
                       maxgen=maxgen, &
                       NP=NP, &
                       F=F, &
@@ -164,9 +150,6 @@ contains
                       convthresh=convthresh, &
                       convsteps=convsteps, &
                       removeDuplicates=removeDuplicates, &
-                      doBayesian=doBayesian, &
-                      maxNodePop=maxNodePop, &
-                      Ztolerance=Ztolerance, &
                       savecount=savecount, &
                       disableIO=disableIO, &
                       outputRaw=outputRaw, &
@@ -178,22 +161,14 @@ contains
                       seed=seed, context=context, &
                       verbose=verbose)
 
-    if (run_params%calcZ .and. .not. present(prior)) then
-       call quit_de('Error: evidence calculation requested without specifying a prior.')
-    end if
-
-    if (run_params%calcZ .and. run_params%disableIO) then
-       call quit_de('Error: evidence calculation is not possible with IO disabled.')
-    end if
-
     !seed the random number generator(s) from the system clock
     call init_all_random_seeds(run_params%DE%NP/run_params%mpipopchunk, run_params%mpirank, run_params%seed)
 
     !Allocate vector population: X is the full population, Xnew is the size of the population each process handles
     !Xsub is a subset of the population that has the same values of discrete parameters when partitionDiscrete is used.
+    allocate(X%values(run_params%DE%NP))
     allocate(X%vectors(run_params%DE%NP, run_params%D))
     allocate(X%vectors_and_derived(run_params%DE%NP, run_params%D+run_params%D_derived))
-    allocate(X%values(run_params%DE%NP), X%weights(run_params%DE%NP), X%multiplicities(run_params%DE%NP))
     allocate(Xsub%vectors(run_params%subpopNP, run_params%D), Xsub%values(run_params%subpopNP))
     allocate(Xnew%vectors(run_params%mpipopchunk, run_params%D))
     allocate(Xnew%vectors_and_derived(run_params%mpipopchunk, run_params%D+run_params%D_derived))
@@ -218,15 +193,11 @@ contains
     !Allocate best-fit containers
     allocate(BF%vectors(1, run_params%D), BF%vectors_and_derived(1, run_params%D+run_params%D_derived), BF%values(1))
 
-    !If required, initialise the linked tree used for estimating the evidence and posterior
-    if (run_params%calcZ) call iniTree(lowerbounds,upperbounds,run_params%maxNodePop)
-
     !Initialise internal variables
     BF%values(1) = huge(BF%values(1))
 
     !Resume from saved run or initialise save files for a new one.
-    call io_begin(civstart, genstart, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, totfcall, &
-                  run_params, X, BF, path=path, prior=prior, restart=resume)
+    call io_begin(genstart, Nsamples, Nsamples_saved, totfcall, run_params, X, BF, path=path, restart=resume)
 
     !Tidy a few things up if resuming.
     if (present(resume)) then
@@ -241,182 +212,128 @@ contains
        endif
     endif
 
-    !Run a number of sequential DE optimisations, exiting either after a set number of
-    !runs through or after the evidence has been calculated to a desired accuracy
-    civloop: do civ = civstart, run_params%numciv
 
-       if (run_params%calcZ) then
-          !Break out if posterior/evidence is converged
-          if (evidenceDone(Z,Zerr,run_params%tol)) then
-            if (civ .eq. civstart) gen = genstart-1
-            exit
-          endif
-       endif
+    !DE loop: calculates population for each generation
+    genloop: do gen = genstart, run_params%numgen
 
-       !Split if the quit flag has been raised
-       if (quit) exit
-
-       if (run_params%verbose .ge. 2) then
-          write (*,*) '-----------------------------'
-          write (*,*) 'Civilisation: ', civ
-       end if
-
-       !Internal (normal) DE loop: calculates population for each generation
-       genloop: do gen = genstart, run_params%numgen
-
-          if (run_params%verbose .ge. 2) then
-             write (*,*) '  -----------------------------'
-             write (*,*) '  Generation: ', gen
-          end if
-
-          if (gen .eq. 1) then
-
-             !Initialise the convergence criterion
-             call init_convergence(run_params)
-
-             !initialise the first generation
-             call initialize(X, Xnew, run_params, func, fcall, quit, accept)
-
-             !sync quit flags
-             quit = sync(quit)
-
-             !update accept and fcall
-             call update_acceptance(accept, fcall, totaccept, totfcall, run_params%verbose .ge. 2, run_params%DE%NP)
-
-             !update best fits
-             call newBFs(X,BF)
-
-             !don't use initial generation for estimating evidence, as it biases the BSP.  Therefore no call to updateEvidence.
-
-             !save things
-             if (run_params%mpirank .eq. 0) then
-                if (civ .eq. 1) call save_run_params(run_params, path=path)
-                if (run_params%savefreq .eq. 1) then
-                   call save_all(X, BF, civ, gen, Z, Zmsq, Zerr, huge(Z), Nsamples, Nsamples_saved, totfcall, run_params, path=path)
-                endif
-             endif
-
-          else
-
-             accept = 0
-
-             poploop: do m=1, run_params%mpipopchunk                       !evolves individual members of the population
-
-                n = run_params%mpipopchunk*run_params%mpirank + m          !current member of the population (same as m if no MPI)
-
-                !keep making trial vectors until one has a fitness less than max_acceptable_value, if discard_unfit_points = .true.
-                !note that this loop means any MPI calls inside objective functions will likely cause MPI issues if discard_unfit_points=true.
-                do
-                   if (run_params%partitionDiscrete) then
-                      call getSubpopulation(X, Xsub, n, nsub, run_params)     !restrict donor pool to this member's subpopulation
-                      call mutate(Xsub, V, nsub, run_params, trialF, triallambda) !create new donor vector V
-                   else
-                      call mutate(X, V, n, run_params, trialF, triallambda)   !create new donor vector V
-                   endif
-
-                   call gencrossover(X, V, U, n, run_params, trialCr)         !trial vectors
-
-                   !choose next generation
-                   call selector(X, Xnew, U, trialF, triallambda, trialCr, m, n, run_params, func, fcall, quit, accept, &
-                                 acceptable_trial_vector)
-
-                   if (acceptable_trial_vector) exit
-
-                end do
-
-                if (abs(run_params%verbose) .ge. 3) then
-                   if (run_params%DE%lambdajDE) then
-                      write (*,*) n, Xnew%vectors_and_derived(m, :), '->', Xnew%values(m), '|', &
-                                  Xnew%lambdajDE(m), Xnew%FjDE(m), Xnew%CrjDE(m)
-                   else if (run_params%DE%jDE) then
-                      write (*,*) n, Xnew%vectors_and_derived(m, :), '->', Xnew%values(m), '|', Xnew%FjDE(m), Xnew%CrjDE(m)
-                   else
-                      write (*,*) n, Xnew%vectors_and_derived(m, :), '->', Xnew%values(m)
-                   end if
-                end if
-
-             end do poploop
-
-             !sync quit flags
-             quit = sync(quit)
-
-             !replace old generation with newly calculated one
-             call replace_generation(X, Xnew, run_params, func, fcall, quit, accept, init=.false.)
-
-             !debugging code: choose random new population members uniformly from the allowed parameter ranges
-             !call initialize(X, Xnew, run_params, func, fcall, quit)
-
-             !update accept and fcall
-             call update_acceptance(accept, fcall, totaccept, totfcall, run_params%verbose .ge. 2, run_params%DE%NP)
-
-             !Update best fits
-             call newBFs(X,BF)
-
-             !Update the evidence calculation
-             if (run_params%calcZ) call updateEvidence(X, Z, Zmsq, Zerr, prior, run_params%context, Nsamples)
-
-             !Do periodic save
-             if ((mod(gen,run_params%savefreq) .eq. 0) .and. (run_params%mpirank .eq. 0)) then
-                call save_all(X, BF, civ, gen, Z, Zmsq, Zerr, huge(Z), Nsamples, Nsamples_saved, totfcall, run_params, path=path)
-             endif
-
-          endif
-
-          if (quit .and. run_params%mpirank .eq. 0) then
-             if (run_params%verbose .gt. 0) write(*,*) 'Quit requested by objective function - Diver will save and exit now.'
-             call save_all(X, BF, civ, gen, Z, Zmsq, Zerr, huge(Z), Nsamples, Nsamples_saved, totfcall, run_params, &
-                           path=path, final=(mod(gen,run_params%savefreq) .eq. 0) )
-          endif
-
-          !Check generation-level convergence: if satisfied, or quit flag set, exit genloop
-          if (converged(X, run_params) .or. quit) exit
-
-       end do genloop
-
-       genstart = 1
-
-       !Update best fits and save to output variables
-       call newBFs(X,BF)
-       diver = BF%values(1)
-       params = roundvector(BF%vectors(1,:), run_params)
-
-       if (run_params%verbose .ge. 3) then
-          write (*,*)
-          write (*,*) '  ============================='
-       end if
-       if (run_params%verbose .ge. 2) then
-          write (*,*) '  Number of generations in this civilisation: ', min(gen,run_params%numgen)
-          write (*,*) '  Best final vector at the end of this civilisation: ', params
-          write (*,*) '  Value at best final vector at the end of this civilisation: ', diver
-          write (*,*) '  Cumulative function calls: ', totfcall
-       end if
-
-    enddo civloop
-
-    !Correct civ in cases where the loop has gone through at least once
-    if (civ .ne. civstart) civ = civ - 1
-
-    if (run_params%verbose .ge. 1) then
-       write (*,*) '============================='
-       write (*,'(A25,I4)') ' Number of civilisations: ', min(civ,run_params%numciv)
-       write (*,*) 'Best final vector: ', params
-       write (*,*) 'Value at best final vector: ', diver
-       if (run_params%calcZ) then
-          write (*,'(A23,E13.6,A5,E13.6,A7)') ' approx. ln(Evidence): ', log(Z), ' +/- ', log(Z/(Z-Zerr)), ' (stat)'
-       end if
-       write (*,*) 'Total Function calls: ', totfcall
-    end if
-
-    !Polish the evidence
-    if (run_params%calcZ .and. run_params%mpirank .eq. 0 .and. Nsamples_saved .gt. 0) then
-      Zold = Z
-      call polishEvidence(Z, Zmsq, Zerr, prior, run_params%context, Nsamples_saved, run_params, .true., path=path)
-      if (run_params%verbose .ge. 1) then
-         write (*,'(A25,E13.6)') ' corrected ln(Evidence): ', log(Z)
-         write (*,'(A25,E13.6,A6)') '                     +/- ', abs(log(Z/Zold)), ' (sys)'
-         write (*,'(A25,E13.6,A7)') '                     +/- ', log(Z/(Z-Zerr)), ' (stat)'
+      if (run_params%verbose .ge. 2) then
+         write (*,*) '  -----------------------------'
+         write (*,*) '  Generation: ', gen
       end if
-    endif
+
+      if (gen .eq. 1) then
+
+         !Initialise the convergence criterion
+         call init_convergence(run_params)
+
+         !initialise the first generation
+         call initialize(X, Xnew, run_params, func, fcall, quit, accept)
+
+         !sync quit flags
+         quit = sync(quit)
+
+         !update accept and fcall
+         call update_acceptance(accept, fcall, totaccept, totfcall, run_params%verbose .ge. 2, run_params%DE%NP)
+
+         !update best fits
+         call newBFs(X,BF)
+
+         !save things
+         if (run_params%mpirank .eq. 0) then
+            call save_run_params(run_params, path=path)
+            if (run_params%savefreq .eq. 1) then
+               call save_all(X, BF, gen, Nsamples, Nsamples_saved, totfcall, run_params, path=path)
+            endif
+         endif
+
+      else
+
+         accept = 0
+
+         poploop: do m=1, run_params%mpipopchunk                       !evolves individual members of the population
+
+            n = run_params%mpipopchunk*run_params%mpirank + m          !current member of the population (same as m if no MPI)
+
+            !keep making trial vectors until one has a fitness less than max_acceptable_value, if discard_unfit_points = .true.
+            !note that this loop means any MPI calls inside objective functions will likely cause MPI issues if discard_unfit_points=true.
+            do
+               if (run_params%partitionDiscrete) then
+                  call getSubpopulation(X, Xsub, n, nsub, run_params)     !restrict donor pool to this member's subpopulation
+                  call mutate(Xsub, V, nsub, run_params, trialF, triallambda) !create new donor vector V
+               else
+                  call mutate(X, V, n, run_params, trialF, triallambda)   !create new donor vector V
+               endif
+
+               call gencrossover(X, V, U, n, run_params, trialCr)         !trial vectors
+
+               !choose next generation
+               call selector(X, Xnew, U, trialF, triallambda, trialCr, m, n, run_params, func, fcall, quit, accept, &
+                             acceptable_trial_vector)
+
+               if (acceptable_trial_vector) exit
+
+            end do
+
+            if (abs(run_params%verbose) .ge. 3) then
+               if (run_params%DE%lambdajDE) then
+                  write (*,*) n, Xnew%vectors_and_derived(m, :), '->', Xnew%values(m), '|', &
+                              Xnew%lambdajDE(m), Xnew%FjDE(m), Xnew%CrjDE(m)
+               else if (run_params%DE%jDE) then
+                  write (*,*) n, Xnew%vectors_and_derived(m, :), '->', Xnew%values(m), '|', Xnew%FjDE(m), Xnew%CrjDE(m)
+               else
+                  write (*,*) n, Xnew%vectors_and_derived(m, :), '->', Xnew%values(m)
+               end if
+            end if
+
+         end do poploop
+
+         !sync quit flags
+         quit = sync(quit)
+
+         !replace old generation with newly calculated one
+         call replace_generation(X, Xnew, run_params, func, fcall, quit, accept, init=.false.)
+
+         !debugging code: choose random new population members uniformly from the allowed parameter ranges
+         !call initialize(X, Xnew, run_params, func, fcall, quit)
+
+         !update accept and fcall
+         call update_acceptance(accept, fcall, totaccept, totfcall, run_params%verbose .ge. 2, run_params%DE%NP)
+
+         !Update best fits
+         call newBFs(X,BF)
+
+         !Do periodic save
+         if ((mod(gen,run_params%savefreq) .eq. 0) .and. (run_params%mpirank .eq. 0)) then
+            call save_all(X, BF, gen, Nsamples, Nsamples_saved, totfcall, run_params, path=path)
+         endif
+
+      endif
+
+      if (quit .and. run_params%mpirank .eq. 0) then
+         if (run_params%verbose .gt. 0) write(*,*) 'Quit requested by objective function - Diver will save and exit now.'
+         call save_all(X, BF, gen, Nsamples, Nsamples_saved, totfcall, run_params, path=path, &
+                       final=(mod(gen,run_params%savefreq) .eq. 0) )
+      endif
+
+      !If converged or quit flag set, exit genloop
+      if (converged(X, run_params) .or. quit) exit
+
+    end do genloop
+
+    !Update best fits and save to output variables
+    call newBFs(X,BF)
+    diver = BF%values(1)
+    params = roundvector(BF%vectors(1,:), run_params)
+
+    if (run_params%verbose .ge. 2) then
+      write (*,*)
+      write (*,*) '  ============================='
+      write (*,*) '  Number of generations: ', min(gen,run_params%numgen)
+      write (*,*) '  Best final vector: ', params
+      write (*,*) '  Value at best final vector: ', diver
+      write (*,*) '  Cumulative function calls: ', totfcall
+      write (*,*)
+    end if
 
     !Prepare to return the output parameters and derived quantities at the minimum
     if (present(bestFitParams)) then
@@ -428,8 +345,8 @@ contains
 
     !Do final save operation
     if (run_params%mpirank .eq. 0) then
-       call save_all(X, BF, civ, gen, Z, Zmsq, Zerr, Zold, Nsamples, Nsamples_saved, totfcall, run_params, &
-                     path=path, final = ( (mod(gen,run_params%savefreq) .eq. 0) .or. (civ .eq. civstart) ) )
+       call save_all(X, BF, gen, Nsamples, Nsamples_saved, totfcall, run_params, &
+                     path=path, final=(mod(gen,run_params%savefreq) .eq. 0) )
     end if
 
     !Clean up and shut down.
@@ -445,12 +362,11 @@ contains
     if (allocated(run_params%DE%F))          deallocate(run_params%DE%F)
     if (allocated(run_params%discrete))      deallocate(run_params%discrete)
     if (allocated(run_params%repeat_scales)) deallocate(run_params%repeat_scales)
-                                             deallocate(X%vectors, X%values, X%weights)
-                                             deallocate(X%vectors_and_derived, X%multiplicities)
+                                             deallocate(X%vectors, X%values)
+                                             deallocate(X%vectors_and_derived)
                                              deallocate(Xsub%vectors, Xsub%values)
                                              deallocate(Xnew%vectors, Xnew%values)
                                              deallocate(BF%vectors, BF%values, BF%vectors_and_derived)
-    if (run_params%calcZ) call clearTree
 
     call cpu_time(t2)
 
