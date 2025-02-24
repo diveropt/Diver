@@ -49,6 +49,7 @@ contains
                  outputRaw, &
                  outputSam, &
                  init_population_strategy, &
+                 initial_guesses, &
                  discard_unfit_points, &
                  max_initialisation_attempts, &
                  max_acceptable_value, &
@@ -83,6 +84,7 @@ contains
     integer, intent(in), optional    :: savecount               !save progress every savecount generations
     logical, intent(in), optional    :: resume                  !restart from a previous run
     integer, intent(in), optional    :: init_population_strategy!initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found.
+    real(dp), dimension(:,:), intent(in), optional :: initial_guesses !initial guesses to include in the starting population. In Fortran the first index is individual, second is parameter.
     logical, intent(in), optional    :: discard_unfit_points    !recalculate any trial vector whose fitness is above max_acceptable_value. Likely incompatible with any objective function that makes MPI calls of its own.
     integer, intent(in), optional    :: max_initialisation_attempts !maximum number of times to try to find a valid vector for each slot in the initial population.
     real(dp), intent(in), optional   :: max_acceptable_value    !maximum fitness to accept for the initial generation if init_population_strategy > 0. Also applies to later generations if discard_unfit_points = .true.
@@ -155,6 +157,7 @@ contains
                       outputRaw=outputRaw, &
                       outputSam=outputSam, &
                       init_population_strategy=init_population_strategy, &
+                      initial_guesses=initial_guesses, &
                       discard_unfit_points=discard_unfit_points, &
                       max_initialisation_attempts=max_initialisation_attempts, &
                       max_acceptable_value=max_acceptable_value, &
@@ -212,7 +215,6 @@ contains
        endif
     endif
 
-
     !DE loop: calculates population for each generation
     genloop: do gen = genstart, run_params%numgen
 
@@ -227,7 +229,7 @@ contains
          call init_convergence(run_params)
 
          !initialise the first generation
-         call initialize(X, Xnew, run_params, func, fcall, quit, accept)
+         call initialize(X, Xnew, run_params, initial_guesses, func, fcall, quit, accept)
 
          !sync quit flags
          quit = sync(quit)

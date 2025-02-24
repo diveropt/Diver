@@ -33,6 +33,8 @@
 !               bool outputRaw,
 !               bool outputSam,
 !               int init_population_strategy,
+!               int nGuesses,
+!               const double initial_guesses[],
 !               bool discard_unfit_points,
 !               int max_initialisation_attempts,
 !               double max_acceptable_value,
@@ -93,6 +95,8 @@ contains
                     outputRaw, &
                     outputSam, &
                     init_population_strategy, &
+                    nGuesses, &
+                    initial_guesses, &
                     discard_unfit_points, &
                     max_initialisation_attempts, &
                     max_acceptable_value, &
@@ -109,13 +113,14 @@ contains
     real(c_double)                       :: cdiver
     type(c_funptr),  intent(in), value   :: minusloglike_in
     type(c_ptr),     intent(inout)       :: context
-    integer(c_int),  intent(in), value   :: nPar, nDerived, nDiscrete, maxgen, NP, nF, bndry, convsteps, savecount, verbose
-    integer(c_int),  intent(in), value   :: init_population_strategy, max_initialisation_attempts, seed
+    integer(c_int),  intent(in), value   :: nPar, nDerived, nDiscrete, nGuesses, maxgen, NP, nF, bndry, convsteps
+    integer(c_int),  intent(in), value   :: savecount, verbose, init_population_strategy, max_initialisation_attempts, seed
     integer(c_int),  intent(in), target  :: discrete(nDiscrete)
     logical(c_bool), intent(in), value   :: partitionDiscrete, current, expon, jDE, lambdajDE, removeDuplicates, resume
     logical(c_bool), intent(in), value   :: disableIO, outputRaw, outputSam, discard_unfit_points
     real(c_double),  intent(in), value   :: Cr, lambda, convthresh, max_acceptable_value
     real(c_double),  intent(in)          :: lowerbounds(nPar), upperbounds(nPar), F(nF)
+    real(c_double),  intent(in), target  :: initial_guesses(nGuesses, nPar)
     real(c_double),  intent(out)         :: bestFitParams(nPar)
     real(c_double),  intent(out), target :: bestFitDerived(nDerived)
     character(kind=c_char,len=1), dimension(maxpathlen), intent(in) :: path
@@ -125,6 +130,8 @@ contains
     integer, pointer :: discrete_f(:)
     real(c_double), target :: bestFitDerived_empty(0)
     real(c_double), pointer :: bestFitDerived_f(:)
+    real(c_double), target :: initial_guesses_empty(0,0)
+    real(c_double), pointer :: initial_guesses_f(:,:)
     character(len=maxpathlen) :: path_f
 
     ! Set the pointer to the likelihood function
@@ -152,6 +159,13 @@ contains
       discrete_f => discrete_empty
     else
       discrete_f => discrete
+    endif
+
+    ! Fix up the potential null pointer passed in instead of an illegal zero-element C array if nGuesses = 0
+    if (nGuesses .eq. 0) then
+      initial_guesses_f => initial_guesses_empty
+    else
+      initial_guesses_f => initial_guesses
     endif
 
     ! Call the actual fortran differential evolution function
@@ -182,6 +196,7 @@ contains
                    outputRaw=logical(outputRaw), &
                    outputSam=logical(outputSam), &
                    init_population_strategy=init_population_strategy, &
+                   initial_guesses=initial_guesses, &
                    discard_unfit_points=logical(discard_unfit_points), &
                    max_initialisation_attempts=max_initialisation_attempts, &
                    max_acceptable_value=max_acceptable_value, &

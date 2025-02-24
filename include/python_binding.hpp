@@ -18,7 +18,7 @@ namespace diver
   /// You could call this from C++ too though, if you prefer its signature to the C-style signature of cdiver (in diver.hpp).
   std::tuple<double, py::array_t<double>, py::array_t<double>> diver_cpp(func_type, py::array_t<double>&, py::array_t<double>&,
    const char[], int, py::array_t<int>&, bool, int, int, py::array_t<double>&, double, double, bool, bool, int, bool, bool,
-   double, int, bool, int, bool, bool, bool, bool, int, bool, int, double, int, py::object&, int);
+   double, int, bool, int, bool, bool, bool, bool, int, py::array_t<double>&, bool, int, double, int, py::object&, int);
 
 }
 
@@ -51,6 +51,7 @@ PYBIND11_MODULE(diver_cpp, m) {
         py::arg("outputRaw"),
         py::arg("outputSam"),
         py::arg("init_population_strategy"),
+        py::arg("initial_guesses"),
         py::arg("discard_unfit_points"),
         py::arg("max_initialisation_attempts"),
         py::arg("max_acceptable_value"),

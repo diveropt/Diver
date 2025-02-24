@@ -6,9 +6,7 @@ use iso_c_binding, only: c_ptr
 
 implicit none
 
- integer, parameter :: param_dim = 2!5 !dimensions of parameter space
-
- integer, parameter :: NP=10, numgen=15, nDerived=0
+ integer, parameter :: param_dim = 2 !5 !dimensions of parameter space
  character (len=300) :: path='example_f/output/example'
  real(dp), parameter ::  Cr=0.9, tol = 1e-3, lambda=0.8        !0<=Cr<=1, 0<=lambda<=1
  real(dp), parameter, dimension(1) :: F=0.6                    !recommend 0<F<1
@@ -274,10 +272,18 @@ program example_f
 
   real(dp) :: res
 
+  !Manygauss test of discrete parameters
   !res = diver(manygauss, lowerbounds, upperbounds, path, discrete=(/1,3,5/), lambdajDE=.true., &
-  !partitionDiscrete=.true., resume=.false., removeDuplicates=.true., NP=1000, bndry=3, verbose=1)
+  !partitionDiscrete=.true., resume=.false., removeDuplicates=.true., NP=1000, bndry=3, verbose=2)
 
-  res = diver(rosenbrock, lowerbounds, upperbounds, path=path, verbose=3, lambdajDE=.true., discard_unfit_points=.true.)
+  !Rosenbrock test
+  !res = diver(rosenbrock, lowerbounds, upperbounds, path=path, verbose=2, lambdajDE=.true., discard_unfit_points=.true.)
+
+  !Rosenbrock test with a first guess placed in initial population
+  real(dp), dimension(1,param_dim) :: starting_guess
+  starting_guess = 1.5
+  res = diver(rosenbrock, lowerbounds, upperbounds, path=path, verbose=3, lambdajDE=.true., discard_unfit_points=.true., &
+              initial_guesses = starting_guess)
 
   write(*,*)
   write(*,*) "Minimum found:", res

@@ -55,6 +55,7 @@ namespace diver
     bool outputRaw,
     bool outputSam,
     int init_population_strategy,
+    py::array_t<double>& initial_guesses,
     bool discard_unfit_points,
     int max_initialisation_attempts,
     double max_acceptable_value,
@@ -74,6 +75,9 @@ namespace diver
     info = F.request();
     double* F_ptr = static_cast<double*>(info.ptr);
     int nF = info.shape[0];
+    info = initial_guesses.request();
+    double* initial_guesses_ptr = static_cast<double*>(info.ptr);
+    int nGuesses = info.shape[1];
     // Create and get data pointers to output arrays.
     py::array_t<double> bestFitParams({nPar}, {sizeof(double)});
     double* bestFitParams_ptr = static_cast<double*>(bestFitParams.request().ptr);
@@ -114,6 +118,8 @@ namespace diver
                         outputRaw,
                         outputSam,
                         init_population_strategy,
+                        nGuesses,
+                        initial_guesses_ptr,
                         discard_unfit_points,
                         max_initialisation_attempts,
                         max_acceptable_value,
