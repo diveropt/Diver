@@ -274,7 +274,7 @@ contains
 
             end do
 
-            if (abs(run_params%verbose) .ge. 3) then
+            if (abs(run_params%verbose) .ge. 2) then
                if (run_params%DE%lambdajDE) then
                   write (*,*) n, Xnew%vectors_and_derived(m, :), '->', Xnew%values(m), '|', &
                               Xnew%lambdajDE(m), Xnew%FjDE(m), Xnew%CrjDE(m)

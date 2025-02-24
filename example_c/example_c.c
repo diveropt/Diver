@@ -66,7 +66,6 @@ int main(int argc, char** argv)
          discrete, partitionDiscrete, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh,
          convsteps, removeDuplicates, savecount, resume, disableIO, outputRaw,
          outputSam, init_pop_strategy, discard_unfit_points, max_init_attempts, max_acceptable_val, seed, context, verbose);
-         //Note that prior, maxNodePop and Ztolerance are just ignored if doBayesian = false
   printf("Best fit returned: %e\n", result);
   for (int i = 0; i < nPar; i++) printf("Parameter %i at best fit: %e\n", i, bestFitParams[i]);
   for (int i = 0; i < nDerived; i++) printf("Derived quantity %i at best fit: %e\n", i, bestFitDerived[i]);

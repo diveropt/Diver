@@ -656,7 +656,7 @@ contains
          call quit_de('ERROR: init_population_strategy = 2 but could not find valid points within max_initialisation_attempts!')
        endif
 
-       if (abs(run_params%verbose) .ge. 3) then
+       if (abs(run_params%verbose) .ge. 2) then
           if (run_params%DE%lambdajDE) then
              write (*,*) n, Xnew%vectors_and_derived(m,:), '->', Xnew%values(m), '|', &
                             Xnew%lambdajDE(m), Xnew%FjDE(m), Xnew%CrjDE(m)
