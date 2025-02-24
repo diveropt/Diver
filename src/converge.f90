@@ -29,7 +29,7 @@ contains
     type(population), intent(in) :: X
     type(codeparams), intent(inout) :: run_params
 
-    if (run_params%verbose .ge. 3) write(*,*) '  Checking convergence...'
+    if (run_params%verbose .ge. 2) write(*,*) '  Checking convergence...'
 
     select case (run_params%convergence_criterion)
        case (meanimprovement)
@@ -39,9 +39,9 @@ contains
     end select
 
     if (converged) then
-       if (run_params%verbose .ge. 3) write (*,*) '  Converged.'
+       if (run_params%verbose .ge. 2) write (*,*) '  Converged.'
     else
-       if (run_params%verbose .ge. 3) write (*,*) '  Not converged.'
+       if (run_params%verbose .ge. 2) write (*,*) '  Not converged.'
     end if
 
     if (checkpopres) call check_population_resolution(X, run_params, converged)
@@ -77,7 +77,7 @@ contains
     run_params%improvements = eoshift(run_params%improvements, shift=-1, boundary=fracdiff)   !store new improvement, discard oldest improvement
     sfim = sum(run_params%improvements)/real(run_params%convsteps, kind=dp)                   !average over the generations stored
 
-    if (run_params%verbose .ge. 3) write (*,*) '  Smoothed fractional improvement of the mean =', sfim
+    if (run_params%verbose .ge. 2) write (*,*) '  Smoothed fractional improvement of the mean =', sfim
 
     !compare to threshold value
     isConverged = (sfim .lt. run_params%convthresh)
@@ -102,7 +102,7 @@ contains
     avgvector = reshape(sum(X%vectors, dim=1), (/1, run_params%D/))
     avgvector = avgvector/real(run_params%DE%NP, kind=dp)
 
-    if (run_params%verbose .ge. 3) then
+    if (run_params%verbose .ge. 2) then
        write (*,*) '  Checking population resolution...'
        write (*,*) '  Average vector:', avgvector
     end if
@@ -113,20 +113,20 @@ contains
 
     !compare each dimension separately
     do i=1, run_params%D
-       if (run_params%verbose .ge. 3) write(*,*) '  Dimension:', i
+       if (run_params%verbose .ge. 2) write(*,*) '  Dimension:', i
        resolution = 10.0_dp*spacing(avgvector(1,i))   !gives an idea of when vectors can accidentally take on the same values
 
        if( any(diffvectors(:,i) .lt. resolution)) then
-          if (run_params%verbose .ge. 3) write(*,*) '    WARNING: at least one vector within allowed resolution'
+          if (run_params%verbose .ge. 2) write(*,*) '    WARNING: at least one vector within allowed resolution'
 
           res_pt_count = run_params%DE%NP/4 !no reason for this value, but it keeps down duplicates
           if (count(diffvectors(:,i) .lt. resolution) .ge. res_pt_count) then
              converged = .true.
-             if (run_params%verbose .ge. 3) write (*,*) 'WARNING: Points along dimension', i, &
+             if (run_params%verbose .ge. 2) write (*,*) 'WARNING: Points along dimension', i, &
                                                         'cannot be resolved further. Ending run.'
           end if
        else
-          if (run_params%verbose .ge. 3) write(*,*) '    Population resolution okay.'
+          if (run_params%verbose .ge. 2) write(*,*) '    Population resolution okay.'
        end if
     end do
 
