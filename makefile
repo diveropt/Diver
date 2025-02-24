@@ -34,6 +34,7 @@ MODULE=J
 CC=mpicc
 COPT=-DMPI
 CPPOPT=
+# On Mac, you may need to add -undefined dynamic_lookup to SO_LINK_FLAGS
 SO_LINK_FLAGS=
 # Intel
 #MIXOPT_C=-nofor-main
@@ -73,13 +74,21 @@ export DIVER_FF DIVER_FOPT DIVER_CC DIVER_COPT DIVER_CPPOPT DIVER_MIXOPT_C DIVER
 SOURCEFILES = detypes deutils mutation crossover selection init converge posterior evidence io de cwrapper
 OBJ = $(SOURCEFILES:%=$(BUILD)/%.o)
 
-all: libdiver.a $(EXAMPLENAMES)
+all: libdiver.a python_module $(EXAMPLENAMES)
 
 libdiver.a: makefile $(OBJ)
 	$(AR) $(LIB)/$@ $(OBJ)
 
 libdiver.so: makefile $(OBJ)
 	$(DIVER_FF) $(DIVER_SO_LINK_FLAGS) -o $(LIB)/$@ $(TYPEOBJ) $(OBJ)
+
+python_module: libdiver.a $(BUILD)/python_binding.o
+	$(DIVER_FF) $(DIVER_SO_LINK_FLAGS) -o python/diver_cpp$(shell python3-config --extension-suffix) $(BUILD)/python_binding.o -L$(LIB) -l$(LIBNAME) $(DIVER_MIXOPT_CPP)
+	# Note that on Mac, python3-config is not installed by default. You can get it by installing python using anaconda or homebrew, or by building python from source.
+	cd example_py; ln -fs ../python/diver_cpp$(shell python3-config --extension-suffix) .
+
+$(BUILD)/python_binding.o: $(SOURCE)/python_binding.cpp $(INC)/python_binding.hpp
+	$(DIVER_CC) -c $(DIVER_COPT) $(DIVER_CPPOPT) -I$(INC) $(shell python3 -m pybind11 --includes) $< -o $@
 
 $(BUILD)/converge.o: $(SOURCE)/converge.f90 $(BUILD)/detypes.o
 	$(DIVER_FF) $(DIVER_FOPT) -c $< -o $@
@@ -122,6 +131,7 @@ $(EXAMPLENAMES): libdiver.a
 
 clean:
 	rm -f $(LIB)/*.a $(LIB)/*.so; \
+	rm -f python/*.a python/*.so example_py/*.so; \
 	cd $(BUILD); rm -f *.o *.mod; \
 	cd $(INC); rm -f *.mod
 

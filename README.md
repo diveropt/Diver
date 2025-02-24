@@ -15,6 +15,12 @@ One can also find detailed performance comparisons of Diver with other samplers 
   2. DarkMachines High Dimensional Sampling Group, JHEP 05 (2021) 108, [arXiv:2101.04525](https://arxiv.org/abs/2101.04525).
 In particular, this latter paper demonstrates that Diver significantly outperforms Scipy's implementation of differential evolution.
 
+Dependencies
+--
+- Main library and Fortran example: ifort/gfortran
+- C/C++ examples: icpc/g++
+- Python module and Python example: pybind11, numpy
+
 Compilation
 --
 
@@ -35,6 +41,11 @@ To build only the static library, do
   make libdiver.a
 ```
 
+To build only the python module that wraps the library, do
+```
+  make python_module
+```
+
 Testing
 --
 
@@ -47,11 +58,16 @@ To build only the Fortran, C and C++ examples, do
 
 The executables will appear in the Diver root directory. (You should run them.)
 
+To run the python example, first build the python module and then do
+```
+  python3 example_py/example.py
+```
+
 
 Licensing
 --
 
-The actual license is below.  In simple terms: Diver is free for academic use (no need to ask us), potentially free for other non-profit use (but you need to ask us explicitly), and not free for commercial use (you'll likely need to pay for a license in that case).
+The actual license is below.  In simple terms: Diver is free for academic use (no need to ask us), potentially free for other non-profit use (but you need to ask us explicitly), and not free for commercial use (you'll need to pay for a license in that case).
 
 Contact: diver.optimisation@gmail.com
 
@@ -60,6 +76,7 @@ License
 --
 
 Copyright 2013-2023 Elinore Roebber and Pat Scott
+Copyright 2024-2025 Diver Optimisation Solutions
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 
