@@ -163,7 +163,7 @@ subroutine save_run_params(run_params, path)
         write(rparamlun,'(I6)') run_params%subpopNP                     !subpopulation NP for partitioned parameters
      endif
   endif
-  write(rparamlun,'(2I6)')    run_params%numgen                         !maximum number of generations
+  write(rparamlun,'(I6)')     run_params%numgen                         !maximum number of generations
   write(rparamlun,'(E20.9)')  run_params%convthresh                     !threshold for gen-level convergence
   write(rparamlun,'(I6)')     run_params%convsteps                      !number of steps to smooth over when checking convergence
   write(rparamlun,'(L1)')     run_params%disableIO                      !disable all IO or not
@@ -200,7 +200,7 @@ subroutine save_state(gen, Nsamples, Nsamples_saved, fcall, run_params, X, BF, p
   endif
   if (filestatus .ne. 0) call quit_all_processes(' Error opening devo file.  Quitting...')
 
-  write(devolun,'(2I10)')     gen                                       !current generation
+  write(devolun,'(I10)')      gen                                       !current generation
   write(devolun,'(3I10)')     Nsamples, Nsamples_saved, fcall           !total number of independent samples so far, num saved, num function calls
 
   write(devolun,'(E20.9)')    BF%values(1)                              !current best-fit
@@ -294,7 +294,7 @@ subroutine read_state(path, gen, Nsamples, Nsamples_saved, fcall, run_params, X,
   else
      allocate(run_params%discrete(0))
   endif
-  read(rparamlun,'(2I6)')    run_params%numgen                          !maximum number of generations
+  read(rparamlun,'(I6)')     run_params%numgen                          !maximum number of generations
   read(rparamlun,'(E20.9)')  run_params%convthresh                      !threshold for gen-level convergence
   read(rparamlun,'(I6)')     run_params%convsteps                       !number of steps to smooth over when checking convergence
   read(rparamlun,'(L1)')     run_params%disableIO                       !disable all IO or not
