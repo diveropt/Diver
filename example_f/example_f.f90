@@ -8,7 +8,7 @@ implicit none
 
  integer, parameter :: param_dim = 2!5 !dimensions of parameter space
 
- integer, parameter :: NP=10, numgen=15, numciv=1, nDerived=0
+ integer, parameter :: NP=10, numgen=15, nDerived=0
  character (len=300) :: path='example_f/output/example'
  real(dp), parameter ::  Cr=0.9, tol = 1e-3, lambda=0.8        !0<=Cr<=1, 0<=lambda<=1
  real(dp), parameter, dimension(1) :: F=0.6                    !recommend 0<F<1
@@ -251,35 +251,16 @@ real(dp) function eggcarton(params, fcall, quit, validvector, context)
   fcall = fcall + 1
   quit = .false.
 
-  !slight dip at center. Needs smaller Ztolerance, tolerance in convergence (long run) or gets stuck in local minima
+  !slight dip at center. Needs smaller tolerance in convergence (long run) or gets stuck in local minima.
   !eggcarton =  0.001*(params(1)**2 + params(2)**2) - cos(params(1))*cos(params(2)) + 2
 
-  !as used in MultiNest (-ln of formula given in paper). Parameter space should range from 0 to 10 pi
+  !as used in MultiNest (-ln of formula given in paper). Parameter space should range from 0 to 10 pi.
   eggcarton = -(2 + cos(0.5*params(1))*cos(0.5*params(2)))**5 + 1 !last +1 not from Multinest--needed to keep convergence criteria happy
 
   !flat. Set bndry=3 (reflective) to better explore edges
   !eggcarton = cos(params(1))*cos(params(2)) + 1
 
 end function eggcarton
-
-
-
-!Example prior distributions
-
-!Flat prior distribution for all parameters
-real(dp) function flatprior(X, context)
-
-  type(c_ptr), intent(inout) :: context
-  type(c_ptr) :: context_dummy
-  !real(dp), dimension(size(lowerbounds)), intent(in) :: X
-  real(dp), dimension(:), intent(in) :: X
-  real(dp) :: X_dummy
-  context_dummy = context
-  X_dummy = X(1)
-  flatprior = 1.0_dp / product(boundranges)
-
-end function flatprior
-
 
 end module examples
 
@@ -293,13 +274,11 @@ program example_f
 
   real(dp) :: res
 
-  !res = diver(manygauss, lowerbounds, upperbounds, path, doBayesian=.false., &
-  ! discrete=(/1,3,5/), lambdajDE=.true., partitionDiscrete=.true., resume=.false., Ztolerance=0.1_dp, &
-  ! removeDuplicates=.true., maxciv=1, NP=1000, bndry=3, prior=flatprior, verbose=1)
-  
-  res = diver(rosenbrock, lowerbounds, upperbounds, doBayesian=.false., path=path, &
-   verbose=3, prior=flatprior, lambdajDE=.true., discard_unfit_points=.true.)
-  
+  !res = diver(manygauss, lowerbounds, upperbounds, path, discrete=(/1,3,5/), lambdajDE=.true., &
+  !partitionDiscrete=.true., resume=.false., removeDuplicates=.true., NP=1000, bndry=3, verbose=1)
+
+  res = diver(rosenbrock, lowerbounds, upperbounds, path=path, verbose=3, lambdajDE=.true., discard_unfit_points=.true.)
+
   write(*,*)
   write(*,*) "Minimum found:", res
 

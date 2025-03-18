@@ -20,8 +20,7 @@ class options(TypedDict):
     nDerived [int]: number of derived quantities to output.
     discrete [NDArray[np.int32]]: a 1D array listing all discrete dimensions of parameter space.
     partitionDiscrete [bool]: split the population evenly amongst discrete parameters and evolve separately.
-    maxciv [int]: maximum number of civilisations.
-    maxgen [int]: maximum number of generations per civilisation.
+    maxgen [int]: maximum number of generations.
     NP [int]: population size (individuals per generation).
     F [NDArray[np.float64]]: scale factor(s).
     Cr [float]: crossover factor.
@@ -34,14 +33,6 @@ class options(TypedDict):
     convthresh [float]: threshold for generation-level convergence.
     convsteps [int]: number of steps to smooth over when checking convergence.
     removeDuplicates [bool]: weed out duplicate vectors within a single generation.
-    doBayesian [bool]: calculate log evidence and posterior weightings.
-    prior [Callable[[NDArray[np.float64], object], float]]: the prior function.
-        Args:
-            params [numpy.NDArray[np.float64]]: parameter values at which to evaluate the prior.
-            context [object]: Python object passed as an option when invoking diver.run.
-        Returns [float]: prior pdf value at parameter values.
-    maxNodePop [float]: population at which node is partitioned in binary space partitioning for posterior.
-    Ztolerance [float]: input tolerance in log-evidence.
     savecount [int]: save progress every savecount generations.
     resume [bool]: restart from a previous run.
     disableIO [bool]: disable all I/O.
@@ -52,8 +43,8 @@ class options(TypedDict):
     max_initialisation_attempts [int]: maximum number of times to try to find a valid vector for each slot in the initial population.
     max_acceptable_value [float]: maximum fitness to accept for the initial generation if init_population_strategy > 0. Also applies to later generations if discard_unfit_points = .true.
     seed [int]: base seed for random number generation; non-positive or absent means seed from the system clock.
-    context [object]: context object, used for passing info from the caller to likelihood/prior. Use this for passing a callback object that can be used for I/O, harvesting samples in situ, printing or whatever else you like.
-    verbose [int]: output verbosity: 0=only error messages, 1=basic info, 2=civ-level info, 3+=population info.
+    context [object]: context object, used for passing info from the caller to the objective. Use this for passing a callback object that can be used for I/O, harvesting samples in situ, printing or whatever else you like.
+    verbose [int]: output verbosity: 0=only error messages, 1=basic info, 2+=population info.
   """
   lowerbounds: NDArray[np.float64]
   upperbounds: NDArray[np.float64]
@@ -61,7 +52,6 @@ class options(TypedDict):
   nDerived: int
   discrete: NDArray[np.int32]
   partitionDiscrete: bool
-  maxciv: int
   maxgen: int
   NP: int
   F: NDArray[np.float64]
@@ -75,10 +65,6 @@ class options(TypedDict):
   convthresh: float
   convsteps: int
   removeDuplicates: bool
-  doBayesian: bool
-  prior: Callable[[NDArray[np.float64], object], float]
-  maxNodePop: float
-  Ztolerance: float
   savecount: int
   resume: bool
   disableIO: bool
@@ -92,10 +78,6 @@ class options(TypedDict):
   context: object
   verbose: int
 
-def dummy_prior(p: NDArray[np.float64], context: object) -> float:
-  """Flat dummy prior."""
-  return 1.0
-
 def defaults(lowerbounds, upperbounds):
   """Return a Diver options typed dictionary populated with passed values for required options and defaults for other options."""
   d: options
@@ -103,9 +85,8 @@ def defaults(lowerbounds, upperbounds):
        'upperbounds': upperbounds,
        'path': 'output',
        'nDerived': 0,
-       'discrete': np.array([], dtype=np.float64),
+       'discrete': np.array([], dtype=np.int32),
        'partitionDiscrete': False,
-       'maxciv': 1,
        'maxgen': 300,
        'NP': max(10*len(upperbounds), 5),
        'F': np.array([0.7]),
@@ -119,10 +100,6 @@ def defaults(lowerbounds, upperbounds):
        'convthresh': 1e-3,
        'convsteps': 10,
        'removeDuplicates': True,
-       'doBayesian': False,
-       'prior': dummy_prior,
-       'maxNodePop': 1.9,
-       'Ztolerance': 0.01,
        'savecount': 1,
        'resume': False,
        'disableIO': False,

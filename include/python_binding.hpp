@@ -11,16 +11,14 @@ namespace py = pybind11;
 namespace diver
 {
 
-  /// Std::function wrapper types for objective and prior functions, to allow automatic conversion from Python Callable type
+  /// Std::function wrapper type for objective function, to allow automatic conversion from Python Callable type
   typedef std::function<std::tuple<double, int, bool>(py::array_t<double>&, int, bool, bool, py::object&)> func_type;
-  typedef std::function<double(const py::array_t<double>&, py::object&)> prior_type;
 
   /// C++ prototype of main Diver function, specifically engineered for exposing to Python via pybind11.
   /// You could call this from C++ too though, if you prefer its signature to the C-style signature of cdiver (in diver.hpp).
   std::tuple<double, py::array_t<double>, py::array_t<double>> diver_cpp(func_type, py::array_t<double>&, py::array_t<double>&,
-   const char[], int, py::array_t<int>&, bool, int, int, int, py::array_t<double>&, double, double, bool,
-   bool, int, bool, bool, double, int, bool, bool, prior_type, double, double, int, bool, bool, bool, bool, int, bool, int,
-   double, int, py::object&, int);
+   const char[], int, py::array_t<int>&, bool, int, int, py::array_t<double>&, double, double, bool, bool, int, bool, bool,
+   double, int, bool, int, bool, bool, bool, bool, int, bool, int, double, int, py::object&, int);
 
 }
 
@@ -34,7 +32,6 @@ PYBIND11_MODULE(diver_cpp, m) {
         py::arg("nDerived"),
         py::arg("discrete"),
         py::arg("partitionDiscrete"),
-        py::arg("maxciv"),
         py::arg("maxgen"),
         py::arg("NP"),
         py::arg("F"),
@@ -48,10 +45,6 @@ PYBIND11_MODULE(diver_cpp, m) {
         py::arg("convthresh"),
         py::arg("convsteps"),
         py::arg("removeDuplicates"),
-        py::arg("doBayesian"),
-        py::arg("prior"),
-        py::arg("maxNodePop"),
-        py::arg("Ztolerance"),
         py::arg("savecount"),
         py::arg("resume"),
         py::arg("disableIO"),

@@ -71,7 +71,7 @@ DIVER_SO_LINK_FLAGS=$(SO_LINK_FLAGS) -shared
 export DIVER_FF DIVER_FOPT DIVER_CC DIVER_COPT DIVER_CPPOPT DIVER_MIXOPT_C DIVER_MIXOPT_CPP LIBNAME PREFIX LIB INC
 
 # Identify source files
-SOURCEFILES = detypes deutils mutation crossover selection init converge posterior evidence io de cwrapper
+SOURCEFILES = detypes deutils mutation crossover selection init converge io de cwrapper
 OBJ = $(SOURCEFILES:%=$(BUILD)/%.o)
 
 all: libdiver.a python_module $(EXAMPLENAMES)
@@ -99,7 +99,7 @@ $(BUILD)/crossover.o: $(SOURCE)/crossover.f90 $(BUILD)/detypes.o
 $(BUILD)/cwrapper.o: $(SOURCE)/cwrapper.f90 $(BUILD)/detypes.o $(BUILD)/de.o
 	$(DIVER_FF) $(DIVER_FOPT) -c $< -o $@
 
-$(BUILD)/de.o: $(SOURCE)/de.f90 $(BUILD)/detypes.o $(BUILD)/deutils.o $(BUILD)/init.o $(BUILD)/io.o $(BUILD)/converge.o $(BUILD)/selection.o $(BUILD)/mutation.o $(BUILD)/crossover.o $(BUILD)/posterior.o $(BUILD)/evidence.o
+$(BUILD)/de.o: $(SOURCE)/de.f90 $(BUILD)/detypes.o $(BUILD)/deutils.o $(BUILD)/init.o $(BUILD)/io.o $(BUILD)/converge.o $(BUILD)/selection.o $(BUILD)/mutation.o $(BUILD)/crossover.o
 	$(DIVER_FF) $(DIVER_FOPT) -c $< -o $@
 
 $(BUILD)/detypes.o: $(SOURCE)/detypes.f90
@@ -108,19 +108,13 @@ $(BUILD)/detypes.o: $(SOURCE)/detypes.f90
 $(BUILD)/deutils.o: $(SOURCE)/deutils.f90 $(BUILD)/detypes.o
 	$(DIVER_FF) $(DIVER_FOPT) -c $< -o $@
 
-$(BUILD)/evidence.o: $(SOURCE)/evidence.f90 $(BUILD)/detypes.o $(BUILD)/deutils.o $(BUILD)/posterior.o
-	$(DIVER_FF) $(DIVER_FOPT) -c $< -o $@
-
 $(BUILD)/init.o: $(SOURCE)/init.f90 $(BUILD)/detypes.o $(BUILD)/deutils.o $(BUILD)/mutation.o $(BUILD)/crossover.o $(BUILD)/selection.o
 	$(DIVER_FF) $(DIVER_FOPT) -c $< -o $@
 
-$(BUILD)/io.o: $(SOURCE)/io.f90 $(BUILD)/detypes.o $(BUILD)/deutils.o $(BUILD)/evidence.o $(BUILD)/converge.o
+$(BUILD)/io.o: $(SOURCE)/io.f90 $(BUILD)/detypes.o $(BUILD)/deutils.o $(BUILD)/converge.o
 	$(DIVER_FF) $(DIVER_FOPT) -c $< -o $@
 
 $(BUILD)/mutation.o: $(SOURCE)/mutation.f90 $(BUILD)/detypes.o $(BUILD)/deutils.o
-	$(DIVER_FF) $(DIVER_FOPT) -c $< -o $@
-
-$(BUILD)/posterior.o: $(SOURCE)/posterior.f90 $(BUILD)/detypes.o
 	$(DIVER_FF) $(DIVER_FOPT) -c $< -o $@
 
 $(BUILD)/selection.o: $(SOURCE)/selection.f90 $(BUILD)/detypes.o $(BUILD)/deutils.o $(BUILD)/mutation.o $(BUILD)/crossover.o

@@ -34,12 +34,9 @@ type codeparams                                         !code parameters (rememb
    logical :: partitionDiscrete                         !split the population evenly amongst discrete parameters and evolve separately
    integer, allocatable, dimension(:) :: repeat_scales  !population scale on which partitioned parameters repeat when partitionDiscrete = true
    integer :: subpopNP                                  !subpopulation in each partition of the population when partitionDiscrete = true
-   integer :: numciv, numgen                            !maximum number of civilizations, generations
+   integer :: numgen                                    !maximum number of generations
    real(dp) :: convthresh                               !threshold for convergence (smoothed fractional improvement in the mean population value)
    integer :: convsteps                                 !number of steps to smooth over for testing convergence
-   real(dp) :: tol                                      !tolerance in log-evidence
-   real(dp) :: maxNodePop                               !maximum population to allow in a cell before partitioning it
-   logical :: calcZ                                     !calculate evidence or not
    logical :: disableIO                                 !disable all IO
    logical :: outputRaw                                 !output raw parameter samples to a .raw file
    logical :: outputSam                                 !output rounded and derived parameter samples to a .sam file
@@ -52,7 +49,7 @@ type codeparams                                         !code parameters (rememb
    integer :: max_initialisation_attempts               !maximum number of times to try to find a valid vector for each slot in the initial population. Also applies to later generations if discard_unfit_points = .true.
    real(dp) :: max_acceptable_value                     !maximum fitness to accept for the initial generation if init_population_strategy > 0.
    type(c_ptr) :: context                               !context pointer
-   integer :: verbose                                   !level of verbosity: 0=quiet, 1=basic, 2=civ-level info, 3=verbose, negative for mpirank!=0
+   integer :: verbose                                   !level of verbosity: 0=quiet, 1=basic, 2+=gen-level info, negative for mpirank!=0
    integer :: convergence_criterion                     !indicates which convergence criterion has been selected (see convergence.f90 for codes)
    integer :: seed                                      !base seed for random number generation; non-positive or absent means seed from the system clock
    real(dp) :: meanlike                                 !the normalized average fitness of the population for the last generation
@@ -60,16 +57,14 @@ type codeparams                                         !code parameters (rememb
 end type codeparams
 
 type population
-  !add array of strings for names?
+  real(dp), allocatable, dimension(:) :: values, FjDE, CrjDE, lambdajDE  !dimension(NP)
   real(dp), allocatable, dimension(:,:) :: vectors                       !dimension(NP, D)
-  real(dp), allocatable, dimension(:) :: values, weights, multiplicities !dimension(NP)
   real(dp), allocatable, dimension(:,:) :: vectors_and_derived           !dimension(NP, D+D_derived)
-  real(dp), allocatable, dimension(:) :: FjDE, CrjDE, lambdajDE          !dimension(NP)
 end type population
 
 
 
-!interfaces for the likelihood and prior functions
+!interface for the likelihood function
 
 abstract interface
    !the likelihood function to be minimised -- assumed to be -ln(likelihood)
@@ -83,17 +78,6 @@ abstract interface
      logical, intent(in) :: validvector
      type(c_ptr), intent(inout) :: context
    end function MinusLogLikeFunc
-end interface
-
-abstract interface
-   !the prior function
-   real(dp) function PriorFunc(X, context)
-     use iso_c_binding, only: c_ptr
-     import dp
-     implicit none
-     real(dp), dimension(:), intent(in) :: X
-     type(c_ptr), intent(inout) :: context
-   end function PriorFunc
 end interface
 
 

@@ -15,8 +15,7 @@ const int         nDerived             = 0;                            // Number
 const int         nDiscrete            = 0;                            // Number of parameters that are to be treated as discrete
 const int         discrete[]           = {0};                          // Indices of discrete parameters, Fortran style, i.e. starting at 1!!
 const bool        partitionDiscrete    = false;                        // Split the population evenly amongst discrete parameters and evolve separately
-const int         maxciv               = 100;                          // Maximum number of civilisations
-const int         maxgen               = 100;                          // Maximum number of generations per civilisation
+const int         maxgen               = 100;                          // Maximum number of generations
 const int         NP                   = 200;                          // Population size (individuals per generation)
 const int         nF                   = 1;                            // Size of the array indicating scale factors
 const double      F[nF]                = {0.6};                        // Scale factor(s).  Note that this must be entered as an array.
@@ -30,9 +29,6 @@ const bool        lambdajDE            = true;                         // Use se
 const double      convthresh           = 1.e-3;                        // Threshold for gen-level convergence: smoothed fractional improvement in the mean population value
 const int         convsteps            = 10;                           // Number of steps to smooth over when checking convergence
 const bool        removeDuplicates     = true;                         // Weed out duplicate vectors within a single generation
-const bool        doBayesian           = true;                         // Calculate approximate log evidence and posterior weightings
-const double      maxNodePop           = 1.9;                          // Population at which node is partitioned in binary space partitioning for posterior
-const double      Ztolerance           = 0.1;                          // Input tolerance in log-evidence
 const int         savecount            = 1;                            // Save progress every savecount generations
 const bool        resume               = false;                        // Restart from a previous run
 const bool        disableIO            = false;                        // Disable all IO
@@ -43,7 +39,7 @@ const bool        discard_unfit_points = false;                        // Recalc
 const int         max_init_attempts    = 10000;                        // Maximum number of times to try to find a valid vector for each slot in the initial population.
 const double      max_acceptable_val   = 1e6;                          // Maximum fitness to accept for the initial generation if init_population_strategy > 0, or any generation if discard_unfit_points = true.
 const int         seed                 = -1;                           // base seed for random number generation; non-positive or absent means seed from the system clock
-const int         verbose              = 1;                            // Output verbosity: 0=only error messages, 1=basic info, 2=civ-level info, 3+=population info
+const int         verbose              = 1;                            // Output verbosity: 0=only error messages, 1=basic info, 2+=population info
 
 const double Pi = 3.14159265359;                                            // Tasty
 typedef double (*likelihood)(double[], const int, int&, bool&, const bool); // This example's internal standard likelihood function signature
@@ -57,6 +53,7 @@ double objective(double params[], const int param_dim, int &fcall, bool &quit, c
 }
 
 //Plain Gaussian likelihood centred at the origin, good for any number of dimensions.
+//Expected minimum: 0.5*nPar*log(Pi) = 1.14473 for nPar=2.
 double gauss(double params[], const int param_dim, int &fcall, bool &quit, const bool validvector)
 {
   double result = 0.0;
@@ -68,62 +65,62 @@ double gauss(double params[], const int param_dim, int &fcall, bool &quit, const
   return result;
 }
 
-//Gaussian shell likelihood, good for any number of dimensions (just remember to expand the subarrays in c).
+//Helper function for Guassian shell likelihood
+double logAddExp(double a, double b)
+{
+  double diff = a - b;
+  if (diff > 0) return a + std::log1p(exp(-diff));
+  return b + std::log1p(exp(diff));
+}
+
+//Gaussian shell likelihood, good for any number of dimensions (just remember to expand the subarrays of the array c).
+// like =  Sum_rings 1/sqrt(2*pi*w^2) * exp[-(|params-c|-r)^2/(2*w^2)]
+//The expected minimum is the number of dimensions, *as long as the shell parameters are not chosen such that the shells overlap*
 double gauss_shell(double params[], const int param_dim, int &fcall, bool &quit, const bool validvector)
 {
-  double result, temp, dist, loclike;
-  int i,j;
-  double* greater, lesser;
   const int nRings = 2;                                      // Number of rings
   const double w[nRings] = {0.1,0.1};                        // Gaussian widths of the shells
   const double r[nRings] = {2.0,2.0};                        // Widths of the rings
-  const double c[nRings][nPar] = { {-3.5,0.0}, {-3.5,0.0} }; // Positions of ring centres
+  const double c[nRings][nPar] = { {-3.5,0.0}, {3.5,0.0} };  // Positions of ring centres
 
-  result = -std::numeric_limits<double>::max()*1e-5;
-  for (i = 0; i < nRings; i++)
+  double lnL = -std::numeric_limits<double>::max();
+  double expected_max = -std::numeric_limits<double>::max();
+  if (validvector)
   {
-    temp = 0.0;
-    for (j = 0; j < nPar; j++) temp += (params[j]-c[i][j])*(params[j]-c[i][j]);
-    dist = pow(pow(temp,0.5)-r[i], 2);
-    loclike = -dist / (2.0*w[i]*w[i]) - 0.5 * log(2.0*Pi*w[i]*w[i]);
-    if (result > loclike) result = result + log(1.0 + exp(loclike-result));
-    else result = loclike + log(1.0 + exp(result-loclike));
+    for (int i = 0; i < nRings; i++)
+    {
+      // Compute squared distance from centre of the circle/sphere (params-c)**2
+      double temp = 0.0;
+      for (int j = 0; j < nPar; j++) temp += pow(params[j]-c[i][j],2);
+      // Compute squared distance from the mid-line of the shell (|params-c|-r)^2
+      double dist = pow(pow(temp,0.5)-r[i], 2);
+      // Compute constant prefactor log(1/sqrt(2*pi*w^2))
+      double prefactor = -0.5*log(2. * Pi * w[i]*w[i]);
+      // The maximum contribution is when the distance to the mid-line is zero.
+      expected_max = std::max(expected_max, prefactor);
+      // Compute log-likelihood for this ring
+      double lnL_this_ring = prefactor - dist / (2.0*w[i]*w[i]);
+      // Compute the logarithmic sum log(exp(lnL_this_ring) + exp(lnL_other_rings))
+      lnL = logAddExp(lnL, lnL_this_ring);
+    }
   }
-  if (not validvector) result = std::numeric_limits<double>::max();
   fcall += 1;
   quit = false;
-  return -result;
+  // Flip lnL and turn into a positive definite function with minimum equal to the number of dimensions
+  return expected_max - lnL + nPar;
 }
-
-//Flat prior function
-double flatprior(const double real_params[], const int real_param_dim, void*& context)
-{
-  int result = 1.0;
-  for (int i = 0; i < real_param_dim; i++) result *= upperbounds[i] - lowerbounds[i];
-  return 1.0/result;
-}
-
-//Log prior function.  Remember it won't work if any of lowerbounds are <= 0!
-double logprior(const double real_params[], const int real_param_dim, void*& context)
-{
-  int result = 1.0;
-  for (int i = 0; i < real_param_dim; i++) result /= real_params[i] * log(upperbounds[i]/lowerbounds[i]);
-  return result;
-}
-
 
 int main(int argc, char** argv)
 {
   //Scan the shell likelihood if 'shell' is given as the first command-line argument, gauss if not (illustrates use of the context pointer).
   likelihood minus_lnlike;
-  if (argc > 1 and strcmp(argv[1], "shell") == 0) minus_lnlike = gauss_shell; else minus_lnlike = &gauss;
+  if (argc > 1 and strcmp(argv[1], "shell") == 0) minus_lnlike = gauss_shell; else minus_lnlike = gauss;
   void* context = &minus_lnlike;
 
   double result = cdiver(objective, nPar, lowerbounds, upperbounds, path, nDerived, bestFitParams, bestFitDerived, nDiscrete,
-   discrete, partitionDiscrete, maxciv, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh,
-   convsteps, removeDuplicates, doBayesian, flatprior, maxNodePop, Ztolerance, savecount, resume, disableIO, outputRaw,
-   outputSam, init_pop_strategy, discard_unfit_points, max_init_attempts, max_acceptable_val, seed, context, verbose);
-   //Note that prior, maxNodePop and Ztolerance are just ignored if doBayesian = false
+   discrete, partitionDiscrete, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh, convsteps,
+   removeDuplicates, savecount, resume, disableIO, outputRaw, outputSam, init_pop_strategy, discard_unfit_points, max_init_attempts,
+   max_acceptable_val, seed, context, verbose);
 
   std::cout << "Best fit returned: " << result << std::endl;
   for (int i = 0; i < nPar; i++) std::cout << "Parameter " <<  i << " at best fit: " << bestFitParams[i] << std::endl;
