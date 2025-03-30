@@ -15,7 +15,7 @@ implicit none
 private
 public param_assign, initialize, init_all_random_seeds
 
-character (len=*), parameter :: version_number = "1.2.0"
+character (len=*), parameter :: version_number = "1.3.0"
 
 contains
 
@@ -47,6 +47,7 @@ contains
                           outputRaw, &
                           outputSam, &
                           init_population_strategy, &
+                          initial_guesses, &
                           discard_unfit_points, &
                           max_initialisation_attempts, &
                           max_acceptable_value, &
@@ -81,6 +82,7 @@ contains
     logical, intent(in), optional  :: outputRaw                         !output raw parameter samples to a .raw file
     logical, intent(in), optional  :: outputSam                         !output rounded and derived parameter samples to a .sam file
     integer, intent(in), optional  :: init_population_strategy          !initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found.
+    real(dp), dimension(:,:), intent(in), optional :: initial_guesses   !initial guesses to include in the starting population. In Fortran the first index is individual, second is parameter.
     logical, intent(in), optional  :: discard_unfit_points              !recalculate any trial vector whose fitness is above max_acceptable_value. Likely incompatible with any objective function that makes MPI calls of its own.
     integer, intent(in), optional  :: max_initialisation_attempts       !maximum number of times to try to find a valid vector for each slot in the initial population.
     real(dp), intent(in), optional :: max_acceptable_value              !maximum fitness to accept for the initial generation if init_population_strategy > 0. Also applies to later generations if discard_unfit_points = .true.
@@ -139,7 +141,7 @@ contains
     run_params%D=size(lowerbounds)
 
     if (size(upperbounds) .ne. run_params%D) call quit_de('ERROR: parameter space bounds do not have the same dimensionality')
-    if (any(lowerbounds .ge. upperbounds)) call quit_de('ERROR: invalid parameter space bounds.')
+    if (any(lowerbounds .ge. upperbounds)) call quit_de('ERROR: upperbounds must be greater than lowerbounds')
 
     allocate(run_params%lowerbounds(run_params%D), run_params%upperbounds(run_params%D))
     run_params%lowerbounds = lowerbounds
@@ -481,13 +483,21 @@ contains
           write (*,*) 'Reflective boundary constraints'
        end select
 
+      !User-provided initial population
+      if (present(initial_guesses) .and. size(initial_guesses) .gt. 0) then
+        if (size(initial_guesses,2) .ne. run_params%D) call quit_de ('ERROR: each initial guess must consist of D = ' // &
+         trim(int_to_string(run_params%D)) // ' parameter values.')
+        write(*,*) 'Using user-supplied guesses to seed ' // &
+         trim(int_to_string(size(initial_guesses,1))) // ' points in the initial population.'
+      endif
+
        select case (run_params%init_population_strategy)     !initialisation strategy
        case (0)
           write (*,*) 'Validity of initial generation will not be enforced.'
        case (1)
           write (*,*) 'Will make', run_params%max_initialisation_attempts, 'attempts to find a point with value below', &
            run_params%max_acceptable_value
-          write (*,*) 'when generating the initialial population.  After this, invalid points will be permitted.'
+          write (*,*) 'when generating initial population members.  After this, invalid points will be permitted.'
        case (2)
           write (*,*) 'Will get', run_params%max_initialisation_attempts, 'attempts to find a point with value below', &
            run_params%max_acceptable_value
@@ -501,7 +511,6 @@ contains
           write (*,*) 'New trial vectors will be generated until all have values below', &
            run_params%max_acceptable_value
        end select
-
 
     end if
 
@@ -584,17 +593,19 @@ contains
 
 
   !initializes first generation of target vectors
-  subroutine initialize(X, Xnew, run_params, func, fcall, quit, accept)
+  subroutine initialize(X, Xnew, run_params, initial_guesses, func, fcall, quit, accept)
 
     type(population), intent(inout) :: X
     type(population), intent(inout) :: Xnew
     type(codeparams), intent(inout) :: run_params
+    real(dp), dimension(:,:), intent(in), optional :: initial_guesses
     integer, intent(inout) :: fcall
     logical, intent(inout) :: quit
     procedure(MinusLogLikeFunc) :: func
     integer :: n, m, i, discrete_index, attempt_count, max_attempts, accept
 
-    if (run_params%DE%jDE) then                              !initialize population of F and Cr parameters
+    !initialize population of F and Cr parameters
+    if (run_params%DE%jDE) then
        Xnew%FjDE = init_FjDE(run_params%mpipopchunk)
        Xnew%CrjDE = init_CrjDE(run_params%mpipopchunk)
        if (run_params%DE%lambdajDE) then
@@ -605,39 +616,49 @@ contains
     !loop over the vectors belonging to each population chunk
     do m=1,run_params%mpipopchunk
 
-       n = run_params%mpipopchunk*run_params%mpirank + m !true population index (equal to m if no mpi)
+       !true population index (equal to m if no mpi)
+       n = run_params%mpipopchunk*run_params%mpirank + m
 
-       !if init_population_strategy is not 0, try to find a valid individual to put in the initial population.
+       !Find valid individuals to put in the initial population.
        attempt_count = 0
        max_attempts = merge(1, run_params%max_initialisation_attempts, run_params%init_population_strategy .eq. 0)
        do while (attempt_count .lt. max_attempts)
 
-          call random_number(Xnew%vectors(m,:))
+          !if there are initial guesses still to be used, simply copy from the initial population. Otherwise, generate a new individual.
+          if (present(initial_guesses) .and. n .le. size(initial_guesses,1)) then
 
-          do i = 1, run_params%D
+            Xnew%vectors(m,:) = initial_guesses(n, :)
 
-             if (run_params%partitionDiscrete .and. any(run_params%discrete .eq. i)) then
-                !This is a discrete parameter that needs to be partitioned, and therefore set rather than chosen randomly
+          else
 
-                !Determine the index of the discrete parameter (first discrete param, second, etc)
-                do discrete_index = 1, run_params%D_discrete
-                   if (run_params%discrete(discrete_index) .eq. i) exit
-                enddo
+            call random_number(Xnew%vectors(m,:))
 
-                !Set the value of this index for this individual
-                Xnew%vectors(m,i) = anint( dble(mod(n-1,run_params%repeat_scales(discrete_index))) / &
-                                           dble(run_params%repeat_scales(discrete_index)) * &
-                                           (run_params%upperbounds(i) - run_params%lowerbounds(i) + 1) &
-                                           + run_params%lowerbounds(i) - 0.5_dp + 100._dp*epsilon(0.5_dp) )
+            do i = 1, run_params%D
 
-             else
-                !This is a normal parameter that needs to be chosen randomly
-                Xnew%vectors(m,i) = Xnew%vectors(m,i)*(run_params%upperbounds(i) - &
-                                    run_params%lowerbounds(i)) + run_params%lowerbounds(i)
+               if (run_params%partitionDiscrete .and. any(run_params%discrete .eq. i)) then
+                  !This is a discrete parameter that needs to be partitioned, and therefore set rather than chosen randomly
 
-             endif
+                  !Determine the index of the discrete parameter (first discrete param, second, etc)
+                  do discrete_index = 1, run_params%D_discrete
+                     if (run_params%discrete(discrete_index) .eq. i) exit
+                  enddo
 
-          enddo
+                  !Set the value of this index for this individual
+                  Xnew%vectors(m,i) = anint( dble(mod(n-1,run_params%repeat_scales(discrete_index))) / &
+                                             dble(run_params%repeat_scales(discrete_index)) * &
+                                             (run_params%upperbounds(i) - run_params%lowerbounds(i) + 1) &
+                                             + run_params%lowerbounds(i) - 0.5_dp + 100._dp*epsilon(0.5_dp) )
+
+               else
+                  !This is a normal parameter that needs to be chosen randomly
+                  Xnew%vectors(m,i) = Xnew%vectors(m,i)*(run_params%upperbounds(i) - &
+                                      run_params%lowerbounds(i)) + run_params%lowerbounds(i)
+
+               endif
+
+            enddo
+
+          endif
 
           Xnew%vectors_and_derived(m,:run_params%D) = roundvector(Xnew%vectors(m,:), run_params)
 
@@ -652,7 +673,7 @@ contains
        enddo
 
        !crash if valid vectors have been demanded in the initial population but could not be found.
-       if (run_params%init_population_strategy .ge. 2 .and. attempt_count .eq. max_attempts) then
+       if (run_params%init_population_strategy .eq. 2 .and. attempt_count .eq. max_attempts) then
          call quit_de('ERROR: init_population_strategy = 2 but could not find valid points within max_initialisation_attempts!')
        endif
 

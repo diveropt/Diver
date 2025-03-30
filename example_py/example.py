@@ -15,6 +15,7 @@ def gauss(p: NDArray[np.float64], fcall: int, finish: bool, validvector: bool, c
 def main():
   N=10
   opts = diver.defaults(upperbounds=[2]*N, lowerbounds=[-2]*N)
+  opts["NP"] = 100
   s = diver.run(gauss, opts)
   print(f"Min in {N:>2d}D: ", s[0])
   print("Found at: ", s[1])

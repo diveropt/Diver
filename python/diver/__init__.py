@@ -39,6 +39,7 @@ class options(TypedDict):
     outputRaw [bool]: output raw parameter samples to a .raw file.
     outputSam [bool]: output rounded and derived parameter samples to a .sam file.
     init_population_strategy [int]: initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found.
+    initial_guesses [NDArray[np.float64]]: Initial guesses to include in the starting population. 2D array. In Python the first index is parameter, second is individual.
     discard_unfit_points [bool]: recalculate any trial vector whose fitness is above max_acceptable_value. Likely incompatible with any objective function that makes MPI calls of its own.
     max_initialisation_attempts [int]: maximum number of times to try to find a valid vector for each slot in the initial population.
     max_acceptable_value [float]: maximum fitness to accept for the initial generation if init_population_strategy > 0. Also applies to later generations if discard_unfit_points = .true.
@@ -71,6 +72,7 @@ class options(TypedDict):
   outputRaw: bool
   outputSam: bool
   init_population_strategy: int
+  initial_guesses: NDArray[np.float64]
   discard_unfit_points: bool
   max_initialisation_attempts: int
   max_acceptable_value: float
@@ -106,6 +108,7 @@ def defaults(lowerbounds, upperbounds):
        'outputRaw': True,
        'outputSam': True,
        'init_population_strategy': 0,
+       'initial_guesses': np.array([], dtype=np.float64),
        'discard_unfit_points': False,
        'max_initialisation_attempts': 10000,
        'max_acceptable_value': 1e6,

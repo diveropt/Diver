@@ -34,6 +34,8 @@ const bool        disableIO            = true;                         // Disabl
 const bool        outputRaw            = false;                        // Output raw parameter samples to a .raw file
 const bool        outputSam            = false;                        // Output rounded and derived parameter samples to a .sam file
 const int         init_pop_strategy    = 0;                            // Initialisation strategy: 0=one shot, 1=n-shot, 2=n-shot with error if no valid vectors found.
+const int         nGuesses             = 0;                            // Number of individuals contained in the array of initial guesses.
+const double      initial_guesses[]    = {0};                          // Initial guesses to include in the starting population. 2D array. In C the first index is parameter, second is individual.
 const bool        discard_unfit_points = false;                        // Recalculate any trial vector whose fitness is above max_acceptable_value.  Likely incompatible with any objective function that makes MPI calls of its own.
 const int         max_init_attempts    = 10000;                        // Maximum number of times to try to find a valid vector for each slot in the initial population.
 const double      max_acceptable_val   = 1e6;                          // Maximum fitness to accept for the initial generation if init_population_strategy > 0, or any generation if discard_unfit_points = true.
@@ -64,8 +66,8 @@ int main(int argc, char** argv)
   void* context = &gauss; //Not actually used in this example.
   double result = cdiver(gauss, nPar, lowerbounds, upperbounds, path, nDerived, bestFitParams, bestFitDerived, nDiscrete,
          discrete, partitionDiscrete, maxgen, NP, nF, F, Cr, lambda, current, expon, bndry, jDE, lambdajDE, convthresh,
-         convsteps, removeDuplicates, savecount, resume, disableIO, outputRaw,
-         outputSam, init_pop_strategy, discard_unfit_points, max_init_attempts, max_acceptable_val, seed, context, verbose);
+         convsteps, removeDuplicates, savecount, resume, disableIO, outputRaw, outputSam, init_pop_strategy, nGuesses,
+         initial_guesses, discard_unfit_points, max_init_attempts, max_acceptable_val, seed, context, verbose);
   printf("Best fit returned: %e\n", result);
   for (int i = 0; i < nPar; i++) printf("Parameter %i at best fit: %e\n", i, bestFitParams[i]);
   for (int i = 0; i < nDerived; i++) printf("Derived quantity %i at best fit: %e\n", i, bestFitDerived[i]);
