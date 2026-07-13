@@ -77,7 +77,7 @@ namespace diver
     int nF = info.shape[0];
     info = initial_guesses.request();
     double* initial_guesses_ptr = static_cast<double*>(info.ptr);
-    int nGuesses = info.shape[1];
+    int nGuesses = (info.ndim >= 2) ? info.shape[1] : 0;
     // Create and get data pointers to output arrays.
     py::array_t<double> bestFitParams({nPar}, {sizeof(double)});
     double* bestFitParams_ptr = static_cast<double*>(bestFitParams.request().ptr);

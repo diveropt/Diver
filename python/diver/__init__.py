@@ -108,7 +108,7 @@ def defaults(lowerbounds, upperbounds):
        'outputRaw': True,
        'outputSam': True,
        'init_population_strategy': 0,
-       'initial_guesses': np.array([], dtype=np.float64),
+       'initial_guesses': np.empty((len(upperbounds), 0), dtype=np.float64),
        'discard_unfit_points': False,
        'max_initialisation_attempts': 10000,
        'max_acceptable_value': 1e6,
