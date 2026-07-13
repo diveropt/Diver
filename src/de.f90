@@ -105,20 +105,30 @@ contains
     real(dp), dimension(size(lowerbounds)) :: V, U              !donor, trial vectors
     real(dp) :: trialF, trialCr, triallambda                    !adaptive F and Cr for jDE, lambda for lambdajDE
 
-    integer :: fcall=0, accept=0                                !fcall counts function calls, accept counts acceptance rate
-    integer :: totfcall = 0, totaccept = 0                      !for function calls & acceptance rates for all processes
+    !Counters; no initialisers (those would carry SAVEd state across slider() calls).
+    integer :: fcall, accept                                    !fcall counts function calls, accept counts acceptance rate
+    integer :: totfcall, totaccept                              !for function calls & acceptance rates for all processes
     integer :: gen, m                                           !gen, n for iterating generation and population loops
     integer :: n, nsub                                          !current member of population being evolved (same as m unless using MPI), subpop version
-    integer :: genstart=1                                       !starting value of gen
+    integer :: genstart                                         !starting value of gen
 
-    integer :: Nsamples = 0                                     !number of statistically independent samples from posterior
-    integer :: Nsamples_saved = 0                               !number of samples saved to .sam file so far
-    logical :: quit = .false.                                   !flag passed from user function to indicate need to stop
+    integer :: Nsamples                                         !number of statistically independent samples from posterior
+    integer :: Nsamples_saved                                   !number of samples saved to .sam file so far
+    logical :: quit                                             !flag passed from user function to indicate need to stop
     logical :: acceptable_trial_vector                          !dictates the calculation/recalculation of trial vectors
 
     integer :: ierror                                           !MPI error code
     logical :: mpi_already_init                                 !MPI initialization
     real(dp) :: t1, t2                                          !for timing
+
+    fcall          = 0
+    totfcall       = 0
+    accept         = 0
+    totaccept      = 0
+    genstart       = 1
+    Nsamples       = 0
+    Nsamples_saved = 0
+    quit           = .false.
 
     call cpu_time(t1)
 
